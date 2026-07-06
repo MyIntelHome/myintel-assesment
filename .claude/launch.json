@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "myintel-dev",
+      "runtimeExecutable": "C:\\Users\\Austi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe",
+      "runtimeArgs": ["C:\\Users\\Austi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\node_modules\\pnpm\\bin\\pnpm.cjs", "run", "dev"],
+      "port": 5173
+    }
+  ]
+}
