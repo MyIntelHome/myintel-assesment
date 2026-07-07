@@ -144,59 +144,21 @@ const initRoom = () => ({
 });
 
 // ─── AI CALL ────────────────────────────────────────────────────────────────
-
-const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
+// The API key never touches the browser. This posts the photos to our own
+// serverless endpoint (api/analyze.js), which calls Claude server-side.
 
 async function analyzePhotos(roomLabel, photos) {
-  if (!ANTHROPIC_API_KEY) throw new Error("No API key configured");
-
-  const photoContents = photos.slice(0, 3).map(p => ({
-    type: "image",
-    source: { type: "base64", media_type: p.mimeType, data: p.data },
-  }));
-
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetch("/api/analyze", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-opus-4-8",
-      max_tokens: 1000,
-      messages: [{
-        role: "user",
-        content: [
-          ...photoContents,
-          {
-            type: "text",
-            text: `You are a CAPS-certified occupational therapist conducting a home safety assessment of the ${roomLabel}. Analyze these photos for safety hazards, accessibility issues, and aging-in-place risks.
-
-Return ONLY a JSON object, no markdown, no explanation:
-{
-  "findings": [
-    { "severity": "danger", "text": "description" },
-    { "severity": "warning", "text": "description" },
-    { "severity": "info", "text": "description" }
-  ],
-  "myintel": ["sensor recommendation 1", "sensor recommendation 2"]
-}
-
-severity rules: danger = immediate fall/injury risk needing action now. warning = moderate concern, should address. info = observation or future consideration.
-Max 5 findings. myintel array should reference specific smart home sensor types (motion, fall detection, lighting automation, door/entry sensors, occupancy).
-If image quality is too low or no hazards visible, return empty findings array.`,
-          },
-        ],
-      }],
+      roomLabel,
+      photos: photos.slice(0, 3).map(p => ({ mimeType: p.mimeType, data: p.data })),
     }),
   });
 
   if (!response.ok) throw new Error(`API error ${response.status}`);
-  const data = await response.json();
-  const text = (data.content || []).map(c => c.text || "").join("");
-  return JSON.parse(text.replace(/```json|```/g, "").trim());
+  return await response.json();
 }
 
 // ─── STYLES ─────────────────────────────────────────────────────────────────
@@ -340,9 +302,7 @@ export default function App() {
       const result = await analyzePhotos(roomDef?.label || roomId, allPhotos);
       updateRoom(roomId, prev => ({ ...prev, aiFindings: result, aiLoading: false }));
     } catch {
-      const msg = ANTHROPIC_API_KEY
-        ? "AI analysis unavailable. Photos saved — complete the checklist assessment manually."
-        : "Photos saved. AI analysis is disabled (no API key configured) — complete the checklist assessment manually.";
+      const msg = "Photos saved. AI analysis is unavailable right now — complete the checklist assessment manually.";
       updateRoom(roomId, prev => ({ ...prev, aiFindings: { findings: [{ severity: "info", text: msg }], myintel: [] }, aiLoading: false }));
     }
   }, [rooms, updateRoom]);
