@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 
 const ROOMS = [
   {
-    id: "entryway", label: "Entryway", icon: "🚪",
+    id: "entryway", label: "Entryway", icon: "entry",
     items: [
       { id: "e1", name: "Door threshold", hint: "Raised vs flush — trip hazard present?" },
       { id: "e2", name: "Entry lighting", hint: "Adequate brightness at night?" },
@@ -17,7 +17,7 @@ const ROOMS = [
     recs: ["Non-Slip Entry Mat","Handrail Installation","Threshold Ramp","Motion-Sensor Light","Smart Doorbell","Lever Door Handle","Illuminated House Numbers"],
   },
   {
-    id: "living", label: "Living Room", icon: "🛋️",
+    id: "living", label: "Living Room", icon: "sofa",
     items: [
       { id: "l1", name: "Throw rugs / loose mats", hint: "Unsecured rugs — trip hazard?" },
       { id: "l2", name: "Furniture pathway clearance", hint: ">24\" clear paths between pieces?" },
@@ -30,7 +30,7 @@ const ROOMS = [
     recs: ["Remove Throw Rugs","Furniture Rearrangement","Traction Pads for Chairs","Smart Lighting","Fall Detection Sensor","Echo Show / Smart Display","Cord Covers","Chair Lift Assist Rail"],
   },
   {
-    id: "kitchen", label: "Kitchen", icon: "🍳",
+    id: "kitchen", label: "Kitchen", icon: "kitchen",
     items: [
       { id: "k1", name: "Flooring slip resistance", hint: "Wet floor risk — surface texture adequate?" },
       { id: "k2", name: "Cabinet/shelf reach zones", hint: "Frequently used items within safe reach?" },
@@ -43,7 +43,7 @@ const ROOMS = [
     recs: ["Non-Slip Kitchen Mat","Reorganize Cabinet Reach","Smart Stove Shutoff","Cabinet Pull Handles","Under-Cabinet Lighting","Smoke Detector Upgrade","Grab Bar at Counter"],
   },
   {
-    id: "stairs", label: "Stairs", icon: "🪜",
+    id: "stairs", label: "Stairs", icon: "stairs",
     items: [
       { id: "s1", name: "Handrails — both sides", hint: "Continuous, graspable, anchored?" },
       { id: "s2", name: "Stair tread condition", hint: "Worn, loose, or smooth surface risk?" },
@@ -56,7 +56,7 @@ const ROOMS = [
     recs: ["Non-Slip Stair Treads","Stair Edge Contrast Tape","Handrail Extension","Automatic Stair Lighting","Stair Lift Referral","Clear Stair Clutter"],
   },
   {
-    id: "bathroom", label: "Primary Bathroom", icon: "🚿",
+    id: "bathroom", label: "Primary Bathroom", icon: "bath",
     items: [
       { id: "b1", name: "Grab bars at toilet", hint: "Properly anchored, correct height?" },
       { id: "b2", name: "Grab bars in shower/tub", hint: "Entry, back wall, and side wall?" },
@@ -70,7 +70,7 @@ const ROOMS = [
     recs: ["Grab Bar Installation","Fold-Down Shower Seat","Raised Toilet Seat","Non-Slip Bath Mat","Automatic Night Light","Handheld Showerhead","Anti-Scald Valve","MyIntel Motion Sensor (Bathroom)"],
   },
   {
-    id: "bedroom", label: "Primary Bedroom", icon: "🛏️",
+    id: "bedroom", label: "Primary Bedroom", icon: "bed",
     items: [
       { id: "br1", name: "Bed height for transfer", hint: "Appropriate height for safe sit-to-stand?" },
       { id: "br2", name: "Path to bathroom clear", hint: "Furniture-free nighttime route?" },
@@ -83,7 +83,7 @@ const ROOMS = [
     recs: ["Bed Cane / Rail","Automatic Night Light","Bedside Phone / Alert Device","MyIntel Motion Sensor (Bedroom)","O2 Equipment Repositioning","Closet Organization","Bed Height Adjustment"],
   },
   {
-    id: "exterior", label: "Exterior", icon: "🏡",
+    id: "exterior", label: "Exterior", icon: "exterior",
     items: [
       { id: "ex1", name: "Pathway condition", hint: "Cracks, uneven surfaces, frost heaving?" },
       { id: "ex2", name: "Exterior lighting", hint: "Motion-activated, adequate coverage?" },
@@ -163,46 +163,69 @@ async function analyzePhotos(roomLabel, photos) {
 
 // ─── STYLES ─────────────────────────────────────────────────────────────────
 
+const FONT_DISPLAY = "'Manrope', 'Segoe UI', sans-serif";
+
 const S = {
-  app: { display: "flex", height: "100vh", fontFamily: "'Inter', system-ui, sans-serif", fontSize: 14, color: "#1A2332", background: "#F0F4F8", overflow: "hidden" },
-  sidebar: { width: 230, background: "#fff", borderRight: "1px solid #DCE5EF", display: "flex", flexDirection: "column", overflowY: "auto", flexShrink: 0 },
-  sidebarHeader: { padding: "16px 16px 8px", background: "#1B3A5C", color: "white" },
-  logoMark: { width: 28, height: 28, background: "linear-gradient(135deg,#38BDF8,#0EA5E9)", borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "white", marginRight: 8 },
-  logoText: { fontWeight: 700, fontSize: 14, color: "white", letterSpacing: -0.3 },
-  logoSub: { fontSize: 10, color: "#94A3B8" },
-  main: { flex: 1, overflowY: "auto", padding: "24px 28px" },
-  pageTitle: { fontFamily: "Georgia, serif", fontSize: 24, color: "#1B3A5C", fontWeight: 400, marginBottom: 4 },
-  pageSub: { fontSize: 13, color: "#64748B", marginBottom: 24 },
-  card: { background: "#fff", border: "1px solid #DCE5EF", borderRadius: 12, padding: "18px 20px", marginBottom: 16 },
-  cardTitle: { fontSize: 13, fontWeight: 700, color: "#1B3A5C", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 },
-  label: { fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#64748B", marginBottom: 4, display: "block" },
-  input: { border: "1px solid #DCE5EF", borderRadius: 8, padding: "8px 10px", fontFamily: "inherit", fontSize: 13, color: "#1A2332", background: "white", width: "100%", outline: "none", boxSizing: "border-box" },
-  textarea: { border: "1px solid #DCE5EF", borderRadius: 8, padding: "8px 10px", fontFamily: "inherit", fontSize: 13, color: "#1A2332", background: "white", width: "100%", resize: "vertical", minHeight: 80, outline: "none", boxSizing: "border-box" },
-  select: { border: "1px solid #DCE5EF", borderRadius: 8, padding: "8px 10px", fontFamily: "inherit", fontSize: 13, color: "#1A2332", width: "100%", background: "white", outline: "none" },
+  app: { display: "flex", height: "100vh", fontFamily: "'Nunito', 'Segoe UI', sans-serif", fontSize: 14, color: "#14243c", background: "#faf8f4", overflow: "hidden" },
+  sidebar: { width: 236, background: "#fff", borderRight: "1px solid #eee9dd", display: "flex", flexDirection: "column", overflowY: "auto", flexShrink: 0 },
+  sidebarHeader: { padding: "18px 16px 14px", borderBottom: "1px solid #f1eee7" },
+  main: { flex: 1, overflowY: "auto", padding: "26px 30px" },
+  pageTitle: { fontFamily: FONT_DISPLAY, fontSize: 25, color: "#14243c", fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 },
+  pageSub: { fontSize: 13.5, color: "#55627a", marginBottom: 24 },
+  card: { background: "#fff", border: "1px solid #eae4d7", borderRadius: 14, padding: "18px 20px", marginBottom: 16, boxShadow: "0 1px 2px rgba(20,36,60,0.04)" },
+  cardTitle: { fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.14em", color: "#2e96d1", marginBottom: 14, fontFamily: FONT_DISPLAY },
+  label: { fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#55627a", marginBottom: 4, display: "block" },
+  input: { border: "1px solid #e3ddd0", borderRadius: 10, padding: "8px 11px", fontFamily: "inherit", fontSize: 13, color: "#14243c", background: "white", width: "100%", outline: "none", boxSizing: "border-box" },
+  textarea: { border: "1px solid #e3ddd0", borderRadius: 10, padding: "8px 11px", fontFamily: "inherit", fontSize: 13, color: "#14243c", background: "white", width: "100%", resize: "vertical", minHeight: 80, outline: "none", boxSizing: "border-box" },
+  select: { border: "1px solid #e3ddd0", borderRadius: 10, padding: "8px 11px", fontFamily: "inherit", fontSize: 13, color: "#14243c", width: "100%", background: "white", outline: "none" },
   btn: (variant) => ({
-    padding: variant === "sm" ? "6px 14px" : "9px 20px",
-    borderRadius: 8,
+    padding: variant === "sm" ? "7px 16px" : "10px 22px",
+    borderRadius: 999,
     fontFamily: "inherit",
     fontSize: variant === "sm" ? 12 : 13,
-    fontWeight: 600,
+    fontWeight: 700,
     cursor: "pointer",
     border: "none",
     transition: "all 0.15s",
   }),
 };
 
+// ─── ICONS ──────────────────────────────────────────────────────────────────
+// Minimal line-icon set drawn in-house (24px grid, stroke-based).
+
+const ICON_PATHS = {
+  entry: <><path d="M5 21V4.5A1.5 1.5 0 0 1 6.5 3h8A1.5 1.5 0 0 1 16 4.5V21" /><path d="M3 21h18" /><path d="M13 11.4v1.2" /></>,
+  sofa: <><path d="M5 11V8.5A2.5 2.5 0 0 1 7.5 6h9A2.5 2.5 0 0 1 19 8.5V11" /><path d="M5 11a2 2 0 0 0-2 2v3.5A1.5 1.5 0 0 0 4.5 18h15a1.5 1.5 0 0 0 1.5-1.5V13a2 2 0 0 0-4 0v1H7v-1a2 2 0 0 0-2-2Z" /><path d="M6 18v2M18 18v2" /></>,
+  kitchen: <><path d="M5 10h14v6a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-6Z" /><path d="M3 10h18" /><path d="M10 3.5v3M14 3.5v3" /></>,
+  stairs: <><path d="M3 20h4v-4h4v-4h4V8h4V4h2" /></>,
+  bath: <><path d="M4 13h16v2a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-2Z" /><path d="M6 13V6a2 2 0 0 1 4 0" /><path d="M7 19l-1 2M17 19l1 2" /></>,
+  bed: <><path d="M3 6v13" /><path d="M3 15h18v4" /><path d="M21 15v-3a3 3 0 0 0-3-3h-8v6" /><path d="M7 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" /></>,
+  exterior: <><path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v10h13V10" /><path d="M10 20v-5h4v5" /></>,
+  user: <><path d="M12 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" /><path d="M5 20a7 7 0 0 1 14 0" /></>,
+  report: <><path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h6" /></>,
+  camera: <><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.3-1.8A1 1 0 0 1 10.1 5h3.8a1 1 0 0 1 .8.4L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-9Z" /><path d="M12 16a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" /></>,
+};
+
+function Icon({ name, size = 16, style }) {
+  const paths = ICON_PATHS[name];
+  if (!paths) return null;
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">{paths}</svg>
+  );
+}
+
 // ─── COMPONENTS ─────────────────────────────────────────────────────────────
 
 function NavItem({ label, icon, status, active, score, onClick }) {
-  const dotColor = { idle: "#CBD5E1", partial: "#94A3B8", done: "#10B981", flagged: "#EF4444", warned: "#F59E0B" }[status];
-  const bg = active ? "#E0F2FE" : "transparent";
-  const labelColor = active ? "#0891B2" : "#64748B";
+  const dotColor = { idle: "#d8d2c4", partial: "#8a94a8", done: "#10B981", flagged: "#EF4444", warned: "#F59E0B" }[status];
   return (
-    <div onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, cursor: "pointer", background: bg, marginBottom: 2, transition: "background 0.15s" }}>
-      <div style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor, flexShrink: 0, transition: "background 0.2s" }} />
-      <span style={{ fontSize: 13, color: labelColor, fontWeight: active ? 600 : 400, flex: 1 }}>{icon} {label}</span>
-      {score !== null && score !== undefined && (
+    <div onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", borderRadius: 9, cursor: "pointer", background: active ? "#e1eef8" : "transparent", marginBottom: 2, transition: "background 0.15s" }}>
+      <span style={{ display: "flex", color: active ? "#1e3357" : "#8a94a8", flexShrink: 0 }}><Icon name={icon} size={15} /></span>
+      <span style={{ fontSize: 13, color: active ? "#1e3357" : "#55627a", fontWeight: active ? 700 : 500, flex: 1 }}>{label}</span>
+      {score !== null && score !== undefined ? (
         <span style={{ fontSize: 10, fontWeight: 700, color: score >= 75 ? "#10B981" : score >= 50 ? "#F59E0B" : "#EF4444" }}>{score}%</span>
+      ) : (
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: dotColor, flexShrink: 0, transition: "background 0.2s" }} />
       )}
     </div>
   );
@@ -214,8 +237,8 @@ function RatingBtn({ label, variant, active, onClick }) {
   return (
     <button onClick={onClick} style={{
       padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-      background: active ? c.bg : "white", color: active ? "white" : "#64748B",
-      border: `1px solid ${active ? c.border : "#DCE5EF"}`, transition: "all 0.15s",
+      background: active ? c.bg : "white", color: active ? "white" : "#55627a",
+      border: `1px solid ${active ? c.border : "#e7e1d4"}`, transition: "all 0.15s",
     }}>{label}</button>
   );
 }
@@ -224,8 +247,8 @@ function Tag({ label, selected, onClick }) {
   return (
     <div onClick={onClick} style={{
       padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer",
-      background: selected ? "#1B3A5C" : "white", color: selected ? "white" : "#64748B",
-      border: `1px solid ${selected ? "#1B3A5C" : "#DCE5EF"}`, transition: "all 0.15s", userSelect: "none",
+      background: selected ? "#1e3357" : "white", color: selected ? "white" : "#55627a",
+      border: `1px solid ${selected ? "#1e3357" : "#e7e1d4"}`, transition: "all 0.15s", userSelect: "none",
     }}>{selected ? "✓ " : "+ "}{label}</div>
   );
 }
@@ -233,35 +256,35 @@ function Tag({ label, selected, onClick }) {
 function AIPanel({ aiFindings, aiLoading, showSensors }) {
   if (!aiLoading && !aiFindings) return null;
   return (
-    <div style={{ background: "linear-gradient(135deg,#0F1E35,#1B3A5C)", borderRadius: 10, padding: 16, marginTop: 12, color: "white" }}>
+    <div style={{ background: "linear-gradient(135deg,#101d33,#1e3357)", borderRadius: 10, padding: 16, marginTop: 12, color: "white" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#38BDF8", animation: "pulse 2s infinite" }} />
-        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#38BDF8" }}>AI Safety Analysis</span>
+        <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#7abde4", animation: "pulse 2s infinite" }} />
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#7abde4" }}>AI Safety Analysis</span>
       </div>
       {aiLoading ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#94A3B8", fontSize: 12 }}>
-          <div style={{ width: 16, height: 16, border: "2px solid rgba(56,189,248,0.3)", borderTopColor: "#38BDF8", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#8a94a8", fontSize: 12 }}>
+          <div style={{ width: 16, height: 16, border: "2px solid rgba(56,189,248,0.3)", borderTopColor: "#7abde4", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
           Analyzing photos for safety hazards...
         </div>
       ) : (
         <>
           {(aiFindings.findings || []).length === 0 && (
-            <div style={{ fontSize: 12, color: "#94A3B8" }}>No significant hazards detected. Continue with manual checklist.</div>
+            <div style={{ fontSize: 12, color: "#8a94a8" }}>No significant hazards detected. Continue with manual checklist.</div>
           )}
           {(aiFindings.findings || []).map((f, i) => (
             <div key={i} style={{
               display: "flex", gap: 10, padding: "8px 10px", borderRadius: 7, marginBottom: 6, fontSize: 12, alignItems: "flex-start",
               background: f.severity === "danger" ? "rgba(239,68,68,0.15)" : f.severity === "warning" ? "rgba(245,158,11,0.15)" : "rgba(8,145,178,0.15)",
-              borderLeft: `2px solid ${f.severity === "danger" ? "#EF4444" : f.severity === "warning" ? "#F59E0B" : "#38BDF8"}`,
+              borderLeft: `2px solid ${f.severity === "danger" ? "#EF4444" : f.severity === "warning" ? "#F59E0B" : "#7abde4"}`,
             }}>
-              <span>{f.severity === "danger" ? "🔴" : f.severity === "warning" ? "🟡" : "🔵"}</span>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", marginTop: 4, flexShrink: 0, background: f.severity === "danger" ? "#EF4444" : f.severity === "warning" ? "#F59E0B" : "#7abde4" }} />
               <span style={{ color: "#E2E8F0", lineHeight: 1.4 }}>{f.text}</span>
             </div>
           ))}
           {showSensors && (aiFindings.myintel || []).length > 0 && (
             <div style={{ marginTop: 10, padding: 10, borderRadius: 7, background: "rgba(56,189,248,0.12)", border: "1px solid rgba(56,189,248,0.2)" }}>
-              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#38BDF8", marginBottom: 6 }}>MyIntel Sensor Recommendations</div>
-              {aiFindings.myintel.map((m, i) => <div key={i} style={{ fontSize: 11, color: "#BAE6FD", marginBottom: 3 }}>→ {m}</div>)}
+              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#7abde4", marginBottom: 6 }}>MyIntel Sensor Recommendations</div>
+              {aiFindings.myintel.map((m, i) => <div key={i} style={{ fontSize: 11, color: "#a9cbe4", marginBottom: 3 }}>→ {m}</div>)}
             </div>
           )}
         </>
@@ -327,13 +350,13 @@ export default function App() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
-        input:focus,select:focus,textarea:focus { border-color: #0891B2 !important; outline: none; }
+        input:focus,select:focus,textarea:focus { border-color: #2e96d1 !important; outline: none; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
         @media (max-width: 768px) {
           .mi-app { flex-direction: column !important; height: auto !important; min-height: 100vh; overflow: visible !important; }
-          .mi-sidebar { width: 100% !important; border-right: none !important; border-bottom: 1px solid #DCE5EF; overflow: visible !important; }
+          .mi-sidebar { width: 100% !important; border-right: none !important; border-bottom: 1px solid #e7e1d4; overflow: visible !important; }
           .mi-nav { display: flex !important; overflow-x: auto; padding: 8px !important; }
           .mi-nav > * { flex-shrink: 0; }
           .mi-nav-label, .mi-sep, .mi-stats { display: none !important; }
@@ -356,25 +379,26 @@ export default function App() {
       {/* SIDEBAR */}
       <div className="mi-sidebar" style={S.sidebar}>
         <div style={S.sidebarHeader}>
-          <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-            <div style={S.logoMark}>{mode === "myintel" ? "MI" : "OT"}</div>
-            <div>
-              <div style={S.logoText}>{mode === "myintel" ? "MyIntel" : "Home Safety"}</div>
-              <div style={S.logoSub}>OT Assessment Tool</div>
+          {mode === "myintel" ? (
+            <img src="/myintel-logo.png" alt="MyIntel — Safer, Smarter Care" style={{ height: 46, display: "block", marginBottom: 14 }} />
+          ) : (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 800, fontSize: 18, color: "#14243c", letterSpacing: "-0.02em" }}>Home Safety</div>
+              <div style={{ fontSize: 11, color: "#55627a" }}>OT Assessment Tool</div>
             </div>
-          </div>
+          )}
           {/* Progress */}
-          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#94A3B8", marginBottom: 6 }}>Assessment Progress</div>
-          <div style={{ height: 4, background: "rgba(255,255,255,0.15)", borderRadius: 4, overflow: "hidden", marginBottom: 4 }}>
-            <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg,#38BDF8,#0EA5E9)", borderRadius: 4, transition: "width 0.4s" }} />
+          <div style={{ fontSize: 9.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", color: "#8a94a8", marginBottom: 6, fontFamily: FONT_DISPLAY }}>Assessment Progress</div>
+          <div style={{ height: 5, background: "#f1eee7", borderRadius: 4, overflow: "hidden", marginBottom: 5 }}>
+            <div style={{ height: "100%", width: `${progress}%`, background: "#2e96d1", borderRadius: 4, transition: "width 0.4s" }} />
           </div>
-          <div style={{ fontSize: 11, color: "#94A3B8" }}>{progress}% complete</div>
+          <div style={{ fontSize: 11, color: "#55627a" }}>{progress}% complete</div>
         </div>
 
         <div className="mi-nav" style={{ padding: "12px 10px 8px" }}>
-          <div className="mi-nav-label" style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#94A3B8", padding: "0 8px", marginBottom: 6 }}>Sections</div>
-          <NavItem label="Client Intake" icon="👤" status={client.name ? "done" : "idle"} active={page === "intake"} onClick={() => setPage("intake")} />
-          <div className="mi-sep" style={{ height: 1, background: "#F0F4F8", margin: "8px 0" }} />
+          <div className="mi-nav-label" style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#8a94a8", padding: "0 8px", marginBottom: 6 }}>Sections</div>
+          <NavItem label="Client Intake" icon="user" status={client.name ? "done" : "idle"} active={page === "intake"} onClick={() => setPage("intake")} />
+          <div className="mi-sep" style={{ height: 1, background: "#f1eee7", margin: "8px 0" }} />
           {ROOMS.map(r => {
             const s = getRoomScore(rooms[r.id], r);
             return (
@@ -385,20 +409,20 @@ export default function App() {
                 onClick={() => setPage(r.id)} />
             );
           })}
-          <div className="mi-sep" style={{ height: 1, background: "#F0F4F8", margin: "8px 0" }} />
-          <NavItem label="Assessment Report" icon="📋" status={progress > 0 ? "partial" : "idle"} active={page === "report"} onClick={() => setPage("report")} />
+          <div className="mi-sep" style={{ height: 1, background: "#f1eee7", margin: "8px 0" }} />
+          <NavItem label="Assessment Report" icon="report" status={progress > 0 ? "partial" : "idle"} active={page === "report"} onClick={() => setPage("report")} />
         </div>
 
         {/* Quick stats */}
-        <div className="mi-stats" style={{ margin: "auto 0 0", padding: "12px 14px", borderTop: "1px solid #F0F4F8" }}>
+        <div className="mi-stats" style={{ margin: "auto 0 0", padding: "12px 14px", borderTop: "1px solid #f1eee7" }}>
           <div style={{ display: "flex", gap: 8 }}>
             <div style={{ flex: 1, background: "#ECFDF5", border: "1px solid #A7F3D0", borderRadius: 8, padding: "8px 6px", textAlign: "center" }}>
               <div style={{ fontSize: 18, fontWeight: 700, color: "#10B981" }}>{overallAccess}%</div>
-              <div style={{ fontSize: 9, color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5 }}>Accessibility</div>
+              <div style={{ fontSize: 9, color: "#55627a", textTransform: "uppercase", letterSpacing: 0.5 }}>Accessibility</div>
             </div>
             <div style={{ flex: 1, background: flaggedTotal > 0 ? "#FEF2F2" : "#ECFDF5", border: `1px solid ${flaggedTotal > 0 ? "#FECACA" : "#A7F3D0"}`, borderRadius: 8, padding: "8px 6px", textAlign: "center" }}>
               <div style={{ fontSize: 18, fontWeight: 700, color: flaggedTotal > 0 ? "#EF4444" : "#10B981" }}>{flaggedTotal}</div>
-              <div style={{ fontSize: 9, color: "#64748B", textTransform: "uppercase", letterSpacing: 0.5 }}>Flags</div>
+              <div style={{ fontSize: 9, color: "#55627a", textTransform: "uppercase", letterSpacing: 0.5 }}>Flags</div>
             </div>
           </div>
         </div>
@@ -429,7 +453,7 @@ function IntakePage({ mode, setMode, client, setClient, fallInfo, setFallInfo, c
 
       {/* Assessment Type */}
       <div style={S.card}>
-        <div style={S.cardTitle}>📋 Assessment Type</div>
+        <div style={S.cardTitle}>Assessment Type</div>
         <div className="mi-grid2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           {[
             { id: "myintel", label: "MyIntel Assessment", desc: "Includes MyIntel / Talius smart sensor recommendations in room pages and the final report." },
@@ -437,14 +461,14 @@ function IntakePage({ mode, setMode, client, setClient, fallInfo, setFallInfo, c
           ].map(opt => (
             <div key={opt.id} onClick={() => setMode(opt.id)} style={{
               padding: "12px 14px", borderRadius: 10, cursor: "pointer", transition: "all 0.15s",
-              border: `2px solid ${mode === opt.id ? "#0891B2" : "#DCE5EF"}`,
-              background: mode === opt.id ? "#F0F9FF" : "white",
+              border: `2px solid ${mode === opt.id ? "#2e96d1" : "#e7e1d4"}`,
+              background: mode === opt.id ? "#eaf3fa" : "white",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${mode === opt.id ? "#0891B2" : "#CBD5E1"}`, background: mode === opt.id ? "#0891B2" : "white", boxShadow: mode === opt.id ? "inset 0 0 0 2.5px white" : "none", flexShrink: 0 }} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: mode === opt.id ? "#0891B2" : "#1A2332" }}>{opt.label}</span>
+                <div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${mode === opt.id ? "#2e96d1" : "#CBD5E1"}`, background: mode === opt.id ? "#2e96d1" : "white", boxShadow: mode === opt.id ? "inset 0 0 0 2.5px white" : "none", flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: mode === opt.id ? "#2e96d1" : "#14243c" }}>{opt.label}</span>
               </div>
-              <div style={{ fontSize: 11, color: "#64748B", lineHeight: 1.5 }}>{opt.desc}</div>
+              <div style={{ fontSize: 11, color: "#55627a", lineHeight: 1.5 }}>{opt.desc}</div>
             </div>
           ))}
         </div>
@@ -452,7 +476,7 @@ function IntakePage({ mode, setMode, client, setClient, fallInfo, setFallInfo, c
 
       {/* Client Info */}
       <div style={S.card}>
-        <div style={S.cardTitle}>👤 Client Information</div>
+        <div style={S.cardTitle}>Client Information</div>
         <div className="mi-grid2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           {[["name","Client Name","Full name"],["dob","Date of Birth",null,"date"],["address","Address","Street address"],["referred","Referred By","Family, physician..."]].map(([f,lbl,ph,t]) => (
             <div key={f}>
@@ -465,7 +489,7 @@ function IntakePage({ mode, setMode, client, setClient, fallInfo, setFallInfo, c
 
       {/* Housing */}
       <div style={S.card}>
-        <div style={S.cardTitle}>🏠 Housing Profile</div>
+        <div style={S.cardTitle}>Housing Profile</div>
         <div className="mi-grid3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
           <div>
             <label style={S.label}>Housing Type</label>
@@ -521,7 +545,7 @@ function IntakePage({ mode, setMode, client, setClient, fallInfo, setFallInfo, c
 
       {/* Fall History */}
       <div style={S.card}>
-        <div style={S.cardTitle}>⚠️ Fall History</div>
+        <div style={S.cardTitle}>Fall History</div>
         <div className="mi-grid3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
           {[["injury","Resulted in Injury?"],["hospital","Resulted in Hospitalization?"],["rehab","Fall Rehab Received?"]].map(([f,lbl]) => (
             <div key={f}>
@@ -555,7 +579,7 @@ function IntakePage({ mode, setMode, client, setClient, fallInfo, setFallInfo, c
 
       {/* Concerns */}
       <div style={S.card}>
-        <div style={S.cardTitle}>🩺 Clinical Concerns</div>
+        <div style={S.cardTitle}>Clinical Concerns</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
           {CONCERNS.map(c => (
             <Tag key={c.id} label={c.label} selected={!!concerns[c.id]}
@@ -563,9 +587,9 @@ function IntakePage({ mode, setMode, client, setClient, fallInfo, setFallInfo, c
           ))}
         </div>
         {CONCERNS.filter(c => concerns[c.id]).map(c => (
-          <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: "#FEF2F2", border: "1px solid #FECACA", marginBottom: 8 }}>
-            <span>⚠️</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#991B1B", minWidth: 120 }}>{c.label}</span>
+          <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, background: "#FEF2F2", border: "1px solid #FECACA", marginBottom: 8 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#EF4444", flexShrink: 0 }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#991B1B", minWidth: 120 }}>{c.label}</span>
             <input style={{ ...S.input, border: "none", background: "transparent", color: "#7F1D1D", fontSize: 12 }} value={concernNotes[c.id] || ""} placeholder="Add clinical note..." onChange={e => setConcernNotes(p => ({ ...p, [c.id]: e.target.value }))} />
           </div>
         ))}
@@ -573,7 +597,7 @@ function IntakePage({ mode, setMode, client, setClient, fallInfo, setFallInfo, c
 
       {/* Assessor */}
       <div style={S.card}>
-        <div style={S.cardTitle}>🩻 Assessor</div>
+        <div style={S.cardTitle}>Assessor</div>
         <div className="mi-grid2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div>
             <label style={S.label}>Assessor Name + Credentials</label>
@@ -587,7 +611,7 @@ function IntakePage({ mode, setMode, client, setClient, fallInfo, setFallInfo, c
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 8 }}>
-        <button onClick={onNext} style={{ ...S.btn(), background: "#1B3A5C", color: "white" }}>Begin Room Assessment →</button>
+        <button onClick={onNext} style={{ ...S.btn(), background: "#1e3357", color: "white" }}>Begin Room Assessment →</button>
       </div>
     </div>
   );
@@ -619,21 +643,24 @@ function RoomPage({ mode, roomDef, roomData, updateRoom, onPhotos, activeTab, se
   };
 
   const tabs = ["checklist", "photos", "notes"];
-  const tabLabels = { checklist: "☑ Checklist", photos: "📷 Photos & AI", notes: "📝 Notes & Recs" };
+  const tabLabels = { checklist: "Checklist", photos: "Photos & AI", notes: "Notes & Recs" };
 
   return (
     <div>
-      <div style={S.pageTitle}>{roomDef.icon} {roomDef.label}</div>
+      <div style={{ ...S.pageTitle, display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ display: "flex", color: "#2e96d1" }}><Icon name={roomDef.icon} size={22} /></span>
+        {roomDef.label}
+      </div>
       <div style={S.pageSub}>Rate each item, capture photos for AI analysis, and document your clinical findings.</div>
 
       <div className="mi-roomgrid" style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 16 }}>
         <div>
           {/* Tab bar */}
-          <div style={{ display: "flex", gap: 4, background: "#F0F4F8", padding: 4, borderRadius: 10, marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 4, background: "#f1eee7", padding: 4, borderRadius: 10, marginBottom: 16 }}>
             {tabs.map(t => (
               <button key={t} onClick={() => setActiveTab(t)} style={{
                 flex: 1, padding: "7px 4px", textAlign: "center", borderRadius: 7, fontSize: 12, fontWeight: activeTab === t ? 700 : 500,
-                cursor: "pointer", color: activeTab === t ? "#1B3A5C" : "#64748B",
+                cursor: "pointer", color: activeTab === t ? "#1e3357" : "#55627a",
                 border: "none", background: activeTab === t ? "white" : "transparent", fontFamily: "inherit",
                 boxShadow: activeTab === t ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
               }}>{tabLabels[t]}</button>
@@ -644,17 +671,17 @@ function RoomPage({ mode, roomDef, roomData, updateRoom, onPhotos, activeTab, se
           {activeTab === "checklist" && roomDef.items.map(item => {
             const val = roomData.items[item.id];
             const bg = val === "flag" ? "#FEF2F2" : val === "warn" ? "#FFFBEB" : val === "pass" ? "#ECFDF5" : "white";
-            const border = val === "flag" ? "#FECACA" : val === "warn" ? "#FDE68A" : val === "pass" ? "#A7F3D0" : "#DCE5EF";
+            const border = val === "flag" ? "#FECACA" : val === "warn" ? "#FDE68A" : val === "pass" ? "#A7F3D0" : "#e7e1d4";
             return (
               <div key={item.id} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "11px 14px", borderRadius: 8, border: `1px solid ${border}`, background: bg, marginBottom: 8 }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{item.name}</div>
-                  <div style={{ fontSize: 11, color: "#64748B" }}>{item.hint}</div>
+                  <div style={{ fontSize: 11, color: "#55627a" }}>{item.hint}</div>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  <RatingBtn label="✓ Pass" variant="pass" active={val === "pass"} onClick={() => rateItem(item.id, "pass")} />
-                  <RatingBtn label="! Concern" variant="warn" active={val === "warn"} onClick={() => rateItem(item.id, "warn")} />
-                  <RatingBtn label="✕ Flag" variant="flag" active={val === "flag"} onClick={() => rateItem(item.id, "flag")} />
+                  <RatingBtn label="Pass" variant="pass" active={val === "pass"} onClick={() => rateItem(item.id, "pass")} />
+                  <RatingBtn label="Concern" variant="warn" active={val === "warn"} onClick={() => rateItem(item.id, "warn")} />
+                  <RatingBtn label="Flag" variant="flag" active={val === "flag"} onClick={() => rateItem(item.id, "flag")} />
                 </div>
               </div>
             );
@@ -664,19 +691,19 @@ function RoomPage({ mode, roomDef, roomData, updateRoom, onPhotos, activeTab, se
           {activeTab === "photos" && (
             <div>
               <label htmlFor={`photo_${roomDef.id}`} style={{
-                display: "block", border: "2px dashed #DCE5EF", borderRadius: 10, padding: 24, textAlign: "center",
+                display: "block", border: "2px dashed #e7e1d4", borderRadius: 10, padding: 24, textAlign: "center",
                 cursor: "pointer", background: "#FAFBFC", transition: "all 0.2s",
               }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>📷</div>
-                <div style={{ fontSize: 13, color: "#64748B", marginBottom: 4 }}>Tap to capture or upload photos</div>
-                <div style={{ fontSize: 11, color: "#94A3B8" }}>Use device camera or upload from gallery · AI analysis runs automatically</div>
+                <div style={{ display: "flex", justifyContent: "center", color: "#8a94a8", marginBottom: 8 }}><Icon name="camera" size={30} /></div>
+                <div style={{ fontSize: 13, color: "#55627a", marginBottom: 4 }}>Tap to capture or upload photos</div>
+                <div style={{ fontSize: 11, color: "#8a94a8" }}>Use device camera or upload from gallery · AI analysis runs automatically</div>
               </label>
               <input id={`photo_${roomDef.id}`} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => { onPhotos(e.target.files); e.target.value = ""; }} />
 
               {roomData.photos.length > 0 && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 12 }}>
                   {roomData.photos.map((p, i) => (
-                    <div key={i} style={{ aspectRatio: "4/3", borderRadius: 8, overflow: "hidden", position: "relative", border: "1px solid #DCE5EF" }}>
+                    <div key={i} style={{ aspectRatio: "4/3", borderRadius: 8, overflow: "hidden", position: "relative", border: "1px solid #e7e1d4" }}>
                       <img src={p.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       <button onClick={() => updateRoom(prev => ({ ...prev, photos: prev.photos.filter((_, j) => j !== i), aiFindings: null }))}
                         style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "white", border: "none", borderRadius: "50%", width: 20, height: 20, cursor: "pointer", fontSize: 11 }}>✕</button>
@@ -698,7 +725,7 @@ function RoomPage({ mode, roomDef, roomData, updateRoom, onPhotos, activeTab, se
               </div>
               <div style={S.card}>
                 <div style={S.cardTitle}>Recommendations</div>
-                <div style={{ fontSize: 11, color: "#64748B", marginBottom: 10 }}>Select all that apply. These appear in the final report.</div>
+                <div style={{ fontSize: 11, color: "#55627a", marginBottom: 10 }}>Select all that apply. These appear in the final report.</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
                   {recOptions.map(rec => <Tag key={rec} label={rec} selected={roomData.recs.includes(rec)} onClick={() => toggleRec(rec)} />)}
                 </div>
@@ -723,10 +750,10 @@ function RoomPage({ mode, roomDef, roomData, updateRoom, onPhotos, activeTab, se
                 { label: "OT Accessibility Rating", val: score ? score.accessScore : 0, sub: "From checklist", editable: false },
               ].map(({ label, val, sub, field, editable }) => (
                 <div key={label} style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#64748B", marginBottom: 8 }}>{label}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#55627a", marginBottom: 8 }}>{label}</div>
                   <div style={{ width: 62, height: 62, borderRadius: "50%", margin: "0 auto 6px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, fontWeight: 700, border: `3px solid ${scoreColor(val)}`, color: scoreColor(val) }}>{val}%</div>
-                  <div style={{ fontSize: 10, color: "#64748B", marginBottom: editable ? 6 : 0 }}>{sub}</div>
-                  {editable && <input type="range" min="0" max="100" value={roomData.safetyRating} style={{ width: "100%", accentColor: "#0891B2" }} onChange={e => updateRoom(prev => ({ ...prev, safetyRating: parseInt(e.target.value) }))} />}
+                  <div style={{ fontSize: 10, color: "#55627a", marginBottom: editable ? 6 : 0 }}>{sub}</div>
+                  {editable && <input type="range" min="0" max="100" value={roomData.safetyRating} style={{ width: "100%", accentColor: "#2e96d1" }} onChange={e => updateRoom(prev => ({ ...prev, safetyRating: parseInt(e.target.value) }))} />}
                 </div>
               ))}
             </div>
@@ -735,7 +762,7 @@ function RoomPage({ mode, roomDef, roomData, updateRoom, onPhotos, activeTab, se
                 {[["Flagged", score.flags, "#FEF2F2", "#EF4444"], ["Concerns", score.warnings, "#FFFBEB", "#B45309"], ["Passed", score.passed, "#ECFDF5", "#065F46"]].map(([lbl, val, bg, color]) => (
                   <div key={lbl} style={{ flex: 1, background: bg, borderRadius: 6, padding: "6px 4px", textAlign: "center" }}>
                     <div style={{ fontSize: 16, fontWeight: 700, color }}>{val}</div>
-                    <div style={{ color: "#64748B" }}>{lbl}</div>
+                    <div style={{ color: "#55627a" }}>{lbl}</div>
                   </div>
                 ))}
               </div>
@@ -743,34 +770,34 @@ function RoomPage({ mode, roomDef, roomData, updateRoom, onPhotos, activeTab, se
           </div>
 
           {roomData.aiFindings && !roomData.aiLoading && (
-            <div style={{ ...S.card, background: "linear-gradient(135deg,#0F1E35,#1B3A5C)", border: "1px solid #1E3A5C" }}>
+            <div style={{ ...S.card, background: "linear-gradient(135deg,#101d33,#1e3357)", border: "1px solid #1e3357" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#38BDF8" }} />
-                <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#38BDF8" }}>AI Analysis</span>
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#7abde4" }} />
+                <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#7abde4" }}>AI Analysis</span>
               </div>
               <div style={{ fontSize: 12, color: "#E2E8F0" }}>
                 {(roomData.aiFindings.findings || []).filter(f => f.severity === "danger").length > 0
                   ? <span style={{ color: "#FCA5A5", fontWeight: 600 }}>{(roomData.aiFindings.findings).filter(f => f.severity === "danger").length} high-risk finding(s) in photos</span>
                   : "No major hazards detected in photos"}
               </div>
-              <div style={{ fontSize: 10, color: "#64748B", marginTop: 5 }}>See Photos tab for full analysis</div>
+              <div style={{ fontSize: 10, color: "#55627a", marginTop: 5 }}>See Photos tab for full analysis</div>
             </div>
           )}
 
           {mode === "myintel" && (
-            <div style={{ ...S.card, background: "#F0F9FF", border: "1px solid #BAE6FD" }}>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#0891B2", marginBottom: 8 }}>MyIntel Integration</div>
-              <div style={{ fontSize: 11, color: "#0C4A6E", lineHeight: 1.5 }}>Flagged items in this room will map to Talius sensor placement recommendations in the final report.</div>
+            <div style={{ ...S.card, background: "#eaf3fa", border: "1px solid #a9cbe4" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#2e96d1", marginBottom: 8 }}>MyIntel Integration</div>
+              <div style={{ fontSize: 11, color: "#1e3357", lineHeight: 1.5 }}>Flagged items in this room will map to Talius sensor placement recommendations in the final report.</div>
             </div>
           )}
         </div>
       </div>
 
       {/* Footer nav */}
-      <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 16, borderTop: "1px solid #DCE5EF", marginTop: 8 }}>
-        <button onClick={onPrev} style={{ ...S.btn(), background: "white", color: "#1B3A5C", border: "1px solid #DCE5EF" }}>← Back</button>
-        <div style={{ fontSize: 12, color: "#64748B" }}>{score ? `${score.rated}/${score.total} items rated` : "Not started"}</div>
-        <button onClick={onNext} style={{ ...S.btn(), background: "#1B3A5C", color: "white" }}>{isLast ? "📋 View Report" : "Next Room →"}</button>
+      <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 16, borderTop: "1px solid #e7e1d4", marginTop: 8 }}>
+        <button onClick={onPrev} style={{ ...S.btn(), background: "white", color: "#1e3357", border: "1px solid #e7e1d4" }}>← Back</button>
+        <div style={{ fontSize: 12, color: "#55627a" }}>{score ? `${score.rated}/${score.total} items rated` : "Not started"}</div>
+        <button onClick={onNext} style={{ ...S.btn(), background: "#1e3357", color: "white" }}>{isLast ? "View Report" : "Next Room →"}</button>
       </div>
     </div>
   );
@@ -834,27 +861,27 @@ function ReportPage({ mode, rooms, client, fallInfo, concerns, concernNotes, ass
       <div style={S.pageSub}>{mode === "myintel" ? "Summary of all room findings, clinical concerns, and MyIntel sensor recommendations." : "Summary of all room findings, clinical concerns, and recommendations."}</div>
 
       {/* Hero */}
-      <div className="mi-hero" style={{ background: "linear-gradient(135deg,#1B3A5C,#2563EB)", borderRadius: 14, padding: 24, color: "white", marginBottom: 20, display: "flex", gap: 24, alignItems: "center" }}>
+      <div className="mi-hero" style={{ background: "linear-gradient(135deg,#1e3357,#237aad)", borderRadius: 14, padding: 24, color: "white", marginBottom: 20, display: "flex", gap: 24, alignItems: "center" }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#93C5FD", marginBottom: 6 }}>{mode === "myintel" ? "Home Safety Assessment · MyIntel Co." : "Home Safety Assessment"}</div>
-          <div style={{ fontFamily: "Georgia,serif", fontSize: 22, marginBottom: 4 }}>{client.name || "Client Name"}</div>
-          <div style={{ color: "#93C5FD", fontSize: 13, marginBottom: 4 }}>{client.address || "Address not entered"} · {client.housing}</div>
-          <div style={{ color: "#93C5FD", fontSize: 12, marginBottom: 10 }}>Assessed by {assessor.name || "Assessor"}{assessor.org ? ` · ${assessor.org}` : ""}</div>
+          <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.14em", color: "#d9a441", marginBottom: 6, fontFamily: FONT_DISPLAY }}>{mode === "myintel" ? "Home Safety Assessment · MyIntel Co." : "Home Safety Assessment"}</div>
+          <div style={{ fontFamily: FONT_DISPLAY, fontWeight: 700, fontSize: 23, letterSpacing: "-0.02em", marginBottom: 4 }}>{client.name || "Client Name"}</div>
+          <div style={{ color: "#a9cbe4", fontSize: 13, marginBottom: 4 }}>{client.address || "Address not entered"} · {client.housing}</div>
+          <div style={{ color: "#a9cbe4", fontSize: 12, marginBottom: 10 }}>Assessed by {assessor.name || "Assessor"}{assessor.org ? ` · ${assessor.org}` : ""}</div>
           {flaggedRooms.length > 0 ? (
             <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, background: "rgba(239,68,68,0.2)", border: "1px solid rgba(239,68,68,0.4)", fontSize: 11, fontWeight: 700, color: "#FCA5A5" }}>
-              ⚠ High Risk: {flaggedRooms.map(r => r.label).join(", ")}
+              High Risk: {flaggedRooms.map(r => r.label).join(", ")}
             </div>
           ) : (
             <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, background: "rgba(16,185,129,0.2)", border: "1px solid rgba(16,185,129,0.4)", fontSize: 11, fontWeight: 700, color: "#6EE7B7" }}>
-              ✓ No high-risk areas flagged
+              No high-risk areas flagged
             </div>
           )}
         </div>
         <div style={{ display: "flex", gap: 12 }}>
           {[["Accessibility", `${overallAccess}%`, overallAccess > 75 ? "#6EE7B7" : overallAccess > 50 ? "#FDE68A" : "#FCA5A5"], ["Flags", flaggedItems, flaggedItems > 3 ? "#FCA5A5" : flaggedItems > 0 ? "#FDE68A" : "#6EE7B7"]].map(([lbl, val, color]) => (
             <div key={lbl} style={{ background: "rgba(255,255,255,0.1)", borderRadius: 10, padding: "14px 20px", textAlign: "center", border: "1px solid rgba(255,255,255,0.15)", minWidth: 90 }}>
-              <div style={{ fontFamily: "Georgia,serif", fontSize: 28, fontWeight: 700, color }}>{val}</div>
-              <div style={{ fontSize: 10, color: "#BAE6FD", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 }}>{lbl}</div>
+              <div style={{ fontFamily: FONT_DISPLAY, fontSize: 28, fontWeight: 800, letterSpacing: "-0.02em", color }}>{val}</div>
+              <div style={{ fontSize: 10, color: "#a9cbe4", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 }}>{lbl}</div>
             </div>
           ))}
         </div>
@@ -863,7 +890,7 @@ function ReportPage({ mode, rooms, client, fallInfo, concerns, concernNotes, ass
       {/* Concerns */}
       {activeConcerns.length > 0 && (
         <div style={S.card}>
-          <div style={S.cardTitle}>🩺 Clinical Concerns</div>
+          <div style={S.cardTitle}>Clinical Concerns</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {activeConcerns.map(c => (
               <div key={c.id} style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px" }}>
@@ -877,21 +904,21 @@ function ReportPage({ mode, rooms, client, fallInfo, concerns, concernNotes, ass
 
       {/* Room summary */}
       <div style={S.card}>
-        <div style={S.cardTitle}>📊 Room-by-Room Summary</div>
+        <div style={S.cardTitle}>Room-by-Room Summary</div>
         {ROOMS.map(r => {
           const s = getRoomScore(rooms[r.id], r);
           if (!s || s.rated === 0) {
-            return <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 8, background: "#F8FAFC", marginBottom: 6 }}>
-              <span style={{ minWidth: 130, fontWeight: 600, fontSize: 13 }}>{r.icon} {r.label}</span>
-              <span style={{ fontSize: 11, color: "#94A3B8" }}>Not assessed</span>
+            return <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, background: "#faf8f4", marginBottom: 6 }}>
+              <span style={{ minWidth: 150, fontWeight: 700, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><span style={{ display: "flex", color: "#8a94a8" }}><Icon name={r.icon} size={14} /></span>{r.label}</span>
+              <span style={{ fontSize: 11, color: "#8a94a8" }}>Not assessed</span>
             </div>;
           }
           const color = scoreColor(s.accessScore);
           return (
-            <div key={r.id} className="mi-roomrow" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 8, background: "#F8FAFC", marginBottom: 6 }}>
-              <span style={{ minWidth: 130, fontWeight: 600, fontSize: 13 }}>{r.icon} {r.label}</span>
+            <div key={r.id} className="mi-roomrow" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, background: "#faf8f4", marginBottom: 6 }}>
+              <span style={{ minWidth: 150, fontWeight: 700, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 8 }}><span style={{ display: "flex", color: "#2e96d1" }}><Icon name={r.icon} size={14} /></span>{r.label}</span>
               <div style={{ flex: 2 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#64748B", marginBottom: 3 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#55627a", marginBottom: 3 }}>
                   <span>Accessibility</span>
                   <span style={{ fontWeight: 700, color }}>{s.accessScore}%</span>
                 </div>
@@ -902,9 +929,9 @@ function ReportPage({ mode, rooms, client, fallInfo, concerns, concernNotes, ass
               <div style={{ display: "flex", gap: 5 }}>
                 {s.flags > 0 && <span style={{ background: "#FEF2F2", color: "#EF4444", border: "1px solid #FECACA", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20 }}>{s.flags} ✕</span>}
                 {s.warnings > 0 && <span style={{ background: "#FFFBEB", color: "#B45309", border: "1px solid #FDE68A", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20 }}>{s.warnings} !</span>}
-                {s.flags === 0 && s.warnings === 0 && <span style={{ background: "#ECFDF5", color: "#065F46", border: "1px solid #A7F3D0", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20 }}>✓ Clear</span>}
+                {s.flags === 0 && s.warnings === 0 && <span style={{ background: "#ECFDF5", color: "#065F46", border: "1px solid #A7F3D0", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20 }}>Clear</span>}
               </div>
-              <span style={{ fontSize: 11, color: "#64748B", minWidth: 80 }}>Safety: {rooms[r.id].safetyRating}%</span>
+              <span style={{ fontSize: 11, color: "#55627a", minWidth: 80 }}>Safety: {rooms[r.id].safetyRating}%</span>
             </div>
           );
         })}
@@ -913,11 +940,11 @@ function ReportPage({ mode, rooms, client, fallInfo, concerns, concernNotes, ass
       {/* Recommendations */}
       {allRecs.length > 0 && (
         <div style={S.card}>
-          <div style={S.cardTitle}>📋 Recommendations</div>
-          {allRecs.map(({ room, icon, rec }, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderBottom: "1px solid #F0F4F8" }}>
-              <span style={{ fontSize: 11, color: "#64748B", minWidth: 120 }}>{icon} {room}</span>
-              <span style={{ fontSize: 13 }}>→ {rec}</span>
+          <div style={S.cardTitle}>Recommendations</div>
+          {allRecs.map(({ room, rec }, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderBottom: "1px solid #f1eee7" }}>
+              <span style={{ fontSize: 11, color: "#55627a", minWidth: 120, fontWeight: 700 }}>{room}</span>
+              <span style={{ fontSize: 13 }}>{rec}</span>
             </div>
           ))}
         </div>
@@ -926,16 +953,16 @@ function ReportPage({ mode, rooms, client, fallInfo, concerns, concernNotes, ass
       {/* Notes */}
       {ROOMS.filter(r => rooms[r.id].notes).map(r => (
         <div key={r.id} style={S.card}>
-          <div style={S.cardTitle}>{r.icon} {r.label} Notes</div>
-          <div style={{ fontSize: 13, color: "#1A2332", lineHeight: 1.6, padding: "8px 12px", background: "#F8FAFC", borderRadius: 8 }}>{rooms[r.id].notes}</div>
+          <div style={S.cardTitle}>{r.label} Notes</div>
+          <div style={{ fontSize: 13, color: "#14243c", lineHeight: 1.6, padding: "8px 12px", background: "#F8FAFC", borderRadius: 8 }}>{rooms[r.id].notes}</div>
         </div>
       ))}
 
       {/* MyIntel sensor recs */}
       {mode === "myintel" && (
-        <div style={{ ...S.card, background: "linear-gradient(135deg,#F0F9FF,#E0F2FE)", border: "1px solid #BAE6FD" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#0891B2", marginBottom: 10 }}>MyIntel / Talius Sensor Recommendations</div>
-          <div style={{ fontSize: 12, color: "#0C4A6E", lineHeight: 1.8 }}>
+        <div style={{ ...S.card, background: "linear-gradient(135deg,#eaf3fa,#e1eef8)", border: "1px solid #a9cbe4" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#2e96d1", marginBottom: 10 }}>MyIntel / Talius Sensor Recommendations</div>
+          <div style={{ fontSize: 12, color: "#1e3357", lineHeight: 1.8 }}>
             {flaggedRooms.length === 0 && warnRooms.length === 0
               ? "Standard baseline monitoring package appropriate for this home."
               : <>
@@ -947,11 +974,11 @@ function ReportPage({ mode, rooms, client, fallInfo, concerns, concernNotes, ass
         </div>
       )}
 
-      <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 16, borderTop: "1px solid #DCE5EF", marginTop: 8 }}>
-        <button onClick={onPrev} style={{ ...S.btn(), background: "white", color: "#1B3A5C", border: "1px solid #DCE5EF" }}>← Back</button>
+      <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 16, borderTop: "1px solid #e7e1d4", marginTop: 8 }}>
+        <button onClick={onPrev} style={{ ...S.btn(), background: "white", color: "#1e3357", border: "1px solid #e7e1d4" }}>← Back</button>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={exportPDF} style={{ ...S.btn("sm"), background: "white", color: "#1B3A5C", border: "1px solid #DCE5EF" }}>⬇ Export PDF</button>
-          <button onClick={shareReport} style={{ ...S.btn("sm"), background: "#0891B2", color: "white" }}>🔗 Share Report</button>
+          <button onClick={exportPDF} style={{ ...S.btn("sm"), background: "white", color: "#1e3357", border: "1px solid #e3ddd0" }}>Export PDF</button>
+          <button onClick={shareReport} style={{ ...S.btn("sm"), background: "#2e96d1", color: "white" }}>Share Report</button>
         </div>
       </div>
     </div>

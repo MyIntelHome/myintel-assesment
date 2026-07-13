@@ -14,8 +14,9 @@ body,
 }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
-  background: #F0F4F8;
+  font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+  background: #faf8f4;
+  color: #14243c;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
