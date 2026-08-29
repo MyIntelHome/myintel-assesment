@@ -1,0 +1,54 @@
+/*
+ * Brand tokens carried forward from the v1 prototype.
+ * Base text is 16px minimum; the family shell in v2 raises it to 18px.
+ */
+
+:root {
+  --paper: #faf8f4;
+  --surface: #ffffff;
+  --ink: #14243c;
+  --clay: #55627a;
+  --navy: #1e3357;
+  --blue: #2e96d1;
+  --gold: #d9a441;
+  --rule: #e7e1d4;
+
+  --display: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --body: "Nunito", "Segoe UI", system-ui, sans-serif;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Every interactive element keeps a visible focus state. */
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
