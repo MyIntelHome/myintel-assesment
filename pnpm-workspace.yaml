@@ -1,2 +1,6 @@
+# esbuild ships a platform-specific binary via a postinstall script.
+# vitest needs it, so the script is explicitly allowed. pnpm 11 treats an
+# unresolved build script as a hard install failure, which breaks CI and
+# deployment, so this must be a real boolean and not a placeholder.
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true
