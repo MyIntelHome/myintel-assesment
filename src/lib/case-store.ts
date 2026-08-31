@@ -14,8 +14,17 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AssessmentStatus } from "@/domain/status";
 import type { SpaceType } from "@/domain/types";
+import {
+  EMPTY_INTAKE,
+  EMPTY_SIGNOFF,
+  emptyPlanItem,
+  type FindingDetail,
+  type Intake,
+  type PlanItem,
+  type Signoff,
+} from "@/domain/case";
 
-const STORAGE_KEY = "myintel.case.v1";
+const STORAGE_KEY = "myintel.case.v2";
 
 export interface Space {
   readonly id: string;
@@ -30,16 +39,25 @@ export interface Response {
 
 export interface CaseState {
   reference: string;
+  intake: Intake;
   spaces: Space[];
   /** spaceId -> item code -> response */
   responses: Record<string, Record<string, Response>>;
+  /** findingKey -> clinical detail */
+  findings: Record<string, FindingDetail>;
+  plan: PlanItem[];
+  signoff: Signoff;
   updatedAt: string | null;
 }
 
 export const EMPTY_CASE: CaseState = {
   reference: "",
+  intake: EMPTY_INTAKE,
   spaces: [],
   responses: {},
+  findings: {},
+  plan: [],
+  signoff: EMPTY_SIGNOFF,
   updatedAt: null,
 };
 
@@ -50,12 +68,11 @@ export const EMPTY_CASE: CaseState = {
 export function referenceLooksIdentifying(reference: string): boolean {
   const trimmed = reference.trim();
   if (!trimmed) return false;
-  // Two or three letters next to a 4-digit year in the plausible-birth range.
   return /\b[A-Za-z]{2,3}[\s._-]?(18|19|20)\d{2}\b/.test(trimmed);
 }
 
-function newId(): string {
-  return `sp_${Math.random().toString(36).slice(2, 10)}`;
+function newId(prefix: string): string {
+  return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function load(): CaseState {
@@ -63,12 +80,16 @@ function load(): CaseState {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return EMPTY_CASE;
-    const parsed = JSON.parse(raw) as CaseState;
+    const p = JSON.parse(raw) as Partial<CaseState>;
     return {
-      reference: parsed.reference ?? "",
-      spaces: Array.isArray(parsed.spaces) ? parsed.spaces : [],
-      responses: parsed.responses ?? {},
-      updatedAt: parsed.updatedAt ?? null,
+      reference: p.reference ?? "",
+      intake: { ...EMPTY_INTAKE, ...(p.intake ?? {}) },
+      spaces: Array.isArray(p.spaces) ? p.spaces : [],
+      responses: p.responses ?? {},
+      findings: p.findings ?? {},
+      plan: Array.isArray(p.plan) ? p.plan : [],
+      signoff: { ...EMPTY_SIGNOFF, ...(p.signoff ?? {}) },
+      updatedAt: p.updatedAt ?? null,
     };
   } catch {
     return EMPTY_CASE;
@@ -82,20 +103,20 @@ export function useCase() {
   const [hydrated, setHydrated] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
 
-  // Restore on mount. Nothing renders from storage during SSR.
   useEffect(() => {
     setState(load());
     setHydrated(true);
   }, []);
 
-  // Persist on change. Debounced so typing does not thrash storage.
   useEffect(() => {
     if (!hydrated) return;
     setSaveState("saving");
     const t = setTimeout(() => {
       try {
-        const next = { ...state, updatedAt: new Date().toISOString() };
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        window.localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({ ...state, updatedAt: new Date().toISOString() }),
+        );
         setSaveState("saved");
       } catch {
         setSaveState("error");
@@ -108,8 +129,12 @@ export function useCase() {
     setState((s) => ({ ...s, reference }));
   }, []);
 
+  const patchIntake = useCallback((patch: Partial<Intake>) => {
+    setState((s) => ({ ...s, intake: { ...s.intake, ...patch } }));
+  }, []);
+
   const addSpace = useCallback((type: SpaceType, label: string) => {
-    const space: Space = { id: newId(), type, label };
+    const space: Space = { id: newId("sp"), type, label };
     setState((s) => ({ ...s, spaces: [...s.spaces, space] }));
     return space.id;
   }, []);
@@ -125,7 +150,10 @@ export function useCase() {
     setState((s) => {
       const responses = { ...s.responses };
       delete responses[id];
-      return { ...s, spaces: s.spaces.filter((sp) => sp.id !== id), responses };
+      const findings = Object.fromEntries(
+        Object.entries(s.findings).filter(([k]) => !k.startsWith(`${id}::`)),
+      );
+      return { ...s, spaces: s.spaces.filter((sp) => sp.id !== id), responses, findings };
     });
   }, []);
 
@@ -149,6 +177,42 @@ export function useCase() {
     });
   }, []);
 
+  const patchFinding = useCallback((key: string, patch: Partial<FindingDetail>) => {
+    setState((s) => ({
+      ...s,
+      findings: { ...s.findings, [key]: { ...(s.findings[key] ?? {}), ...patch } },
+    }));
+  }, []);
+
+  const addPlanItem = useCallback((title = "") => {
+    const item = emptyPlanItem(newId("rec"), title);
+    setState((s) => ({ ...s, plan: [...s.plan, item] }));
+    return item.id;
+  }, []);
+
+  const patchPlanItem = useCallback((id: string, patch: Partial<PlanItem>) => {
+    setState((s) => ({
+      ...s,
+      plan: s.plan.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+    }));
+  }, []);
+
+  const removePlanItem = useCallback((id: string) => {
+    setState((s) => ({ ...s, plan: s.plan.filter((p) => p.id !== id) }));
+  }, []);
+
+  const patchSignoff = useCallback((patch: Partial<Signoff>) => {
+    setState((s) => ({ ...s, signoff: { ...s.signoff, ...patch } }));
+  }, []);
+
+  const sign = useCallback(() => {
+    setState((s) => ({ ...s, signoff: { ...s.signoff, signedAt: new Date().toISOString() } }));
+  }, []);
+
+  const unsign = useCallback(() => {
+    setState((s) => ({ ...s, signoff: { ...s.signoff, signedAt: null } }));
+  }, []);
+
   const reset = useCallback(() => {
     setState(EMPTY_CASE);
     try {
@@ -163,14 +227,24 @@ export function useCase() {
     hydrated,
     saveState,
     setReference,
+    patchIntake,
     addSpace,
     renameSpace,
     removeSpace,
     setStatus,
     setReason,
+    patchFinding,
+    addPlanItem,
+    patchPlanItem,
+    removePlanItem,
+    patchSignoff,
+    sign,
+    unsign,
     reset,
   };
 }
+
+export type CaseApi = ReturnType<typeof useCase>;
 
 /** Responses for one space as the Map the domain functions expect. */
 export function responseMap(
