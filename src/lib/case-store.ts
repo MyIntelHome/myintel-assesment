@@ -13,7 +13,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { AssessmentStatus } from "@/domain/status";
-import type { SpaceType } from "@/domain/types";
+import type { AssessmentMode, SpaceType } from "@/domain/types";
+import type { FamilyAnswer } from "@/domain/family";
 import {
   EMPTY_INTAKE,
   EMPTY_SIGNOFF,
@@ -24,7 +25,10 @@ import {
   type Signoff,
 } from "@/domain/case";
 
-const STORAGE_KEY = "myintel.case.v2";
+const STORAGE_KEY = "myintel.case.v3";
+
+/** Which experience the user is in. Chosen on entry, changeable at any time. */
+export type Audience = "unchosen" | "clinician" | "family";
 
 export interface Space {
   readonly id: string;
@@ -38,11 +42,19 @@ export interface Response {
 }
 
 export interface CaseState {
+  audience: Audience;
+  /** Clinician-only: whether MyIntel product content may appear. */
+  mode: AssessmentMode;
   reference: string;
   intake: Intake;
   spaces: Space[];
-  /** spaceId -> item code -> response */
+  /** spaceId -> item code -> response. Clinician judgement only. */
   responses: Record<string, Record<string, Response>>;
+  /**
+   * familyKey -> answer. Kept strictly separate from `responses`: a family
+   * answer is reported evidence, never a clinical rating.
+   */
+  familyAnswers: Record<string, FamilyAnswer>;
   /** findingKey -> clinical detail */
   findings: Record<string, FindingDetail>;
   plan: PlanItem[];
@@ -51,10 +63,13 @@ export interface CaseState {
 }
 
 export const EMPTY_CASE: CaseState = {
+  audience: "unchosen",
+  mode: "standard_ot",
   reference: "",
   intake: EMPTY_INTAKE,
   spaces: [],
   responses: {},
+  familyAnswers: {},
   findings: {},
   plan: [],
   signoff: EMPTY_SIGNOFF,
@@ -82,10 +97,13 @@ function load(): CaseState {
     if (!raw) return EMPTY_CASE;
     const p = JSON.parse(raw) as Partial<CaseState>;
     return {
+      audience: p.audience ?? "unchosen",
+      mode: p.mode ?? "standard_ot",
       reference: p.reference ?? "",
       intake: { ...EMPTY_INTAKE, ...(p.intake ?? {}) },
       spaces: Array.isArray(p.spaces) ? p.spaces : [],
       responses: p.responses ?? {},
+      familyAnswers: p.familyAnswers ?? {},
       findings: p.findings ?? {},
       plan: Array.isArray(p.plan) ? p.plan : [],
       signoff: { ...EMPTY_SIGNOFF, ...(p.signoff ?? {}) },
@@ -127,6 +145,19 @@ export function useCase() {
 
   const setReference = useCallback((reference: string) => {
     setState((s) => ({ ...s, reference }));
+  }, []);
+
+  const setAudience = useCallback((audience: Audience) => {
+    setState((s) => ({ ...s, audience }));
+  }, []);
+
+  const setMode = useCallback((mode: AssessmentMode) => {
+    setState((s) => ({ ...s, mode }));
+  }, []);
+
+  /** Family answers are stored apart from clinician responses, by design. */
+  const setFamilyAnswer = useCallback((key: string, answer: FamilyAnswer) => {
+    setState((s) => ({ ...s, familyAnswers: { ...s.familyAnswers, [key]: answer } }));
   }, []);
 
   const patchIntake = useCallback((patch: Partial<Intake>) => {
@@ -227,6 +258,9 @@ export function useCase() {
     hydrated,
     saveState,
     setReference,
+    setAudience,
+    setMode,
+    setFamilyAnswer,
     patchIntake,
     addSpace,
     renameSpace,

@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { AssessStep } from "@/components/AssessStep";
+import { AudienceGate } from "@/components/AudienceGate";
+import { FamilyFlow } from "@/components/FamilyFlow";
 import { FindingsStep } from "@/components/FindingsStep";
 import { IntakeStep } from "@/components/IntakeStep";
 import { PlanStep } from "@/components/PlanStep";
@@ -26,6 +28,23 @@ export default function Page() {
 
   if (!api.hydrated) {
     return <main style={{ padding: 40, color: "var(--clay)" }}>Loading…</main>;
+  }
+
+  if (api.state.audience === "unchosen") return <AudienceGate api={api} />;
+
+  if (api.state.audience === "family") {
+    return (
+      <>
+        <FamilyFlow api={api} />
+        <button
+          type="button"
+          className="fam-switch no-print"
+          onClick={() => api.setAudience("unchosen")}
+        >
+          Not a family member? Switch
+        </button>
+      </>
+    );
   }
 
   const identifying = referenceLooksIdentifying(api.state.reference);
@@ -58,6 +77,9 @@ export default function Page() {
             aria-describedby={identifying ? "ref-warn" : undefined}
           />
         </label>
+        <span className="mode-pill" title="Changes whether MyIntel product options appear">
+          {api.state.mode === "myintel" ? "MyIntel" : "Standard OT"}
+        </span>
         <span className={`save save-${api.saveState}`} role="status">
           {api.saveState === "saving" ? "Saving…" : api.saveState === "error" ? "Not saved" : "Saved"}
         </span>

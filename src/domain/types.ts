@@ -71,10 +71,16 @@ export interface TemplateItem {
   /** The clinical consideration behind it. */
   readonly hint: string;
   /**
-   * The same question asked in plain language, for the family capture flow
-   * shipping in v2. Written now so the templates only get authored once.
+   * The same question in plain language for the family flow. Must be a
+   * single yes/no question — no compound clauses, no jargon.
    */
   readonly promptPlain: string;
+  /**
+   * Which answer suggests a possible problem. Polarity varies by item
+   * ("Is there a handrail?" no is bad; "Is anything stored on the stairs?"
+   * yes is bad), so it is stated per item rather than inferred.
+   */
+  readonly concernWhen: "yes" | "no";
   readonly category: ItemCategory;
   /**
    * Counts toward the completeness denominator. An optional item left

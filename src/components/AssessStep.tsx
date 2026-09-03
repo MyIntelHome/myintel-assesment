@@ -4,6 +4,7 @@ import { useState } from "react";
 import { StatusPicker } from "@/components/StatusPicker";
 import { STATUS_META, type AssessmentStatus } from "@/domain/status";
 import { SPACE_TYPE_META, SPACE_TYPES, type SpaceType } from "@/domain/types";
+import { FAMILY_ANSWER_LABEL, familyKey, isFlagged } from "@/domain/family";
 import { templateFor } from "@/seed/templates";
 import type { CaseApi } from "@/lib/case-store";
 import type { CaseView } from "@/lib/selectors";
@@ -114,6 +115,8 @@ export function AssessStep({ api, view }: { api: CaseApi; view: CaseView }) {
               {templateFor(active.type).items.map((item) => {
                 const response = state.responses[active.id]?.[item.code];
                 const status = (response?.status ?? "unknown") as AssessmentStatus;
+                const familyAnswer = state.familyAnswers[familyKey(active.id, item.code)];
+                const familyFlagged = isFlagged(item, familyAnswer);
                 return (
                   <li key={item.code} className={`item item-${status}`}>
                     <div className="item-text">
@@ -123,6 +126,17 @@ export function AssessStep({ api, view }: { api: CaseApi; view: CaseView }) {
                       </h3>
                       <p>{item.hint}</p>
                     </div>
+
+                    {/* Family input is evidence, never a rating. It is shown as a
+                        report to confirm or override, and is visually distinct
+                        from the clinician's own judgement. */}
+                    {familyAnswer && (
+                      <p className={familyFlagged ? "famreport flagged" : "famreport"}>
+                        <span className="famreport-tag">Reported by family</span>
+                        &ldquo;{item.promptPlain}&rdquo; — {FAMILY_ANSWER_LABEL[familyAnswer]}
+                        {familyFlagged && <strong> · worth checking</strong>}
+                      </p>
+                    )}
                     <StatusPicker
                       value={status}
                       itemLabel={item.prompt}
