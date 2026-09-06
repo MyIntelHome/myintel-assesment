@@ -27,13 +27,13 @@ export function AudienceGate({ api }: { api: CaseApi }) {
             <p className="gate-eyebrow">For a resident or family member</p>
             <h2>Home safety check</h2>
             <p>
-              A simple walk-through of the home, one question at a time, in plain language. About ten
+              A simple walk-through of the home in plain language, one room at a time. About ten
               minutes. No clinical training needed.
             </p>
             <ul>
-              <li>One question per screen</li>
+              <li>A handful of questions per room</li>
               <li>Yes, no, or not sure</li>
-              <li>Ends with a list worth showing a professional</li>
+              <li>Ends with a report explaining what each answer means</li>
             </ul>
             <button type="button" className="fam-primary" onClick={() => api.setAudience("family")}>
               Start the home check

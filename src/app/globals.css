@@ -352,7 +352,7 @@ label.inline span { margin: 0; font-size: 14px; }
 .fam {
   min-height: 100vh; display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  padding: 28px 20px 96px; font-size: 18px;
+  padding: 28px 20px 32px; font-size: 18px;
 }
 .fam-card {
   background: var(--surface); border: 1px solid var(--rule);
@@ -452,11 +452,13 @@ label.inline span { margin: 0; font-size: 14px; }
   background: none; border: none; cursor: pointer; margin-top: 22px;
   min-height: 48px; text-decoration: underline;
 }
+/* In the flow, not floating over it. A room screen scrolls, and a pinned
+   pill sat on top of the questions the whole way down. */
 .fam-switch {
-  position: fixed; bottom: 14px; right: 16px; z-index: 20;
-  font-family: inherit; font-size: 13px; color: var(--clay-soft);
-  background: var(--surface); border: 1px solid var(--rule); border-radius: 999px;
-  min-height: 40px; padding: 0 16px; cursor: pointer;
+  display: block; margin: 0 auto 40px; max-width: 620px;
+  font-family: inherit; font-size: 14px; color: var(--clay-soft);
+  background: none; border: none; min-height: 44px; padding: 0 16px; cursor: pointer;
+  text-decoration: underline;
 }
 .fam-switch:hover { color: var(--ink); }
 
@@ -478,9 +480,170 @@ label.inline span { margin: 0; font-size: 14px; }
   background: var(--sand); color: var(--clay); border-radius: 999px; padding: 5px 11px;
 }
 
+/* ── A room at a time ──────────────────────────────────────
+   The questions in a room sit on one screen under short headings.
+   One question per screen meant fifty screens and no finish line. */
+.fam-roomtitle { font-size: 28px; margin-bottom: 10px; }
+.fam-roomcount {
+  font-size: 15px; color: var(--clay-soft); margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.fam-group { margin-top: 26px; }
+.fam-grouphead {
+  font-family: var(--display); font-size: 12px; font-weight: 800;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--blue);
+  margin: 0 0 10px; padding-bottom: 7px; border-bottom: 1px solid var(--rule);
+}
+.fam-qlist { list-style: none; margin: 0; padding: 0; }
+.fam-q {
+  padding: 16px 0 18px; border-bottom: 1px solid var(--rule);
+  transition: opacity .25s;
+}
+.fam-q:last-child { border-bottom: none; }
+.fam-q.answered { opacity: 0.62; }
+.fam-q.answered:hover, .fam-q.answered:focus-within { opacity: 1; }
+.fam-qtext { font-size: 19px; line-height: 1.4; margin: 0 0 12px; }
+
+/* Inside a room list the three choices sit side by side, so a question
+   costs one line rather than a full screen. */
+.fam-q .fam-answers {
+  grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 0;
+}
+.fam-q .fam-answer {
+  font-size: 16px; min-height: 54px; padding: 0 8px; text-align: center;
+}
+
+/* ── Between rooms ───────────────────────────────────────── */
+.fam-milestone { text-align: center; }
+.fam-milestone .fam-lede { max-width: 44ch; margin-left: auto; margin-right: auto; }
+.fam-tick {
+  width: 62px; height: 62px; margin: 0 auto 20px; border-radius: 50%;
+  background: #e6f2ec; color: var(--ok);
+  font-size: 30px; line-height: 62px; font-weight: 700;
+}
+.fam-milestone .fam-actions { margin-top: 26px; }
+
+/* ── Contact details ─────────────────────────────────────── */
+.fam-form { display: grid; gap: 18px; margin-top: 22px; }
+.fam-field { display: block; }
+.fam-field > span {
+  display: block; font-family: var(--display); font-size: 14px; font-weight: 700;
+  color: var(--clay); margin-bottom: 6px;
+}
+.fam-field > span small {
+  font-weight: 600; color: var(--clay-soft); text-transform: none; margin-left: 5px;
+}
+.fam-field input {
+  width: 100%; min-height: 54px; font-size: 17px; padding: 0 14px;
+  background: #fff; border: 1.5px solid var(--rule); border-radius: 11px;
+}
+.fam-field input[aria-invalid="true"] { border-color: var(--crit); }
+.fam-error {
+  display: block; font-style: normal; font-size: 15px; color: var(--crit); margin-top: 6px;
+}
+.fam-check {
+  display: flex; gap: 12px; align-items: flex-start;
+  font-size: 16px; color: var(--clay); line-height: 1.5; cursor: pointer;
+}
+.fam-check input { width: 24px; height: 24px; margin: 2px 0 0; flex-shrink: 0; accent-color: var(--blue); }
+
+/* ── The report ──────────────────────────────────────────── */
+.fam-report { max-width: 760px; }
+.fam-tally {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  margin: 24px 0 0; padding: 18px 0; border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.fam-tally div { text-align: center; }
+.fam-tally dt {
+  font-family: var(--display); font-size: 11px; font-weight: 800;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--clay-soft);
+  margin-bottom: 6px;
+}
+.fam-tally dd {
+  margin: 0; font-family: var(--display); font-size: 26px; font-weight: 800;
+  color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.fam-section { margin-top: 32px; }
+
+.fam-top { list-style: none; counter-reset: top; margin: 0; padding: 0; }
+.fam-top li {
+  counter-increment: top; position: relative;
+  padding: 18px 20px 18px 62px; margin-bottom: 12px; border-radius: 13px;
+  background: #fbf1de; border-left: 4px solid var(--warn);
+}
+.fam-top li::before {
+  content: counter(top); position: absolute; left: 20px; top: 18px;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--warn); color: #fff; text-align: center; line-height: 30px;
+  font-family: var(--display); font-size: 15px; font-weight: 800;
+}
+.fam-toproom {
+  display: block; font-family: var(--display); font-size: 11px; font-weight: 800;
+  letter-spacing: 0.1em; text-transform: uppercase; color: #6d4a10; margin-bottom: 5px;
+}
+.fam-topwhy { margin: 0 0 8px; font-size: 17px; font-weight: 700; line-height: 1.5; color: var(--ink); }
+.fam-tophelp { margin: 0; font-size: 16px; line-height: 1.5; color: #6d4a10; }
+
+.fam-reproom { margin-bottom: 26px; }
+.fam-reproom h3 {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  font-size: 20px; font-weight: 800; margin: 0 0 12px;
+  padding-bottom: 8px; border-bottom: 2px solid var(--ink);
+}
+.fam-repclear {
+  margin-left: auto; font-family: var(--body); font-size: 14px;
+  font-weight: 600; color: var(--clay-soft);
+}
+.fam-repnone { margin: 0; font-size: 16px; color: var(--clay); }
+.fam-repitems { list-style: none; margin: 0; padding: 0; }
+.fam-repitem {
+  padding: 16px 18px; margin-bottom: 12px; border-radius: 12px;
+  background: #fbf1de; border-left: 4px solid var(--warn);
+}
+.fam-repitem.unsure { background: var(--sand); border-left-color: var(--clay-soft); }
+.fam-repq { margin: 0 0 10px; font-size: 17px; font-weight: 700; line-height: 1.45; }
+.fam-reptag {
+  display: inline-block; font-family: var(--display); font-size: 10px; font-weight: 800;
+  letter-spacing: 0.1em; text-transform: uppercase; margin-right: 9px;
+  padding: 3px 8px; border-radius: 999px; background: var(--warn); color: #fff;
+  vertical-align: 2px;
+}
+.fam-repitem.unsure .fam-reptag { background: var(--clay-soft); }
+.fam-repwhy, .fam-rephelp { margin: 0 0 7px; font-size: 16px; line-height: 1.55; color: var(--clay); }
+.fam-repwhy strong, .fam-rephelp strong { color: var(--ink); }
+.fam-rephelp { margin-bottom: 0; }
+.fam-repnote { margin: 8px 0 0; font-size: 15px; color: var(--clay-soft); }
+
+.fam-share { padding: 24px; border-radius: 14px; background: var(--sand); }
+.fam-share .fam-sub { margin-top: 0; }
+.fam-sharerow { display: flex; gap: 10px; align-items: flex-end; margin-top: 16px; }
+.fam-sharerow .fam-field { flex: 1; }
+.fam-sharerow .fam-primary { width: auto; margin-top: 0; flex-shrink: 0; min-height: 54px; }
+.fam-primary:disabled { background: var(--clay-soft); cursor: not-allowed; }
+.fam-share .fam-actions { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+
+@media print {
+  .fam { min-height: 0; padding: 0; display: block; }
+  .fam-card { border: none; border-radius: 0; padding: 0; max-width: none; }
+  .fam-share, .fam-switch { display: none !important; }
+  .fam-reproom, .fam-repitem, .fam-top li { break-inside: avoid; }
+}
+
 @media (max-width: 700px) {
   .gate-grid, .fam-roomgrid { grid-template-columns: 1fr; }
   .fam-card { padding: 26px 20px; }
   .fam h1 { font-size: 26px; }
   .fam-question { font-size: 23px !important; }
+  .fam-roomtitle { font-size: 24px; }
+  .fam-qtext { font-size: 18px; }
+  /* Three side-by-side answers get tight on a narrow phone. */
+  .fam-q .fam-answer { font-size: 15px; padding: 0 4px; }
+  .fam-tally { grid-template-columns: 1fr; gap: 14px; }
+  .fam-tally div { display: flex; align-items: baseline; justify-content: space-between; text-align: left; }
+  .fam-tally dd { font-size: 20px; }
+  .fam-sharerow { flex-direction: column; align-items: stretch; }
+  .fam-sharerow .fam-primary { width: 100%; }
+  .fam-top li { padding-left: 20px; padding-top: 54px; }
+  .fam-top li::before { top: 16px; }
 }

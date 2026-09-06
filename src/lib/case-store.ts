@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { AssessmentStatus } from "@/domain/status";
 import type { AssessmentMode, SpaceType } from "@/domain/types";
 import type { FamilyAnswer } from "@/domain/family";
+import { EMPTY_CONTACT, type FamilyContact } from "@/domain/family-report";
 import {
   EMPTY_INTAKE,
   EMPTY_SIGNOFF,
@@ -26,6 +27,16 @@ import {
 } from "@/domain/case";
 
 const STORAGE_KEY = "myintel.case.v3";
+
+/**
+ * Contact details live under their own key, deliberately.
+ *
+ * They are the one piece of identifying data the product touches, and the
+ * case payload is what Stage 1 will sync to a server. Keeping them in a
+ * separate record means a name and email are structurally absent from
+ * anything a clinical case carries, rather than absent by convention.
+ */
+const CONTACT_KEY = "myintel.family.contact.v1";
 
 /** Which experience the user is in. Chosen on entry, changeable at any time. */
 export type Audience = "unchosen" | "clinician" | "family";
@@ -55,6 +66,13 @@ export interface CaseState {
    * answer is reported evidence, never a clinical rating.
    */
   familyAnswers: Record<string, FamilyAnswer>;
+  /**
+   * The only place in the whole model that holds a name or an email, and it
+   * is the family's own, entered by them, on their own device. It is never
+   * sent anywhere by this app — sharing hands the text to their mail client.
+   * It must never be copied into a clinical case.
+   */
+  familyContact: FamilyContact;
   /** findingKey -> clinical detail */
   findings: Record<string, FindingDetail>;
   plan: PlanItem[];
@@ -70,6 +88,7 @@ export const EMPTY_CASE: CaseState = {
   spaces: [],
   responses: {},
   familyAnswers: {},
+  familyContact: EMPTY_CONTACT,
   findings: {},
   plan: [],
   signoff: EMPTY_SIGNOFF,
@@ -90,6 +109,17 @@ function newId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function loadContact(): FamilyContact {
+  if (typeof window === "undefined") return EMPTY_CONTACT;
+  try {
+    const raw = window.localStorage.getItem(CONTACT_KEY);
+    if (!raw) return EMPTY_CONTACT;
+    return { ...EMPTY_CONTACT, ...(JSON.parse(raw) as Partial<FamilyContact>) };
+  } catch {
+    return EMPTY_CONTACT;
+  }
+}
+
 function load(): CaseState {
   if (typeof window === "undefined") return EMPTY_CASE;
   try {
@@ -104,6 +134,7 @@ function load(): CaseState {
       spaces: Array.isArray(p.spaces) ? p.spaces : [],
       responses: p.responses ?? {},
       familyAnswers: p.familyAnswers ?? {},
+      familyContact: loadContact(),
       findings: p.findings ?? {},
       plan: Array.isArray(p.plan) ? p.plan : [],
       signoff: { ...EMPTY_SIGNOFF, ...(p.signoff ?? {}) },
@@ -131,10 +162,14 @@ export function useCase() {
     setSaveState("saving");
     const t = setTimeout(() => {
       try {
+        // familyContact is split out here, not merely omitted from a type.
+        // The case record is what syncs; it must not carry a name or email.
+        const { familyContact, ...caseOnly } = state;
         window.localStorage.setItem(
           STORAGE_KEY,
-          JSON.stringify({ ...state, updatedAt: new Date().toISOString() }),
+          JSON.stringify({ ...caseOnly, updatedAt: new Date().toISOString() }),
         );
+        window.localStorage.setItem(CONTACT_KEY, JSON.stringify(familyContact));
         setSaveState("saved");
       } catch {
         setSaveState("error");
@@ -147,8 +182,21 @@ export function useCase() {
     setState((s) => ({ ...s, reference }));
   }, []);
 
+  /**
+   * Entering the clinician workspace discards any contact details the family
+   * entered. A shared tablet is a realistic scenario, and a clinician's case
+   * must never end up holding a household's name and email.
+   */
   const setAudience = useCallback((audience: Audience) => {
-    setState((s) => ({ ...s, audience }));
+    setState((s) => {
+      if (audience !== "clinician") return { ...s, audience };
+      try {
+        window.localStorage.removeItem(CONTACT_KEY);
+      } catch {
+        /* storage unavailable; in-memory clear still applied */
+      }
+      return { ...s, audience, familyContact: EMPTY_CONTACT };
+    });
   }, []);
 
   const setMode = useCallback((mode: AssessmentMode) => {
@@ -158,6 +206,10 @@ export function useCase() {
   /** Family answers are stored apart from clinician responses, by design. */
   const setFamilyAnswer = useCallback((key: string, answer: FamilyAnswer) => {
     setState((s) => ({ ...s, familyAnswers: { ...s.familyAnswers, [key]: answer } }));
+  }, []);
+
+  const patchFamilyContact = useCallback((patch: Partial<FamilyContact>) => {
+    setState((s) => ({ ...s, familyContact: { ...s.familyContact, ...patch } }));
   }, []);
 
   const patchIntake = useCallback((patch: Partial<Intake>) => {
@@ -248,6 +300,7 @@ export function useCase() {
     setState(EMPTY_CASE);
     try {
       window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(CONTACT_KEY);
     } catch {
       /* storage unavailable; in-memory reset still applied */
     }
@@ -261,6 +314,7 @@ export function useCase() {
     setAudience,
     setMode,
     setFamilyAnswer,
+    patchFamilyContact,
     patchIntake,
     addSpace,
     renameSpace,

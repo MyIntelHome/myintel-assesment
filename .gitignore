@@ -13,3 +13,6 @@ next-env.d.ts
 *.log
 coverage
 .vercel
+
+# Local agent tooling — holds machine-specific paths
+.claude

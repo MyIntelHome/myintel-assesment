@@ -11,7 +11,23 @@
  * clinician as suggestions. They never write to `responses`.
  */
 
-import type { AssessmentTemplate, TemplateItem } from "./types";
+import type { AssessmentTemplate, ItemCategory, TemplateItem } from "./types";
+
+/**
+ * Category headings shown to families. Breaking a room's questions into
+ * three or four small named groups gives the list shape — it reads as a few
+ * short topics rather than one undifferentiated wall of questions.
+ */
+export const FAMILY_CATEGORY_LABEL: Record<ItemCategory, string> = {
+  access: "Getting around",
+  lighting: "Light",
+  surfaces: "Floors and surfaces",
+  support: "Something to hold onto",
+  transfers: "Sitting and standing",
+  hazards: "Things underfoot",
+  emergency: "If something goes wrong",
+  reach: "Reaching and gripping",
+};
 
 export const FAMILY_ANSWERS = ["yes", "no", "unsure"] as const;
 export type FamilyAnswer = (typeof FAMILY_ANSWERS)[number];
@@ -71,6 +87,56 @@ export function familyProgress(
     percent: total === 0 ? 0 : Math.round((answered / total) * 100),
     complete: total > 0 && answered === total,
   };
+}
+
+/**
+ * Questions for one room, grouped under their family-facing headings, in
+ * template order. Groups are what the room screen renders.
+ */
+export interface FamilyGroup {
+  readonly category: ItemCategory;
+  readonly label: string;
+  readonly items: readonly TemplateItem[];
+}
+
+export function groupItemsForFamily(template: AssessmentTemplate): readonly FamilyGroup[] {
+  const order: ItemCategory[] = [];
+  const byCategory = new Map<ItemCategory, TemplateItem[]>();
+
+  for (const item of familyItemsFor(template)) {
+    const existing = byCategory.get(item.category);
+    if (existing) existing.push(item);
+    else {
+      byCategory.set(item.category, [item]);
+      order.push(item.category);
+    }
+  }
+
+  return order.map((category) => ({
+    category,
+    label: FAMILY_CATEGORY_LABEL[category],
+    items: byCategory.get(category) ?? [],
+  }));
+}
+
+/** Progress within a single room. Short finish lines beat one long bar. */
+export function roomProgress(
+  spaceId: string,
+  template: AssessmentTemplate,
+  answers: Readonly<Record<string, FamilyAnswer>>,
+): FamilyProgress {
+  return familyProgress([{ spaceId, template }], answers);
+}
+
+/**
+ * Minutes left, at roughly twelve seconds a question. Shown instead of a raw
+ * count because "about two minutes left" is a reason to keep going and
+ * "31 questions remaining" is a reason to close the tab.
+ */
+export function minutesRemaining(progress: FamilyProgress): number {
+  const remaining = Math.max(0, progress.total - progress.answered);
+  if (remaining === 0) return 0;
+  return Math.max(1, Math.round((remaining * 12) / 60));
 }
 
 export interface FamilySummaryEntry {

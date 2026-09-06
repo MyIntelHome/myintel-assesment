@@ -361,7 +361,9 @@ const BATHROOM: AssessmentTemplate = {
       hint: "Lever vs knob, anti-scald protection?",
       promptPlain: "Are the taps hard to turn with a weak or painful grip?",
       concernWhen: "yes",
-      category: "access",
+      // Grip and dexterity, not circulation — grouped with reaching so the
+      // family flow doesn't file it under "getting around".
+      category: "reach",
       required: true,
     },
     {
