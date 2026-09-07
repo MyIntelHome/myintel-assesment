@@ -120,6 +120,15 @@ export function FindingsStep({ api, view }: { api: CaseApi; view: CaseView }) {
                   onChange={(e) => patch({ notes: e.target.value })}
                 />
               </label>
+              <label className="stack">
+                <span>Clinical disposition if no action is needed</span>
+                <textarea rows={2} value={d.disposition ?? ""} onChange={e=>patch({disposition:e.target.value})} placeholder="Explain the clinical decision, referral or existing management…" />
+              </label>
+              <button type="button" className="btn-sm" disabled={api.state.plan.some(p=>p.linkedFindings.includes(f.key))} onClick={()=>api.addPlanItem(`${f.space.label}: ${f.prompt}`,{
+                linkedFindings:[f.key],rationale:d.notes ?? "",urgency:d.timeframe ?? "",
+              })}>
+                {api.state.plan.some(p=>p.linkedFindings.includes(f.key)) ? "Linked action added — review in Action plan" : "Create action from this finding"}
+              </button>
             </section>
           );
         })

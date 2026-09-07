@@ -4,9 +4,9 @@
   --sand: #f1eee7;
   --ink: #14243c;
   --clay: #55627a;
-  --clay-soft: #8a94a8;
+  --clay-soft: #59677d;
   --navy: #1e3357;
-  --blue: #2e96d1;
+  --blue: #17658f;
   --gold: #b8862c;
   --rule: #e7e1d4;
 
@@ -500,7 +500,7 @@ label.inline span { margin: 0; font-size: 14px; }
   transition: opacity .25s;
 }
 .fam-q:last-child { border-bottom: none; }
-.fam-q.answered { opacity: 0.62; }
+.fam-q.answered { opacity: 1; }
 .fam-q.answered:hover, .fam-q.answered:focus-within { opacity: 1; }
 .fam-qtext { font-size: 19px; line-height: 1.4; margin: 0 0 12px; }
 
@@ -511,6 +511,25 @@ label.inline span { margin: 0; font-size: 14px; }
 }
 .fam-q .fam-answer {
   font-size: 16px; min-height: 54px; padding: 0 8px; text-align: center;
+}
+.fam-answer.on { border-width: 3px; box-shadow: inset 0 0 0 1px var(--blue); font-weight: 800; }
+.fam-answer.on::before { content: "✓ "; }
+.workspace-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.panel:disabled { opacity: 1; }
+.case-picker { display: flex; align-items: center; gap: 8px; }
+.case-picker span { font-size: 14px; }
+.case-picker select { max-width: 230px; }
+.family-save { padding: 10px 20px; background: var(--navy); color: white; text-align: center; font-size: 15px; }
+.fam-help { padding: 22px; background: #edf5fa; border-left: 4px solid var(--blue); border-radius: 12px; margin: 24px 0; }
+.fam-help h2 { font-size: 22px; margin: 0 0 10px; }
+.fam-help p { font-size: 17px; }
+.fam h1:focus { outline-offset: 6px; }
+.fam-sub, .fam-grouphead, .fam-tally dt, .fam-toproom { font-size: 14px; letter-spacing: .035em; }
+@media (max-width: 700px) {
+  .footbar { position: static; flex-wrap: wrap; padding: 16px; }
+  .case-picker { flex-wrap: wrap; }
+  .case-picker select { max-width: 100%; }
+  .fam-roomlist li { flex-wrap: wrap; gap: 10px; }
 }
 
 /* ── Between rooms ───────────────────────────────────────── */
@@ -647,3 +666,9 @@ label.inline span { margin: 0; font-size: 14px; }
   .fam-top li { padding-left: 20px; padding-top: 54px; }
   .fam-top li::before { top: 16px; }
 }
+
+/* Keep regularly used family labels readable after the component rules. */
+.fam-sub, .fam-grouphead, .fam-tally dt, .fam-toproom { font-size: 14px; letter-spacing: .035em; }
+.fam-reptag { font-size: 12px; }
+.family-cases { max-width: 760px; margin: 0 auto; padding: 16px 24px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+.fam h1[tabindex="-1"]:focus { outline: none; }

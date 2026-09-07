@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FAMILY_ANSWERS,
   FAMILY_ANSWER_LABEL,
@@ -16,8 +16,7 @@ import {
   buildShareMailto,
   reportToPlainText,
   topPriorities,
-  validateContact,
-  type ContactProblem,
+  looksLikeEmail,
   type FamilyReport,
 } from "@/domain/family-report";
 import { SPACE_TYPE_META, type SpaceType } from "@/domain/types";
@@ -56,9 +55,10 @@ type Phase = "welcome" | "rooms" | "room" | "milestone" | "contact" | "report";
 
 export function FamilyFlow({ api }: { api: CaseApi }) {
   const { state } = api;
-  const [phase, setPhase] = useState<Phase>(state.spaces.length > 0 ? "rooms" : "welcome");
-  const [roomIndex, setRoomIndex] = useState(0);
-  const [problems, setProblems] = useState<readonly ContactProblem[]>([]);
+  const roomIndex = Math.min(state.familyPosition?.roomIndex ?? 0, Math.max(0,state.spaces.length - 1));
+  const savedPhase = state.familyPosition?.phase ?? (state.spaces.length > 0 ? "rooms" : "welcome");
+  const phase = savedPhase === "contact" ? "report" : savedPhase;
+  const setPhase = (phase: Phase) => api.setFamilyPosition({phase,roomIndex});
   const [shareTo, setShareTo] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -81,10 +81,14 @@ export function FamilyFlow({ api }: { api: CaseApi }) {
   );
 
   const goToRoom = useCallback((index: number) => {
-    setRoomIndex(index);
-    setPhase("room");
+    api.setFamilyPosition({roomIndex:index,phase:"room"});
     window.scrollTo({ top: 0 });
-  }, []);
+  }, [api.setFamilyPosition]);
+  useEffect(()=>{
+    const heading = document.querySelector<HTMLElement>(".fam h1");
+    heading?.setAttribute("tabindex","-1");
+    heading?.focus({preventScroll:true});
+  },[phase,roomIndex]);
 
   // ── Welcome ──────────────────────────────────────────────
   if (phase === "welcome") {
@@ -97,7 +101,7 @@ export function FamilyFlow({ api }: { api: CaseApi }) {
             We&rsquo;ll go one room at a time. Each room is only a handful of questions, and you can
             stop and come back whenever you like.
           </p>
-          <p className="fam-lede">Most people finish in about ten minutes.</p>
+          <p className="fam-lede">Take your time. You can read your results without giving us contact details.</p>
           <button type="button" className="fam-primary" onClick={() => setPhase("rooms")}>
             Get started
           </button>
@@ -146,7 +150,7 @@ export function FamilyFlow({ api }: { api: CaseApi }) {
                   const p = roomProgress(s.id, templateFor(s.type), state.familyAnswers);
                   return (
                     <li key={s.id}>
-                      <span>{s.label}</span>
+                      <button type="button" className="fam-secondary" onClick={()=>goToRoom(i)} aria-label={`Review answers for ${s.label}`}>{s.label}</button>
                       <span className="fam-roomcount">
                         {p.answered > 0 ? `${p.answered}/${p.total}` : `${p.total} questions`}
                       </span>
@@ -155,7 +159,7 @@ export function FamilyFlow({ api }: { api: CaseApi }) {
                         className="fam-remove"
                         onClick={() => {
                           api.removeSpace(s.id);
-                          if (roomIndex >= i) setRoomIndex(Math.max(0, roomIndex - 1));
+                          if (roomIndex >= i) api.setFamilyPosition({phase:"rooms",roomIndex:Math.max(0, roomIndex - 1)});
                         }}
                       >
                         Remove
@@ -226,7 +230,9 @@ export function FamilyFlow({ api }: { api: CaseApi }) {
   if (phase === "milestone") {
     const space = state.spaces[roomIndex];
     const isLast = roomIndex >= state.spaces.length - 1;
-    const roomEntries = report.rooms.find((r) => r.spaceId === space?.id)?.entries ?? [];
+    const roomReport = report.rooms.find((r) => r.spaceId === space?.id);
+    const roomEntries = roomReport?.entries ?? [];
+    const unanswered = roomReport?.unansweredCount ?? 0;
     const line = MILESTONE_LINES[Math.min(roomIndex, MILESTONE_LINES.length - 1)];
     const mins = minutesRemaining(overall);
 
@@ -236,12 +242,12 @@ export function FamilyFlow({ api }: { api: CaseApi }) {
           <div className="fam-tick" aria-hidden="true">
             ✓
           </div>
-          <p className="fam-eyebrow">{line}</p>
-          <h1>{space?.label} done.</h1>
+          <p className="fam-eyebrow">{unanswered ? "Progress saved" : line}</p>
+          <h1>{space?.label}{unanswered ? ": still some questions to check" : " complete"}.</h1>
 
           <p className="fam-lede">
-            {roomEntries.length === 0
-              ? "Nothing to flag in there."
+            {unanswered ? `${unanswered} questions are unanswered. We can only summarise the answers you've given.` : roomEntries.length === 0
+              ? "You reported no concerns in these answers. This does not confirm the room is safe."
               : `You noted ${roomEntries.length} thing${roomEntries.length === 1 ? "" : "s"} in that room. We'll explain each one at the end.`}
           </p>
 
@@ -255,8 +261,8 @@ export function FamilyFlow({ api }: { api: CaseApi }) {
 
           <div className="fam-actions">
             {isLast ? (
-              <button type="button" className="fam-primary" onClick={() => setPhase("contact")}>
-                See what we found
+              <button type="button" className="fam-primary" onClick={() => setPhase("report")}>
+                See my results
               </button>
             ) : (
               <button type="button" className="fam-primary" onClick={() => goToRoom(roomIndex + 1)}>
@@ -272,109 +278,16 @@ export function FamilyFlow({ api }: { api: CaseApi }) {
     );
   }
 
-  // ── Contact details, before the report ───────────────────
-  if (phase === "contact") {
-    const contact = state.familyContact;
-    const problemFor = (field: string) => problems.find((p) => p.field === field)?.message;
-
-    return (
-      <div className="fam">
-        <div className="fam-card">
-          <p className="fam-eyebrow">One last step</p>
-          <h1>Where should we send your results?</h1>
-          <p className="fam-lede">
-            {report.flaggedCount + report.unsureCount > 0
-              ? `We've got ${report.flaggedCount + report.unsureCount} item${report.flaggedCount + report.unsureCount === 1 ? "" : "s"} to walk you through, with what each one means and what usually helps.`
-              : "Your results are ready, along with what to keep an eye on."}
-          </p>
-
-          <form
-            className="fam-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const found = validateContact(contact);
-              setProblems(found);
-              if (found.length === 0) {
-                setPhase("report");
-                window.scrollTo({ top: 0 });
-              }
-            }}
-          >
-            <label className="fam-field">
-              <span>Your name</span>
-              <input
-                value={contact.name}
-                autoComplete="name"
-                onChange={(e) => api.patchFamilyContact({ name: e.target.value })}
-                aria-invalid={Boolean(problemFor("name"))}
-              />
-              {problemFor("name") && <em className="fam-error">{problemFor("name")}</em>}
-            </label>
-
-            <label className="fam-field">
-              <span>Email</span>
-              <input
-                type="email"
-                value={contact.email}
-                autoComplete="email"
-                inputMode="email"
-                onChange={(e) => api.patchFamilyContact({ email: e.target.value })}
-                aria-invalid={Boolean(problemFor("email"))}
-              />
-              {problemFor("email") && <em className="fam-error">{problemFor("email")}</em>}
-            </label>
-
-            <label className="fam-field">
-              <span>
-                Phone <small>optional</small>
-              </span>
-              <input
-                type="tel"
-                value={contact.phone}
-                autoComplete="tel"
-                inputMode="tel"
-                onChange={(e) => api.patchFamilyContact({ phone: e.target.value })}
-              />
-            </label>
-
-            <label className="fam-check">
-              <input
-                type="checkbox"
-                checked={contact.consent}
-                onChange={(e) => api.patchFamilyContact({ consent: e.target.checked })}
-                aria-invalid={Boolean(problemFor("consent"))}
-              />
-              <span>
-                I&rsquo;m happy to be contacted about these results. I can ask to be removed at any
-                time.
-              </span>
-            </label>
-            {problemFor("consent") && <em className="fam-error">{problemFor("consent")}</em>}
-
-            <button type="submit" className="fam-primary">
-              Show my results
-            </button>
-          </form>
-
-          <p className="fam-note">
-            Your details stay on this device. Nothing is sent anywhere until you press a share
-            button on the next screen.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   // ── The report ───────────────────────────────────────────
   return (
     <ReportScreen
       report={report}
-      contactName={state.familyContact.name}
+      contactName=""
       shareTo={shareTo}
       setShareTo={setShareTo}
       copied={copied}
       setCopied={setCopied}
-      onRevisit={() => goToRoom(0)}
+      onRevisit={() => setPhase("rooms")}
       onRooms={() => setPhase("rooms")}
     />
   );
@@ -409,6 +322,7 @@ function RoomScreen({
   const groups = useMemo(() => groupItemsForFamily(template), [template]);
   const progress = roomProgress(space.id, template, api.state.familyAnswers);
   const refs = useRef(new Map<string, HTMLLIElement>());
+  const [autoAdvance, setAutoAdvance] = useState(false);
 
   const codes = useMemo(() => groups.flatMap((g) => g.items.map((i) => i.code)), [groups]);
 
@@ -421,9 +335,9 @@ function RoomScreen({
     const nextCode = codes
       .slice(from + 1)
       .find((c) => !api.state.familyAnswers[familyKey(space.id, c)]);
-    if (nextCode) {
+    if (autoAdvance && nextCode) {
       window.setTimeout(() => {
-        refs.current.get(nextCode)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        refs.current.get(nextCode)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
       }, 160);
     }
   };
@@ -445,6 +359,7 @@ function RoomScreen({
           Have a look around as you answer. If you don&rsquo;t know, say so — that&rsquo;s a useful
           answer too.
         </p>
+        <label className="fam-check"><input type="checkbox" checked={autoAdvance} onChange={e=>setAutoAdvance(e.target.checked)} /><span>Scroll to the next question after I answer</span></label>
 
         {groups.map((group) => (
           <section key={group.category} className="fam-group">
@@ -524,15 +439,17 @@ function ReportScreen({
   onRooms: () => void;
 }) {
   const top = topPriorities(report);
-  const hasItems = report.priority.length > 0;
+  const [copyError, setCopyError] = useState(false);
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(reportToPlainText(report, contactName));
       setCopied(true);
+      setCopyError(false);
       window.setTimeout(() => setCopied(false), 2500);
     } catch {
       setCopied(false);
+      setCopyError(true);
     }
   };
 
@@ -542,6 +459,12 @@ function ReportScreen({
         <p className="fam-eyebrow">Your results</p>
         <h1>{contactName.trim() ? `Here's what you found, ${contactName.trim()}.` : "Here's what you found."}</h1>
         <p className="fam-lede">{report.headline}</p>
+        <div className="fam-help no-print">
+          <h2>Want help with your next step?</h2>
+          <p>An OT can review your concerns and discuss what fits your home. Ask MyIntel about availability and costs before deciding.</p>
+          <button type="button" className="fam-primary" onClick={()=>{window.location.href=buildShareMailto(SPECIALIST_EMAIL,report,contactName);}}>Draft a request for help</button>
+          <p className="fam-note">Opens your email app with a short summary addressed to MyIntel. Review it and press Send there. No request or appointment is confirmed by this button.</p>
+        </div>
 
         <dl className="fam-tally">
           <div>
@@ -564,8 +487,7 @@ function ReportScreen({
           <section className="fam-section">
             <h2 className="fam-sub">Where to start</h2>
             <p className="fam-lede">
-              Of everything you flagged, these are the ones that most often make a difference. The
-              reasons for each are further down.
+              Here are a few reported concerns to discuss first. An OT can help decide what matters most for this resident.
             </p>
             <ol className="fam-top">
               {top.map((entry) => (
@@ -579,7 +501,7 @@ function ReportScreen({
           </section>
         )}
 
-        {hasItems && (
+        {report.rooms.length > 0 && (
           <section className="fam-section">
             <h2 className="fam-sub">Room by room</h2>
             {report.rooms.map((room) => (
@@ -587,15 +509,13 @@ function ReportScreen({
                 <h3>
                   {room.spaceLabel}
                   <span className="fam-repclear">
-                    {room.entries.length === 0
-                      ? "nothing flagged"
-                      : `${room.entries.length} noted · ${room.clearCount} fine`}
+                    {room.unansweredCount ? `${room.unansweredCount} unanswered` : `${room.entries.length} noted`}
                   </span>
                 </h3>
 
                 {room.entries.length === 0 ? (
                   <p className="fam-repnone">
-                    Nothing came up here. Worth checking again if anything changes.
+                    {room.unansweredCount ? "This room has unanswered questions. No concerns were reported in the answers provided." : "No concerns reported in these answers. This is not a professional assessment."}
                   </p>
                 ) : (
                   <ul className="fam-repitems">
@@ -658,36 +578,32 @@ function ReportScreen({
             <button
               type="button"
               className="fam-primary"
-              disabled={!shareTo.includes("@")}
+              disabled={!looksLikeEmail(shareTo)}
               onClick={() => {
                 window.location.href = buildShareMailto(shareTo, report, contactName);
               }}
             >
-              Send to them
+              Draft email summary
             </button>
           </div>
           <p className="fam-note">
-            This opens your own email app with the results written out, ready for you to read over
-            and send.
+            Opens your email app with a short summary to review and send. Download the full findings report if you want to attach it yourself.
           </p>
 
           <div className="fam-actions">
-            <button
-              type="button"
-              className="fam-secondary"
-              onClick={() => {
-                window.location.href = buildShareMailto(SPECIALIST_EMAIL, report, contactName);
-              }}
-            >
-              Send to a MyIntel specialist
-            </button>
             <button type="button" className="fam-secondary" onClick={copy}>
               {copied ? "Copied" : "Copy the text"}
             </button>
             <button type="button" className="fam-secondary" onClick={() => window.print()}>
               Save or print
             </button>
+            <button type="button" className="fam-secondary" onClick={()=>{
+              const url=URL.createObjectURL(new Blob([reportToPlainText(report,contactName)],{type:"text/plain;charset=utf-8"}));
+              const a=document.createElement("a");a.href=url;a.download="MyIntel-home-check.txt";a.click();
+              window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+            }}>Download full findings</button>
           </div>
+          {copyError && <p role="alert">Copy was unavailable. Download the full findings instead.</p>}
         </section>
 
         <div className="fam-disclaimer">
@@ -701,7 +617,7 @@ function ReportScreen({
 
         <div className="fam-actions no-print">
           <button type="button" className="fam-secondary" onClick={onRevisit}>
-            Change an answer
+            Review my rooms and answers
           </button>
           <button type="button" className="fam-secondary" onClick={onRooms}>
             Add another room

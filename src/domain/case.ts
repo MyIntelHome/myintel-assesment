@@ -114,6 +114,8 @@ export const EMPTY_INTAKE: Intake = {
  * which keeps the two in step.
  */
 export interface FindingDetail {
+  /** Clinical explanation when a finding does not need a linked action. */
+  disposition?: string;
   severity?: Severity;
   likelihood?: Likelihood;
   consequence?: Consequence;
@@ -185,6 +187,14 @@ export function validatePlanItem(item: PlanItem): readonly string[] {
   if (!item.costNotEstimated && !item.costMin.trim() && !item.costMax.trim()) {
     missing.push("cost range");
   }
+  if (!item.costNotEstimated) {
+    const values = [item.costMin, item.costMax].filter(v => v.trim());
+    if (values.some(v => !/^\d+(\.\d{1,2})?$/.test(v.trim()) || !Number.isFinite(Number(v)))) {
+      missing.push("valid non-negative cost amounts");
+    } else if (item.costMin.trim() && item.costMax.trim() && Number(item.costMin) > Number(item.costMax)) {
+      missing.push("cost maximum at least as large as minimum");
+    }
+  }
   return missing;
 }
 
@@ -198,6 +208,7 @@ export interface Signoff {
   licenseExpiry: string;
   organisation: string;
   signedAt: string | null;
+  partialAssessmentReason?: string;
 }
 
 export const EMPTY_SIGNOFF: Signoff = {
@@ -232,6 +243,10 @@ export function assessSignoffReadiness(args: {
   requiredAssessed: number;
   requiredTotal: number;
   unableToAssessCount: number;
+  observedCount?: number;
+  criticalFindings?: readonly { key: string; disposition?: string }[];
+  findingKeys?: readonly string[];
+  unexplainedExclusions?: number;
   today?: Date;
 }): SignoffReadiness {
   const { signoff, plan, requiredAssessed, requiredTotal, unableToAssessCount } = args;
@@ -242,6 +257,22 @@ export function assessSignoffReadiness(args: {
 
   if (!signoff.assessorName.trim()) blockers.push("Assessor name is required.");
   if (!signoff.credentials.trim()) blockers.push("Professional credentials are required.");
+  if ((args.observedCount ?? requiredAssessed - unableToAssessCount) <= 0) {
+    blockers.push("Assess at least one item before finalising a report.");
+  }
+  if (requiredAssessed < requiredTotal && !signoff.partialAssessmentReason?.trim()) {
+    blockers.push("Explain the scope and reason for this partial assessment.");
+  }
+  if (args.unexplainedExclusions) blockers.push("Give a reason for each N/A or unable-to-assess item.");
+  for (const finding of args.criticalFindings ?? []) {
+    if (!finding.disposition?.trim() && !plan.some((p) => p.linkedFindings.includes(finding.key))) {
+      blockers.push("Every critical finding needs a linked action or a documented clinical disposition.");
+      break;
+    }
+  }
+  if (args.findingKeys && plan.some(p => p.linkedFindings.some(k => !args.findingKeys!.includes(k)))) {
+    blockers.push("Review action links to findings that were removed or changed.");
+  }
 
   if (signoff.licenseExpiry) {
     const expiry = new Date(`${signoff.licenseExpiry}T23:59:59`);

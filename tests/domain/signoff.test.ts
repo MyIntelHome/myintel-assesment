@@ -22,6 +22,7 @@ const validSignoff: Signoff = {
   ...EMPTY_SIGNOFF,
   assessorName: "Jane Smith",
   credentials: "OTR/L, CAPS",
+  partialAssessmentReason: "Limited visit covering the accessible ground floor; remaining rooms need a follow-up.",
 };
 
 function completeItem(over: Partial<PlanItem> = {}): PlanItem {
@@ -39,6 +40,11 @@ function completeItem(over: Partial<PlanItem> = {}): PlanItem {
 const base = { requiredAssessed: 10, requiredTotal: 10, unableToAssessCount: 0 };
 
 describe("recommendation validation", () => {
+  it("rejects negative, non-numeric and reversed cost estimates", () => {
+    for (const costMin of ["-1", "free", "Infinity", "1e5"]) expect(validatePlanItem(completeItem({costMin}))).toContain("valid non-negative cost amounts");
+    expect(validatePlanItem(completeItem({costMin:"401",costMax:"400"}))).toContain("cost maximum at least as large as minimum");
+    expect(validatePlanItem(completeItem({costMin:"0",costMax:"10.50"}))).toEqual([]);
+  });
   it("accepts a fully specified recommendation", () => {
     expect(validatePlanItem(completeItem())).toEqual([]);
   });
@@ -138,6 +144,12 @@ describe("assessment gaps are disclosed, not blocking", () => {
       unableToAssessCount: 0,
     });
     expect(r.warnings.join(" ")).toContain("No spaces");
+    expect(r.canSign).toBe(false);
+  });
+  it("requires a scope explanation for partial assessments", () => {
+    const r = assessSignoffReadiness({signoff:{...validSignoff,partialAssessmentReason:""},plan:[],requiredAssessed:1,requiredTotal:10,unableToAssessCount:0});
+    expect(r.canSign).toBe(false);
+    expect(r.blockers.join(" ")).toContain("scope");
   });
 });
 

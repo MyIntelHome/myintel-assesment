@@ -27,8 +27,8 @@ export function AudienceGate({ api }: { api: CaseApi }) {
             <p className="gate-eyebrow">For a resident or family member</p>
             <h2>Home safety check</h2>
             <p>
-              A simple walk-through of the home in plain language, one room at a time. About ten
-              minutes. No clinical training needed.
+              A simple walk-through of the home in plain language, one room at a time.
+              Take it at your own pace. No clinical training needed.
             </p>
             <ul>
               <li>A handful of questions per room</li>
@@ -55,13 +55,9 @@ export function AudienceGate({ api }: { api: CaseApi }) {
               <button type="button" className="btn" onClick={() => start("standard_ot")}>
                 Standard OT assessment
               </button>
-              <button type="button" className="btn-sm" onClick={() => start("myintel")}>
-                MyIntel assessment
-              </button>
             </div>
             <p className="gate-note">
-              Both are clinically identical. MyIntel mode additionally surfaces MyIntel and Talius
-              product options; Standard stays vendor-neutral throughout.
+              Recommendations are vendor-neutral. Cases are saved on this device; shared accounts and cloud recovery are not available in this version.
             </p>
           </section>
         </div>

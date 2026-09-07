@@ -27,9 +27,9 @@ export function IntakeStep({ api }: { api: CaseApi }) {
     <>
       <h1 className="step-title">Client context</h1>
       <p className="step-sub">
-        Background that shapes clinical judgement. No name, date of birth, or address is collected —
-        the client&rsquo;s identity stays in your own records.
+        Background that shapes clinical judgement. Keep client names and contact details in your own records.
       </p>
+      <p className="hint">Do not put client names, addresses or contact details in case references or notes. Free text is not automatically redacted. This version saves work on this device only.</p>
 
       <section className="panel">
         <h2>About the client</h2>

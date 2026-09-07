@@ -24,7 +24,7 @@ export const FAMILY_GUIDANCE: Readonly<Record<string, Guidance>> = {
   // ── Front door ────────────────────────────────────────────
   e1: {
     why: "A raised lip at a doorway is one of the most common places people catch a toe, especially carrying something.",
-    helps: "A small threshold ramp costs very little and removes the step entirely.",
+    helps: "Ask an OT whether a threshold ramp fits this doorway and the resident's needs. Check fit and cost before buying.",
     weight: 2,
   },
   e2: {
@@ -118,12 +118,12 @@ export const FAMILY_GUIDANCE: Readonly<Record<string, Guidance>> = {
   },
   k5: {
     why: "Smoke alarms are easy to forget about, and a dead battery gives no warning at all.",
-    helps: "Test it this week. Ten-year sealed alarms remove the battery problem entirely.",
+    helps: "Follow the alarm maker's testing and replacement instructions. Ask about sealed-battery options when replacing an alarm.",
     weight: 3,
   },
   k6: {
     why: "Chopping and reading labels in poor light leads to cuts and mistakes with medication.",
-    helps: "Stick-on LED strips under the cabinets are inexpensive and need no wiring.",
+    helps: "Under-cabinet lighting may help. Compare battery-powered and professionally installed options for this space.",
     weight: 2,
   },
   k7: {
@@ -145,7 +145,7 @@ export const FAMILY_GUIDANCE: Readonly<Record<string, Guidance>> = {
   },
   s3: {
     why: "When every step looks the same, it's easy to misjudge the last one. This is a very common fall.",
-    helps: "Contrast tape along each step edge makes them read clearly, and costs very little.",
+    helps: "Ask an OT about marking step edges with a suitable contrasting material that will not create a trip hazard.",
     weight: 2,
   },
   s4: {
@@ -256,7 +256,7 @@ export const FAMILY_GUIDANCE: Readonly<Record<string, Guidance>> = {
   },
   ex2: {
     why: "The walk from the car to the door in the dark is done daily, often carrying things.",
-    helps: "Solar path lights are cheap and need no wiring at all.",
+    helps: "Check whether path lighting stays bright enough throughout the night. Compare options and installation costs.",
     weight: 2,
   },
   ex3: {

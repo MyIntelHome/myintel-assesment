@@ -38,6 +38,7 @@ export interface ReportRoom {
   readonly entries: readonly ReportEntry[];
   /** Questions answered the reassuring way. Shown as a count, not a list. */
   readonly clearCount: number;
+  readonly unansweredCount: number;
 }
 
 export interface FamilyReport {
@@ -102,7 +103,8 @@ export function buildFamilyReport(
     }
 
     entries.sort((a, b) => rank(b) - rank(a));
-    rooms.push({ spaceId: space.id, spaceLabel: space.label, entries, clearCount });
+    const unansweredCount = familyItemsFor(space.template).filter(i => !answers[familyKey(space.id, i.code)]).length;
+    rooms.push({ spaceId: space.id, spaceLabel: space.label, entries, clearCount, unansweredCount });
   }
 
   const flaggedCount = all.filter((e) => !e.uncertain).length;
@@ -116,7 +118,7 @@ export function buildFamilyReport(
     unsureCount,
     answeredCount,
     totalCount,
-    headline: headlineFor(flaggedCount, unsureCount, answeredCount),
+    headline: headlineFor(flaggedCount, unsureCount, answeredCount, totalCount),
   };
 }
 
@@ -151,15 +153,18 @@ export function topPriorities(
  * Deliberately plain. "You have 6 hazards" would be a clinical claim we have
  * no basis for; "your home is safe" would be worse. Both are avoided.
  */
-function headlineFor(flagged: number, unsure: number, answered: number): string {
+function headlineFor(flagged: number, unsure: number, answered: number, total: number): string {
   if (answered === 0) return "Nothing answered yet.";
+  const coverage = answered < total ? ` ${total - answered} questions remain unanswered. These results cover only your answers so far.` : "";
   if (flagged === 0 && unsure === 0) {
-    return "You didn't flag anything as you went through. That's a good sign, though it isn't a professional assessment.";
+    return answered < total
+      ? `No concerns reported in the questions answered.${coverage}`
+      : "No concerns reported in your answers. This isn't a professional assessment; other hazards may exist.";
   }
   const bits: string[] = [];
   if (flagged > 0) bits.push(`${flagged} thing${flagged === 1 ? "" : "s"} worth a closer look`);
   if (unsure > 0) bits.push(`${unsure} you weren't sure about`);
-  return `You came out with ${bits.join(", and ")}.`;
+  return `You noted ${bits.join(", and ")}.${coverage}`;
 }
 
 // ─── Contact details ────────────────────────────────────────────────────────
@@ -222,8 +227,9 @@ export function reportToPlainText(report: FamilyReport, contactName?: string): s
   lines.push("");
 
   for (const room of report.rooms) {
-    if (room.entries.length === 0) continue;
     lines.push(`--- ${room.spaceLabel} ---`);
+    if (room.unansweredCount) lines.push(`${room.unansweredCount} questions not answered.`);
+    if (!room.entries.length) lines.push(room.unansweredCount ? "No concerns reported in the answers provided; this room is not fully checked." : "No concerns reported in the answers provided.");
     for (const entry of room.entries) {
       lines.push(`* ${entry.question}`);
       lines.push(`  Answered: ${entry.uncertain ? "Not sure" : entry.answer === "yes" ? "Yes" : "No"}`);
@@ -252,11 +258,18 @@ export function buildShareMailto(
   contactName?: string,
 ): string {
   const subject = "Home safety self-check";
-  const full = reportToPlainText(report, contactName);
-  const body =
-    full.length > MAILTO_BODY_LIMIT
-      ? `${full.slice(0, MAILTO_BODY_LIMIT)}\n\n[Report continues — the full version is attached or printed separately.]`
-      : full;
+  // A deliberately short summary, with completeness and limitations before
+  // detail. A mailto cannot attach a document or confirm that mail was sent.
+  const lines = ["HOME SAFETY SELF-CHECK — EMAIL SUMMARY", "Not a professional assessment.",
+    `Questions answered: ${report.answeredCount} of ${report.totalCount}.`, report.headline];
+  if (contactName?.trim()) lines.push(`Completed by: ${contactName.trim().slice(0,80)}`);
+  lines.push("", "Items to discuss:");
+  for (const entry of report.priority.slice(0,3)) {
+    lines.push(`• ${entry.spaceLabel.slice(0,60)}: ${entry.question.slice(0,160)} (${entry.uncertain ? "Not sure" : entry.answer === "yes" ? "Yes" : "No"})`);
+  }
+  if (!report.priority.length) lines.push("No concerns reported in the answers provided.");
+  lines.push("", "This email contains a summary only. To share all findings and room coverage, download the full report from MyIntel and attach it yourself. No file has been attached automatically.");
+  const body = lines.join("\n").slice(0, MAILTO_BODY_LIMIT);
   const to = toEmail.trim();
   return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }

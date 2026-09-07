@@ -52,7 +52,7 @@ export function PlanStep({ api, view }: { api: CaseApi; view: CaseView }) {
                 type="button"
                 className="chip"
                 onClick={() => {
-                  api.addPlanItem(s.title);
+                  api.addPlanItem(s.title, {category:s.category});
                   setPickerOpen(false);
                 }}
               >
@@ -98,6 +98,10 @@ export function PlanStep({ api, view }: { api: CaseApi; view: CaseView }) {
             {missing.length > 0 && (
               <p className="missing">Still needed: {missing.join(", ")}</p>
             )}
+            {item.linkedFindings.some(k=>!view.findings.some(f=>f.key===k)) && <div className="warn">
+              A linked finding was removed or its rating changed. Review whether this action is still needed.
+              <button type="button" className="btn-sm" onClick={()=>api.patchPlanItem(item.id,{linkedFindings:item.linkedFindings.filter(k=>view.findings.some(f=>f.key===k))})}>Remove outdated links</button>
+            </div>}
 
             <label className="stack">
               <span>Why it matters</span>

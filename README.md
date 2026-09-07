@@ -1,54 +1,29 @@
 # MyIntel Assessment Platform
 
-Clinical home safety assessment for occupational therapists. Rebuild of the v1
-prototype as a case-based platform.
+Family home self-check and clinician assessment workspace. The active rebuild is on the platform branch; main contains the older Vite application.
 
-**This build stores no client names, dates of birth, or addresses.** Read
-[`docs/operating-model.md`](docs/operating-model.md) before adding any field
-that could hold an identifier.
+## Development
 
-## Getting started
+Use the committed pnpm lockfile. Run pnpm install --frozen-lockfile, pnpm run dev, pnpm run verify and pnpm run build. CI checks main, platform, improve/* branches and pull requests.
 
-```bash
-npm install
-npm run dev
-```
+## Implemented
 
-Verify everything before committing:
+- Separate family observations and clinician ratings; every clinical item defaults to unknown.
+- Coverage and risk are separate measures. Incomplete family checks disclose unanswered questions.
+- Local multiple-case preservation with exact family room/phase resumption and save indicators.
+- Finalization snapshots, report version selection and draft amendments preserving earlier versions.
+- Empty-assessment, partial-scope, critical-finding and exclusion-reason validation.
+- Finding-to-action drafts, template categories and stale action-link review.
+- Ungated family results, full findings text download and honestly labeled email summaries.
 
-```bash
-npm run verify
-```
+## Current limitations
 
-## Layout
+This version stores cases in this browser profile, with no cloud backup or team access. Export important reports before clearing browser data. The role selector is not authentication. Assessor credentials are self-entered. Local report versions protect against ordinary editing through the app, not device tampering.
 
-```
-src/domain/     Pure domain logic. No I/O, no framework. Exhaustively tested.
-src/seed/       Clinical content: assessment templates and the recommendation library.
-src/app/        Next.js App Router.
-tests/          Vitest. Includes the standing acceptance suite.
-docs/           Operating model and design records.
-```
+Family results require no contact details. Help and sharing buttons open the visitor's email application; MyIntel receives nothing unless they send the email. There is no automated delivery confirmation, CRM queue, booking, billing, product catalog, AI transmission, manifest or service worker.
 
-## Rules that must not regress
+Free text is not automatically de-identified. Avoid client identifiers in notes and references. Read docs/operating-model.md before adding storage, AI or integrations; this build does not establish HIPAA compliance or determine whether a BAA is required.
 
-These are enforced by tests in `tests/`, not by convention:
+## Next release gates
 
-1. Every assessment item defaults to **Unknown**. There is no default positive
-   or negative value anywhere in the system.
-2. **Completeness and risk are separate measures.** An item being assessed says
-   nothing about whether it is safe.
-3. Status is never conveyed by colour alone.
-4. The seed content is **vendor-neutral**. Named products belong in the gated
-   catalog, not the default library.
-5. No identifier is ever persisted, logged, or transmitted.
-
-## Stage progress
-
-- [x] **Stage 0** — Foundations. Project, CI, seeded clinical content, operating model.
-- [ ] Stage 1 — Tenancy, sign-in, case record, autosave, identifier guards.
-- [ ] Stage 2 — Assessment core, completeness and risk engines, findings.
-- [ ] Stage 3 — Mobile, offline, accessibility.
-- [ ] Stage 4 — AI drafting behind an approval gate.
-- [ ] Stage 5 — Action plan, report, sign-off.
-- [ ] Stage 6 — Hardening.
+Desktop browser walkthroughs and automated regression checks are recorded in docs/release-verification-2026-09-07.md. Validate on real mobile devices and assistive technology, and with families and OTs. Select the privacy/identity model before shared records; implement confirmed help-request delivery and assigned follow-through. Do not advertise those capabilities before they work.

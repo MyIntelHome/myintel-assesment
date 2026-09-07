@@ -194,6 +194,13 @@ describe("the report never reassures", () => {
   it("says nothing before any answer is given", () => {
     expect(buildFamilyReport(spaces, {}).headline).toBe("Nothing answered yet.");
   });
+  it("never reassures after one answer while other rooms are unanswered",()=>{
+    const item=familyItemsFor(bathroom)[0]!;
+    const report=buildFamilyReport([...spaces,{id:"stairs",label:"Stairs",template:stairway}],{[familyKey("sp1",item.code)]:item.concernWhen === "yes" ? "no" : "yes"});
+    expect(report.headline).toContain("unanswered");expect(report.headline).not.toContain("good sign");
+    expect(report.rooms[1]!.unansweredCount).toBe(familyItemsFor(stairway).length);
+    expect(reportToPlainText(report)).toContain("questions not answered");
+  });
 
   it("carries the disclaimer into anything shared", () => {
     const report = buildFamilyReport(spaces, allFlagged());
@@ -257,5 +264,9 @@ describe("sharing", () => {
     }
     const link = buildShareMailto("ot@practice.com", buildFamilyReport(many, answers), "Sam");
     expect(link.length).toBeLessThan(8000);
+    const body=new URL(link).searchParams.get("body")!;
+    expect(body).toContain("SUMMARY");expect(body).toContain("Questions answered");
+    expect(body).toContain("No file has been attached automatically");
+    expect(body).not.toContain("attached or printed separately");
   });
 });
