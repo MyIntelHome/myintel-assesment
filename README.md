@@ -1,29 +1,29 @@
 # MyIntel Assessment Platform
 
-Family home self-check and clinician assessment workspace. The active rebuild is on the platform branch; main contains the older Vite application.
+A guided home check for families, a clinician assessment workspace, and account-backed professional service requests. This private review retains the Next.js assessment front end and adds a Cloudflare Worker API with a D1 database.
 
-## Development
+## Development and verification
 
-Use the committed pnpm lockfile. Run pnpm install --frozen-lockfile, pnpm run dev, pnpm run verify and pnpm run build. CI checks main, platform, improve/* branches and pull requests.
+Use the committed pnpm lockfile. Run `pnpm install --frozen-lockfile`, `pnpm run typecheck`, `pnpm test`, and `pnpm run build`. The build emits static front-end assets and a Worker in `dist`. Drizzle schema migrations are committed under `drizzle`.
+
+`pnpm dev` runs the Next.js front end. It does not emulate the hosted account API: use the explicit device-draft fallback for local interface review. API integration tests use isolated SQLite databases; they never contact a live payment service. Hosted identity is supplied by the Sites dispatcher, never by client-submitted roles. Do not expose this Worker outside that trusted dispatcher without replacing its authentication adapter.
 
 ## Implemented
 
-- Separate family observations and clinician ratings; every clinical item defaults to unknown.
-- Coverage and risk are separate measures. Incomplete family checks disclose unanswered questions.
-- Local multiple-case preservation with exact family room/phase resumption and save indicators.
-- Finalization snapshots, report version selection and draft amendments preserving earlier versions.
-- Empty-assessment, partial-scope, critical-finding and exclusion-reason validation.
-- Finding-to-action drafts, template categories and stale action-link review.
-- Ungated family results, full findings text download and honestly labeled email summaries.
+- One question at a time, explicit Next/Back, optional hints, skipped-question disclosure, saved room/question position, and ungated family results.
+- Separate clinician ratings and family observations, clinical sign-off blockers, linked actions, preserved report versions and amendments.
+- Account-owned assessment archives with revision checks, serialized saving, retry feedback, and conflict protection. Guest drafts remain explicitly device-local.
+- My assessments, account navigation, optional import of device drafts from the same site/browser, and account-required professional inquiries.
+- Confirmed inquiry receipts, a client request center, and an owner-only operations queue.
+- Manually reviewed professional records; proposals require a matching service, scope and price. Clients must accept the current quote version.
+- Disabled-by-default Stripe Checkout integration with server-side pricing and signed, amount/session/version-checked webhook handling.
 
-## Current limitations
+## Review boundaries
 
-This version stores cases in this browser profile, with no cloud backup or team access. Export important reports before clearing browser data. The role selector is not authentication. Assessor credentials are self-entered. Local report versions protect against ordinary editing through the app, not device tampering.
+The private preview uses ChatGPT sign-in and example information. Consumer email/password or other public sign-in is not implemented. The Vercel production app has not been changed by this preview.
 
-Family results require no contact details. Help and sharing buttons open the visitor's email application; MyIntel receives nothing unless they send the email. There is no automated delivery confirmation, CRM queue, booking, billing, product catalog, AI transmission, manifest or service worker.
+Payments are not activated. Both Stripe secrets and a trusted app origin are required. Before activation, validate test-mode Checkout, webhook reachability through the deployment access policy, expired-session recovery, cancellation/refund terms and the merchant model. A private access gate may prevent Stripe reaching the webhook; do not enable payments until the chosen hosting path supports verified delivery. Redirects never mark a request paid.
 
-Free text is not automatically de-identified. Avoid client identifiers in notes and references. Read docs/operating-model.md before adding storage, AI or integrations; this build does not establish HIPAA compliance or determine whether a BAA is required.
+Professionals are not prepopulated. MyIntel must verify credentials, service area and listing consent before adding anyone. Requests appear in the operations queue; email/SMS alerts, automatic matching, availability and confirmed booking are not connected. Assessment records are not automatically shared with providers or MyIntel staff.
 
-## Next release gates
-
-Desktop browser walkthroughs and automated regression checks are recorded in docs/release-verification-2026-09-07.md. Validate on real mobile devices and assistive technology, and with families and OTs. Select the privacy/identity model before shared records; implement confirmed help-request delivery and assigned follow-through. Do not advertise those capabilities before they work.
+See `docs/operating-model.md` and `docs/release-verification-2026-09-08.md` for current data handling, tested behavior and release limits. This implementation does not establish clinical validation, HIPAA compliance, organization tenancy, monitoring, or a complete installable/offline PWA.

@@ -29,7 +29,7 @@ export function IntakeStep({ api }: { api: CaseApi }) {
       <p className="step-sub">
         Background that shapes clinical judgement. Keep client names and contact details in your own records.
       </p>
-      <p className="hint">Do not put client names, addresses or contact details in case references or notes. Free text is not automatically redacted. This version saves work on this device only.</p>
+      <p className="hint">Use example information in this private review. Keep client names, addresses and contact details out of references and notes. Free text is not automatically redacted. Work saves to {api.storageKind==="account"?"your account":"this device only"}.</p>
 
       <section className="panel">
         <h2>About the client</h2>

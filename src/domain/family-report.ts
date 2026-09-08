@@ -163,7 +163,7 @@ function headlineFor(flagged: number, unsure: number, answered: number, total: n
   }
   const bits: string[] = [];
   if (flagged > 0) bits.push(`${flagged} thing${flagged === 1 ? "" : "s"} worth a closer look`);
-  if (unsure > 0) bits.push(`${unsure} you weren't sure about`);
+  if (unsure > 0) bits.push(`${unsure} ${unsure===1?"item":"items"} you weren't sure about`);
   return `You noted ${bits.join(", and ")}.${coverage}`;
 }
 

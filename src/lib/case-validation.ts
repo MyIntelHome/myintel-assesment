@@ -39,5 +39,5 @@ export const savedCaseSchema = clinical.extend({
   id:text, audience:z.enum(["unchosen","clinician","family"]),mode:z.enum(ASSESSMENT_MODES),
   intake:intake.partial(),signoff:signoff.partial(),reportVersions:z.array(version),
   familyAnswers:z.record(text,z.enum(FAMILY_ANSWERS)),updatedAt:text.nullable(),
-  familyPosition:z.object({phase:z.enum(["welcome","rooms","room","milestone","contact","report"]),roomIndex:z.number().int().nonnegative()}),
+  familyPosition:z.object({phase:z.enum(["welcome","rooms","room","milestone","contact","report"]),roomIndex:z.number().int().nonnegative(),questionIndex:z.number().int().nonnegative().optional()}),
 }).partial();

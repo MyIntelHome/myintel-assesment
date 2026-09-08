@@ -1,41 +1,41 @@
-# Operating model — current local assessment build
+# MyIntel private review operating model
 
-Status: implementation description, not a legal determination. Updated September 7, 2026.
+Updated September 8, 2026. This describes implementation, not a legal determination.
 
-## What actually happens
+## Identity and records
 
-Cases, family observations, clinician free text, assessor details and report snapshots are stored in localStorage in the current browser profile. The archive is myintel.cases.v1. Existing myintel.case.v3 records are migrated on first use and retained as legacy data. No server synchronization, analytics carrying case contents or outbound AI is implemented in this branch.
+The hosted preview identifies visitors using the Sites dispatcher's trusted authenticated-user ID and email headers. A missing identity cannot read/write account assessments or service requests. Every assessment operation is owner-scoped. The verified site owner's configured email grants operations access on the server; a browser role flag does not grant access.
 
-Contact details are no longer required to view results. The old myintel.family.contact.v1 key is removed on startup. Legacy contact fields are omitted from the new archive. Existing report exports or emails outside the app are not deleted by this migration.
+Account assessment archives, service requests, reviewed providers and request/payment events are stored in D1. Assessment archives are private to their owner through the app API. The MyIntel operations API exposes service requests and provider records, not clinical assessment archives. Infrastructure administration still requires appropriate controls.
 
-The family result and clinician case still share local observations through an explicit audience choice on the same device. This is not an authenticated clinical handoff or a shared-device access boundary.
+Guest checks use this browser's localStorage. Existing device drafts on the same origin can be explicitly copied into an account; signing in does not silently import them. Original drafts remain. Vercel-origin browser storage cannot be read by the separate Sites preview. No cross-site migration is claimed.
 
-## Free text and identity
+Account saves are serialized with revision checks. Concurrent writes or changed accounts pause saving and preserve the current draft for download. Network failures show an unsaved state and permit retries. This is not offline synchronization. Do not clear or close unsaved work.
 
-Client names, dates of birth and addresses are not requested as intake fields. However, free-text notes and case references can contain identifiers. They are NOT automatically scrubbed. The initials/year reference pattern is a warning, not a comprehensive de-identification control or a guarantee that identifiers cannot be saved.
+## Data minimization and reports
 
-The optional client name used for report export is held in component memory and added to that export. It is not saved in the report snapshot. Printed/downloaded documents can contain the name, and the clinician controls their delivery and retention.
+Use example information in the private review. Free-text notes and references are not automatically de-identified. Client identity for optional export is held in component memory and not added to the saved report snapshot. Exported documents may contain it and require appropriate handling.
 
-Do not describe this implementation as enforcing “no identifiers ever stored” or operating without a BAA as an established fact. HHS provides Safe Harbor and Expert Determination methods; legal applicability depends on actual data, parties and use. Review the complete intended operating model with qualified counsel before a clinical launch or cloud storage expansion.
+Family answers and clinical ratings remain separate. Finalization preserves a snapshot of report data and wording, template versions, attestation and time. Existing historical snapshots cannot be removed or changed through the account-save API. Amendments retain history. These controls are not independently verified clinician identity, cryptographic signing, a certified clinical instrument or a comprehensive access-audit system.
 
-https://www.hhs.gov/hipaa/for-professionals/special-topics/de-identification/index.html
+No outbound AI or partner monitoring is connected.
 
-## Reports and local preservation
+## Professional requests
 
-A new finalization records a copy of the clinical case data, the derived report findings and wording, the attestation, template versions and signature time. It does not include family contact details. An amendment retains existing versions. A legacy timestamp without a historical snapshot is reopened as a draft for review; historical content is never fabricated.
+Submitting an inquiry requires sign-in, a service choice, contact name, US ZIP code, contact preference, relationship and contact consent. A phone number is required for callbacks. Email comes from authenticated identity. Assessment answers and report contents are not attached to an inquiry.
 
-These are local software version controls, not identity verification, a server audit trail or cryptographic protection against device access. Assessor credentials are self-entered. No clinician account authentication is implemented.
+The server records a receipt and deduplicates retries using the request ID. Clients can see their own requests; configured MyIntel staff can review requests in operations. No automatic emails/SMS are sent. Staff must check the queue and arrange follow-up.
 
-Starting another case preserves earlier cases in the local archive. Save failures and detected changes from another tab pause or warn rather than silently overwriting work. localStorage is not a synchronized database or a cloud backup, and the app cannot recover work after browser-profile deletion. Multi-tab detection is best-effort; do not edit the same case in multiple tabs.
+Provider listings are entered only after manual MyIntel review of credentials, service area and listing permission. There are no seeded professionals or claims of automatic credential verification. A proposal requires a reviewed professional for that service, scope and USD price. Acceptance binds the current quote version. Scheduling is not confirmed merely by an inquiry, proposal or acceptance.
 
-## Sharing and requests for help
+## Payment foundation
 
-Email buttons open a summary in the user's own email client. Opening the draft is not sending it. No appointment, delivery or MyIntel receipt is confirmed. A full findings text download and browser print export are available for manual attachment. The app never claims an attachment was added automatically.
+Payments are disabled until runtime configuration and operational testing are complete. Checkout takes the amount from the accepted server-side proposal. Card data is handled by Stripe's hosted page. Only a valid signed webhook whose session, amount, currency and quote version match can mark payment received. Return URLs alone have no payment authority.
 
-A household that sends its findings to MyIntel creates a separate information-handling activity outside this local application. Establish the applicable privacy notice, retention, consent and response process before scaling it. Consumer versus clinical labeling by itself is not a legal conclusion about HIPAA or other obligations.
+Before enabling: establish the merchant/service model and terms, verify Stripe test-mode success/failure and webhook delivery on the chosen hosting policy, implement and exercise expired Checkout recovery, and validate refund/cancellation handling. The owner-private preview is not a live payment launch.
 
-## Required before shared service operations
+## Public launch requirements
 
-Select the identity/privacy model; implement authenticated access, tenant isolation and appropriate retention; arrange applicable agreements and subcontractor controls; add trustworthy request delivery and assignment; establish clinical content review and provider verification. Add emergency-response commitments only when a defined service and responsible responder exist.
+Select and implement family-facing authentication suitable for the public app; confirm real-device and assistive-technology usability with seniors/families/OTs; review clinical content and the actual healthcare data flow; arrange applicable privacy, retention, contractual and security controls; onboard real professionals and define response ownership.
 
-No backend, payment provider, database, AI endpoint or monitoring integration is configured by these local workflow changes.
+Organization memberships, clinician credential verification, delegated family access, automated provider matching, appointment availability, request alerts, payment refunds, device monitoring and cross-site data migration are outside this implemented preview.

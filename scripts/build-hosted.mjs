@@ -1,0 +1,13 @@
+import {spawnSync} from 'node:child_process';
+import {createRequire} from 'node:module';
+import {mkdir,cp,rm} from 'node:fs/promises';
+import {build} from 'esbuild';
+const require=createRequire(import.meta.url);
+const result=spawnSync(process.execPath,[require.resolve('next/dist/bin/next'),'build'],{stdio:'inherit'});
+if(result.status!==0)process.exit(result.status??1);
+await rm('dist',{recursive:true,force:true});
+await mkdir('dist/server',{recursive:true});await mkdir('dist/.openai',{recursive:true});
+await cp('out','dist/client',{recursive:true});
+await cp('.openai/hosting.json','dist/.openai/hosting.json');
+await cp('drizzle','dist/.openai/drizzle',{recursive:true});
+await build({entryPoints:['worker/index.ts'],outfile:'dist/server/index.js',bundle:true,format:'esm',platform:'browser',target:'es2022',minify:true});

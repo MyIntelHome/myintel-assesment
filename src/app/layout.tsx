@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./workspace.css";
+import "@/components/FamilyFlow.css";
 
 export const metadata: Metadata = {
   title: "MyIntel Assessment Platform",
-  description: "Clinical home safety assessment for occupational therapists.",
+  description: "Guided home checks, clinician assessments and a clear path to professional support.",
   robots: { index: false, follow: false },
 };
 

@@ -1,11 +1,8 @@
 "use client";
 
 /**
- * Case state with local persistence.
- *
- * Deliberately behind a narrow interface. Stage 1 replaces the storage
- * backend with Postgres and the sync outbox; the UI should not need to
- * change, because it only ever talks to the hook below.
+ * Case state with owner-scoped account persistence or explicit device drafts.
+ * Account saves are serialized and revision-checked; conflicts preserve the draft.
  *
  * Case references and free text are entered by users. No automatic
  * de-identification is claimed; see docs/operating-model.md.
@@ -35,7 +32,7 @@ const STORAGE_KEY = "myintel.case.v3";
 const CONTACT_KEY = "myintel.family.contact.v1";
 const ARCHIVE_KEY = "myintel.cases.v1";
 
-export interface FamilyPosition { phase: "welcome" | "rooms" | "room" | "milestone" | "contact" | "report"; roomIndex: number }
+export interface FamilyPosition { phase: "welcome" | "rooms" | "room" | "milestone" | "contact" | "report"; roomIndex: number; questionIndex?: number }
 
 /** Which experience the user is in. Chosen on entry, changeable at any time. */
 export type Audience = "unchosen" | "clinician" | "family";
@@ -154,7 +151,8 @@ export function preserveCase(cases: readonly CaseState[], state: CaseState, upda
 
 export type SaveState = "idle" | "saving" | "saved" | "error";
 
-export function useCase() {
+export function useCase(options?: {userId:string}) {
+  const userId=options?.userId;
   const [state, setState] = useState<CaseState>(EMPTY_CASE);
   const [hydrated, setHydrated] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -163,12 +161,28 @@ export function useCase() {
   const [storageProblem,setStorageProblem] = useState("");
   const archiveRef = useRef<CaseState[]>([]);
   const revisionRef = useRef<string | null>(null);
+  const cloudRevision = useRef(0);
+  const generationRef = useRef(0);
+  const queueRef = useRef<Promise<void>>(Promise.resolve());
+  const cloudBlocked = useRef(false);
+  const [retryTick,setRetryTick] = useState(0);
 
   const updateDraft = useCallback((change: (s: CaseState) => CaseState) => {
     setState(s => s.signoff.signedAt ? s : change(s));
   }, []);
 
   useEffect(() => {
+    if(userId){
+      let live=true;
+      fetch("/api/cases",{cache:"no-store"}).then(async r=>{if(!r.ok)throw new Error("Account unavailable");return r.json()}).then(data=>{
+        if(!live)return;
+        const saved=data.archive?readArchive(JSON.stringify(data.archive)):{cases:[] as CaseState[],activeId:undefined};
+        cloudRevision.current=data.revision;
+        archiveRef.current=saved.cases;setCases(saved.cases);
+        setState(saved.cases.find(c=>c.id===saved.activeId)??normalise({}));setHydrated(true);
+      }).catch(()=>{if(live){setStorageProblem("We could not load your account. Your saved assessments have not been changed. Try again when your connection is available.");setSaveState("error");setHydrated(true);cloudBlocked.current=true;}});
+      return ()=>{live=false};
+    }
     try {
       const raw = window.localStorage.getItem(ARCHIVE_KEY);
       revisionRef.current = raw;
@@ -183,9 +197,10 @@ export function useCase() {
       setStorageProblem("Saved cases could not be read, or storage is unavailable. Existing records have not been overwritten. Reopen the original browser profile or contact support before clearing browser data.");
     }
     setHydrated(true);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
+    if(userId)return;
     const changed = (event: StorageEvent) => {
       if ((event.key === ARCHIVE_KEY || event.key === null) && event.newValue !== revisionRef.current) {
         setStorageConflict(true); setSaveState("error");
@@ -193,17 +208,36 @@ export function useCase() {
     };
     window.addEventListener("storage", changed);
     return () => window.removeEventListener("storage", changed);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (!hydrated || storageConflict) return;
+    if(userId){
+      if(cloudBlocked.current)return;
+      const generation=++generationRef.current;
+      setSaveState("saving");
+      const timer=setTimeout(()=>{
+        queueRef.current=queueRef.current.then(async()=>{
+          if(generation!==generationRef.current || cloudBlocked.current)return;
+          const list=preserveCase(archiveRef.current,state,new Date().toISOString());
+          try{
+            const r=await fetch("/api/cases",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({ownerId:userId,revision:cloudRevision.current,archive:{activeId:state.id,cases:list}})});
+            const data=await r.json();
+            if(!r.ok){if(r.status===409 || r.status===403){cloudBlocked.current=true;setStorageConflict(true);}throw new Error(data.error??"Save failed");}
+            cloudRevision.current=data.revision;archiveRef.current=list;setCases(list);
+            if(generation===generationRef.current)setSaveState("saved");
+          }catch{setSaveState("error");}
+        });
+      },600);
+      return ()=>clearTimeout(timer);
+    }
     setSaveState("saving");
     let pending = true;
     const persist = () => {
       if (!pending) return;
       pending = false;
       try {
-        // Remove legacy contact fields. No cloud synchronization is implemented.
+        // Device-draft branch: remove legacy contact fields before local storage.
         const { familyContact, ...caseOnly } = state;
         void familyContact;
         if (window.localStorage.getItem(ARCHIVE_KEY) !== revisionRef.current) {
@@ -225,7 +259,24 @@ export function useCase() {
     // Flush the latest committed edit when leaving instead of losing the debounce window.
     window.addEventListener("pagehide", persist);
     return () => { clearTimeout(t); window.removeEventListener("pagehide", persist); };
-  }, [state, hydrated, storageConflict]);
+  }, [state, hydrated, storageConflict,userId,retryTick]);
+
+  useEffect(()=>{
+    if(!userId || saveState==="saved" || !hydrated)return;
+    const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue="";};
+    window.addEventListener("beforeunload",warn);return ()=>window.removeEventListener("beforeunload",warn);
+  },[userId,saveState,hydrated]);
+
+  const importLocal = useCallback(()=>{
+    if(!userId || saveState!=="saved")return;
+    try{
+      const raw=localStorage.getItem(ARCHIVE_KEY);
+      const local=raw?readArchive(raw).cases:localStorage.getItem(STORAGE_KEY)?[load()]:[];
+      if(!local.length)return;
+      const imported=local.map(c=>({...c,id:newId("case")}));
+      archiveRef.current=[...archiveRef.current,...imported];setState(imported[0]!);
+    }catch{setStorageProblem("These device drafts could not be read. The original records have not been changed.");}
+  },[userId,saveState]);
 
   const setReference = useCallback((reference: string) => {
     updateDraft((s) => ({ ...s, reference }));
@@ -370,6 +421,9 @@ export function useCase() {
     cases,
     storageConflict,
     storageProblem,
+    storageKind:userId ? "account" as const : "device" as const,
+    retrySave:()=>setRetryTick(n=>n+1),
+    importLocal,
     openCase,
     setFamilyPosition,
     setReference,

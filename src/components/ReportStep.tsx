@@ -43,7 +43,7 @@ export function ReportStep({ api, view: currentView }: { api: CaseApi; view: Cas
       <div className="no-print">
         <h1 className="step-title">Report</h1>
         <p className="step-sub">
-          Preview below. The client&rsquo;s name is added at export and is never stored or transmitted.
+          Preview below. An optional client name is added only to the export, not to your saved assessment.
         </p>
         {api.state.reportVersions.length > 0 && <label className="stack">
           <span>Report version</span>
@@ -289,7 +289,7 @@ export function ReportStep({ api, view: currentView }: { api: CaseApi; view: Cas
         <footer className="report-foot">
           <h3>Attestation</h3>
           <p>{version?.attestationText ?? ATTESTATION_TEXT}</p>
-          <p className="report-meta">{signed ? "Finalised on this device. " : "Draft for assessor review. "}Assessor credentials are self-entered and have not been independently verified by MyIntel.</p>
+          <p className="report-meta">{signed ? "Finalised in this assessment. " : "Draft for assessor review. "}Assessor credentials are self-entered and have not been independently verified by MyIntel.</p>
           {signed ? (
             <p className="signed">
               Signed by <strong>{signoff.assessorName}</strong>
