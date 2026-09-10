@@ -2,10 +2,13 @@ import { z } from "zod";
 import { requestSchema, serviceSchema } from "../src/domain/services";
 import { savedCaseSchema } from "../src/lib/case-validation";
 import {createCheckout,verifyStripeEvent} from "./stripe";
+import {homePhotoRoute,type PhotoBucket} from "./home-photos";
+import {buildFamilyReport,reportToPlainText} from "../src/domain/family-report";
+import {familyTemplateFor,profileLines} from "../src/domain/home-profile";
 
 export interface Statement {bind(...values:unknown[]):Statement;first<T=Record<string,unknown>>():Promise<T|null>;all<T=Record<string,unknown>>():Promise<{results:T[]}>;run():Promise<{meta:{changes:number}}>}
 export interface Database {prepare(sql:string):Statement;batch(statements:Statement[]):Promise<{meta:{changes:number}}[]>}
-export interface Env {DB:Database;ASSETS:{fetch(request:Request):Promise<Response>};MYINTEL_ADMIN_EMAIL?:string;APP_ORIGIN?:string;STRIPE_SECRET_KEY?:string;STRIPE_WEBHOOK_SECRET?:string}
+export interface Env {DB:Database;BUCKET?:PhotoBucket;ASSETS:{fetch(request:Request):Promise<Response>};MYINTEL_ADMIN_EMAIL?:string;APP_ORIGIN?:string;STRIPE_SECRET_KEY?:string;STRIPE_WEBHOOK_SECRET?:string}
 export function identity(request:Request,env:Env) {
   const id=request.headers.get("oai-authenticated-user-id"),email=request.headers.get("oai-authenticated-user-email");
   if(!id || !email) return null;
@@ -62,6 +65,7 @@ export async function handleApi(request:Request,env:Env):Promise<Response>{
     if(!user)return json({error:"Sign in to continue."},401);
     if(!env.DB)throw new ApiError(503,"Your account service is temporarily unavailable. Your draft is still here.");
     const db=env.DB;
+    const homeResponse=await homePhotoRoute(request,db,env.BUCKET,user);if(homeResponse)return homeResponse;
     if(path==="/api/cases" && method==="GET"){
       const row=await db.prepare("SELECT payload, revision FROM case_archives WHERE user_id=?").bind(user.id).first<{payload:string;revision:number}>();
       return json({archive:row?JSON.parse(row.payload):null,revision:row?.revision??0});
@@ -88,9 +92,21 @@ export async function handleApi(request:Request,env:Env):Promise<Response>{
       const count=await db.prepare("SELECT COUNT(*) AS total FROM service_requests WHERE user_id=? AND created_at>?").bind(user.id,new Date(Date.now()-86400000).toISOString()).first<{total:number}>();
       if((count?.total??0)>=10)throw new ApiError(429,"You have several recent requests. Review My requests before sending another.");
       const now=new Date().toISOString();
+      let sharedHome:string|null=null;
+      if(v.shareAssessment){
+        const archive=await db.prepare("SELECT payload FROM case_archives WHERE user_id=?").bind(user.id).first<{payload:string}>();
+        const cases=archive?JSON.parse(archive.payload).cases:[];
+        const found=cases.find((c:{id:string})=>c.id===v.caseId);
+        const checked=savedCaseSchema.safeParse(found);
+        if(!checked.success || checked.data.audience!=="family" || !checked.data.spaces?.length)throw new ApiError(400,"Save your home check before sharing it. You can also send a request without the check.");
+        const home=checked.data,spaces=home.spaces!;
+        const report=buildFamilyReport(spaces.map(s=>({id:s.id,label:s.level?`${s.label} · Level ${s.level}`:s.label,template:familyTemplateFor(s)})),home.familyAnswers??{});
+        sharedHome=JSON.stringify({rooms:spaces.map(s=>s.label),summary:[...profileLines(home.homeProfile),"",reportToPlainText(report)].join("\n"),savedAt:now});
+      }
       await db.batch([
         db.prepare("INSERT INTO service_requests (id,user_id,email,service,name,postal_code,phone,contact_method,relationship,status,consent_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,'submitted',?,?,?) ON CONFLICT(id) DO NOTHING").bind(v.idempotencyKey,user.id,user.email,v.service,v.name,v.postalCode,v.phone,v.contactMethod,v.relationship,now,now,now),
         db.prepare("INSERT INTO request_events (id,request_id,actor_id,status,created_at) VALUES (?,?,?,'submitted',?) ON CONFLICT(id) DO NOTHING").bind(v.idempotencyKey+":submitted",v.idempotencyKey,user.id,now),
+        ...(sharedHome?[db.prepare("INSERT INTO home_handoffs (request_id,payload,consent_at) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM service_requests WHERE id=? AND user_id=?) ON CONFLICT(request_id) DO NOTHING").bind(v.idempotencyKey,sharedHome,now,v.idempotencyKey,user.id)]:[]),
       ]);
       const created=await db.prepare("SELECT * FROM service_requests WHERE id=? AND user_id=?").bind(v.idempotencyKey,user.id).first();
       if(!created)throw new ApiError(409,"Please refresh this request form.");

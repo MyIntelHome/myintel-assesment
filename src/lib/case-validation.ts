@@ -1,4 +1,5 @@
 import { z } from "zod";
+import {profileSchema} from "@/domain/home-profile";
 import { ASSESSMENT_STATUSES } from "@/domain/status";
 import { FAMILY_ANSWERS } from "@/domain/family";
 import { SPACE_TYPES, ASSESSMENT_MODES, SEVERITIES, LIKELIHOODS, CONSEQUENCES,
@@ -7,7 +8,7 @@ import { SPACE_TYPES, ASSESSMENT_MODES, SEVERITIES, LIKELIHOODS, CONSEQUENCES,
 import { AGE_BANDS, HOUSING_TYPES, CLINICAL_CONCERNS } from "@/domain/case";
 
 const text = z.string();
-const space = z.object({id:text.min(1),type:z.enum(SPACE_TYPES),label:text});
+const space = z.object({id:text.min(1),type:z.enum(SPACE_TYPES),label:text,familyKind:z.literal("half_bath").optional(),level:z.number().int().min(1).max(4).optional()});
 const intake = z.object({ageBand:z.enum(["",...AGE_BANDS]),housingType:z.enum(["",...HOUSING_TYPES]),
   floors:text,livesAlone:z.enum(["","alone","with_others"]),mobilityAids:text,
   fallsLast12Months:text,concerns:z.array(z.enum(CLINICAL_CONCERNS)),concernNotes:text});
@@ -39,5 +40,6 @@ export const savedCaseSchema = clinical.extend({
   id:text, audience:z.enum(["unchosen","clinician","family"]),mode:z.enum(ASSESSMENT_MODES),
   intake:intake.partial(),signoff:signoff.partial(),reportVersions:z.array(version),
   familyAnswers:z.record(text,z.enum(FAMILY_ANSWERS)),updatedAt:text.nullable(),
-  familyPosition:z.object({phase:z.enum(["welcome","rooms","room","milestone","contact","report"]),roomIndex:z.number().int().nonnegative(),questionIndex:z.number().int().nonnegative().optional()}),
+  homeProfile:profileSchema.optional(),
+  familyPosition:z.object({phase:z.enum(["welcome","routine","home","rooms","room","milestone","contact","report"]),roomIndex:z.number().int().nonnegative(),questionIndex:z.number().int().nonnegative().optional()}),
 }).partial();

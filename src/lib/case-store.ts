@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {EMPTY_PROFILE,mergeSuggestedRooms,suggestedRooms,type HomeProfile} from "@/domain/home-profile";
 import { createReportVersion, type ReportVersion } from "@/domain/report-version";
 import { buildCaseView } from "./selectors";
 import { savedCaseSchema } from "./case-validation";
@@ -32,7 +33,7 @@ const STORAGE_KEY = "myintel.case.v3";
 const CONTACT_KEY = "myintel.family.contact.v1";
 const ARCHIVE_KEY = "myintel.cases.v1";
 
-export interface FamilyPosition { phase: "welcome" | "rooms" | "room" | "milestone" | "contact" | "report"; roomIndex: number; questionIndex?: number }
+export interface FamilyPosition { phase: "welcome" | "routine" | "home" | "rooms" | "room" | "milestone" | "contact" | "report"; roomIndex: number; questionIndex?: number }
 
 /** Which experience the user is in. Chosen on entry, changeable at any time. */
 export type Audience = "unchosen" | "clinician" | "family";
@@ -41,6 +42,8 @@ export interface Space {
   readonly id: string;
   readonly type: SpaceType;
   readonly label: string;
+  readonly familyKind?:"half_bath";
+  readonly level?:number;
 }
 
 export interface Response {
@@ -52,6 +55,7 @@ export interface CaseState {
   id: string;
   reportVersions: ReportVersion[];
   familyPosition?: FamilyPosition;
+  homeProfile?:HomeProfile;
   audience: Audience;
   /** Clinician-only: whether MyIntel product content may appear. */
   mode: AssessmentMode;
@@ -415,6 +419,9 @@ export function useCase(options?: {userId:string}) {
   }, []);
 
   return {
+    patchHomeProfile:(patch:Partial<HomeProfile>)=>updateDraft(s=>({...s,homeProfile:{...EMPTY_PROFILE,...s.homeProfile,...patch}})),
+    prepareHomeRooms:()=>updateDraft(s=>({...s,homeProfile:{...EMPTY_PROFILE,...s.homeProfile,confirmed:true},spaces:mergeSuggestedRooms(s.spaces,suggestedRooms(s.homeProfile??EMPTY_PROFILE)),familyPosition:{phase:"rooms",roomIndex:0,questionIndex:0}})),
+    setRoomLevel:(id:string,level:number)=>updateDraft(s=>({...s,spaces:s.spaces.map(room=>room.id===id?{...room,level:level>=1 && level<=4?level:undefined}:room)})),
     state,
     hydrated,
     saveState,

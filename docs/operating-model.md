@@ -22,7 +22,9 @@ No outbound AI or partner monitoring is connected.
 
 ## Professional requests
 
-Submitting an inquiry requires sign-in, a service choice, contact name, US ZIP code, contact preference, relationship and contact consent. A phone number is required for callbacks. Email comes from authenticated identity. Assessment answers and report contents are not attached to an inquiry.
+Submitting an inquiry requires sign-in, a service choice, contact name, US ZIP code, contact preference, relationship and contact consent. A phone number is required for callbacks. Email comes from authenticated identity. Home-check sharing is optional and unchecked by default. With explicit consent, the server attaches a snapshot of the account owner's saved family report, home layout and daily-life answers to the inquiry. Later assessment edits do not change that snapshot. Clinical archives are not attached.
+
+After that request is saved, the owner may share up to six guided room photos. The browser resizes supported images and re-encodes them as JPEG to remove original metadata. Each photo requires a separate sharing confirmation. The server limits file size, format and dimensions, verifies ownership and stores bytes in private R2 storage. Only the owner and configured MyIntel staff can retrieve images through authenticated routes. Owners can remove photos. MyIntel coordinates professional review; the app does not automatically forward reports or images to a professional. A full retention/deletion policy and operational access review remain public-launch work.
 
 The server records a receipt and deduplicates retries using the request ID. Clients can see their own requests; configured MyIntel staff can review requests in operations. No automatic emails/SMS are sent. Staff must check the queue and arrange follow-up.
 

@@ -1,8 +1,10 @@
 "use client";
 
+import {createUuid} from "@/lib/ids";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import "./help.css";
+import {HomeReviewPhotos} from "./HomeReviewPhotos";
 
 export type HelpService =
   | "professional_assessment"
@@ -23,6 +25,7 @@ type User = {
 export type ProfessionalHelpProps = {
   user: User | null;
   initialService?: string;
+  homeCaseId?:string;
   onBack: () => void;
   onRequests: () => void;
 };
@@ -88,6 +91,7 @@ function getErrorMessage(value: unknown, fallback: string): string {
 export default function ProfessionalHelp({
   user,
   initialService,
+  homeCaseId,
   onBack,
   onRequests,
 }: ProfessionalHelpProps) {
@@ -98,6 +102,7 @@ export default function ProfessionalHelp({
   const [phone, setPhone] = useState("");
   const [contactMethod, setContactMethod] = useState<ContactMethod>("email");
   const [relationship, setRelationship] = useState<Relationship>("self");
+  const [shareAssessment,setShareAssessment]=useState(false);
   const [consent, setConsent] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState("");
@@ -193,6 +198,11 @@ export default function ProfessionalHelp({
     setErrors(nextErrors);
     setServerError("");
 
+    if (shareAssessment && !homeCaseId) {
+      setServerError("Wait for your home check to finish saving before sharing it.");
+      return;
+    }
+
     if (Object.keys(nextErrors).length > 0) {
       const firstInvalid = Object.keys(nextErrors)[0];
       window.setTimeout(() => document.getElementById(`help-${firstInvalid}`)?.focus(), 0);
@@ -200,7 +210,7 @@ export default function ProfessionalHelp({
     }
 
     if (!idempotencyKeyRef.current) {
-      idempotencyKeyRef.current = crypto.randomUUID();
+      idempotencyKeyRef.current = createUuid();
     }
 
     setSubmitting(true);
@@ -217,6 +227,7 @@ export default function ProfessionalHelp({
           contactMethod,
           relationship,
           consent: true,
+          ...(shareAssessment && homeCaseId?{caseId:homeCaseId,shareAssessment:true}:{}),
         }),
       });
 
@@ -449,6 +460,7 @@ export default function ProfessionalHelp({
                 {errors.phone && <p id="help-phone-error" className="help-field-error" role="alert">{errors.phone}</p>}
               </div>
 
+              {homeCaseId && <label className="help-consent"><input type="checkbox" checked={shareAssessment} onChange={e=>setShareAssessment(e.target.checked)}/><span>Include my saved home check, home layout and daily-life answers with this request. I agree to share them with MyIntel to coordinate professional review. I can add optional photos after sending.</span></label>}
               <label className={`help-consent${errors.consent ? " has-error" : ""}`}>
                 <input
                   id="help-consent"
@@ -483,6 +495,7 @@ export default function ProfessionalHelp({
             <dl className="help-reference">
               <div><dt>Request reference</dt><dd>{request.id}</dd></div>
             </dl>
+            {shareAssessment && <HomeReviewPhotos requestId={request.id}/>}
             <div className="help-success-actions">
               <button type="button" className="help-button help-button-primary" onClick={onRequests}>View my requests</button>
               <button type="button" className="help-button help-button-secondary" onClick={onBack}>Return home</button>

@@ -25,3 +25,5 @@ export const requestEvents = sqliteTable("request_events", {
 export const paymentEvents = sqliteTable("payment_events", {
   id:text("id").primaryKey(), sessionId:text("session_id").notNull(), createdAt:text("created_at").notNull(),
 }, t=>[uniqueIndex("payment_session_unique").on(t.sessionId)]);
+export const homeHandoffs=sqliteTable("home_handoffs",{requestId:text("request_id").primaryKey(),payload:text("payload").notNull(),consentAt:text("consent_at").notNull()});
+export const homePhotos=sqliteTable("home_photos",{id:text("id").primaryKey(),requestId:text("request_id").notNull(),room:text("room").notNull(),kind:text("kind").notNull(),objectKey:text("object_key").notNull(),ready:integer("ready").notNull().default(0),createdAt:text("created_at").notNull()},t=>[index("photos_request").on(t.requestId)]);

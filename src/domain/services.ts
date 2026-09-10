@@ -11,6 +11,7 @@ export const requestSchema=z.object({
   idempotencyKey:z.string().uuid(),service:serviceSchema,name:z.string().trim().min(2).max(100),
   postalCode:z.string().regex(/^\d{5}$/),phone:z.string().trim().max(30).default(""),
   contactMethod:z.enum(["email","phone"]),relationship:z.enum(["self","family","professional"]),consent:z.literal(true),
+  caseId:z.string().max(100).optional(),shareAssessment:z.boolean().optional(),
 }).refine(v=>v.contactMethod!=="phone" || v.phone.replace(/\D/g,"").length>=10,{message:"Add a phone number for a callback",path:["phone"]});
 export const REQUEST_STATUS={submitted:"Request received",reviewing:"MyIntel is reviewing",quoted:"Your proposal is ready",accepted:"Proposal accepted",paid:"Payment received",completed:"Service completed",cancelled:"Cancelled"} as const;
 export type RequestStatus=keyof typeof REQUEST_STATUS;

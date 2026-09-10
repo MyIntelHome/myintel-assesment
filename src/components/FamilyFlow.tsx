@@ -7,7 +7,6 @@ import {
   familyKey,
   familyProgress,
   groupItemsForFamily,
-  minutesRemaining,
   roomProgress,
   type FamilyAnswer,
 } from "@/domain/family";
@@ -21,7 +20,9 @@ import {
 } from "@/domain/family-report";
 import { SPACE_TYPE_META, type ItemCategory, type SpaceType } from "@/domain/types";
 import type { CaseApi, Space } from "@/lib/case-store";
-import { templateFor } from "@/seed/templates";
+import {familyTemplateFor,profileLines,homeQuestionText} from "@/domain/home-profile";
+import {HomeSetup} from "./HomeSetup";
+import {HomeInsights} from "./HomeInsights";
 
 const ROOM_CHOICES: SpaceType[] = [
   "entry",
@@ -54,7 +55,7 @@ const LOOK_HINT: Record<ItemCategory, string> = {
   reach: "Check the things used most days. Notice any stretching, bending, twisting, or strong gripping needed.",
 };
 
-type Phase = "welcome" | "rooms" | "room" | "milestone" | "contact" | "report";
+type Phase = "welcome" | "routine" | "home" | "rooms" | "room" | "milestone" | "contact" | "report";
 
 type FlowPosition = {
   phase: Phase;
@@ -102,7 +103,7 @@ export function FamilyFlow({
 
   const overall = useMemo(
     () => familyProgress(
-      state.spaces.map((space) => ({ spaceId: space.id, template: templateFor(space.type) })),
+      state.spaces.map((space) => ({ spaceId: space.id, template: familyTemplateFor(space) })),
       state.familyAnswers,
     ),
     [state.spaces, state.familyAnswers],
@@ -110,7 +111,7 @@ export function FamilyFlow({
 
   const report = useMemo(
     () => buildFamilyReport(
-      state.spaces.map((space) => ({ id: space.id, label: space.label, template: templateFor(space.type) })),
+      state.spaces.map((space) => ({ id: space.id, label: space.level ? `${space.label} · Level ${space.level}` : space.label, template: familyTemplateFor(space) })),
       state.familyAnswers,
     ),
     [state.spaces, state.familyAnswers],
@@ -128,7 +129,7 @@ export function FamilyFlow({
   const openRoom = (index: number) => {
     const space = state.spaces[index];
     if (!space) return;
-    const items = groupItemsForFamily(templateFor(space.type)).flatMap((group) => group.items);
+    const items = groupItemsForFamily(familyTemplateFor(space)).flatMap((group) => group.items);
     const firstUnanswered = items.findIndex((item) => !state.familyAnswers[familyKey(space.id, item.code)]);
     setPosition({ phase: "room", roomIndex: index, questionIndex: firstUnanswered < 0 ? 0 : firstUnanswered });
   };
@@ -137,28 +138,7 @@ export function FamilyFlow({
     headingRef.current?.focus({ preventScroll: true });
   }, [phase, roomIndex, questionIndex]);
 
-  if (phase === "welcome") {
-    return (
-      <main className="family-v2 family-v2--centered">
-        <section className="family-v2__card">
-          <p className="family-v2__eyebrow">Home check</p>
-          <h1 ref={headingRef} tabIndex={-1}>A simpler way to look around the home</h1>
-          <p className="family-v2__lead">
-            Choose the rooms you want to check. We&rsquo;ll show one clear question at a time and save your place.
-          </p>
-          <ul className="family-v2__intro-list">
-            <li><Icon name="check" /> Take your time and come back later</li>
-            <li><Icon name="check" /> Choose &ldquo;Not sure&rdquo; whenever you need to</li>
-            <li><Icon name="check" /> See results without signing in</li>
-          </ul>
-          <button className="family-v2__button family-v2__button--primary" type="button" onClick={() => setPosition({ phase: "rooms", roomIndex: 0, questionIndex: 0 })}>
-            Start home check <Icon name="arrow-right" />
-          </button>
-          <p className="family-v2__notice">This home check is not a professional assessment and cannot confirm that a home is safe.</p>
-        </section>
-      </main>
-    );
-  }
+  if (phase === "welcome" || phase === "routine" || phase === "home") return <HomeSetup api={api} step={phase==="home"?"home":"routine"}/>;
 
   if (phase === "rooms") {
     return (
@@ -166,8 +146,8 @@ export function FamilyFlow({
         <FlowHeader percent={overall.percent} label={`${overall.answered} of ${overall.total} answered`} />
         <section className="family-v2__card">
           <p className="family-v2__eyebrow">Set up your check</p>
-          <h1 ref={headingRef} tabIndex={-1}>Which rooms would you like to check?</h1>
-          <p className="family-v2__lead">Add only the rooms you want. You can add more later.</p>
+          <h1 ref={headingRef} tabIndex={-1}>Review your room checklist</h1>
+          <p className="family-v2__lead">Check the rooms and levels below. Start anywhere, and come back when you need to.</p><button className="family-v2__back" onClick={()=>setPhase("routine")}>Edit daily life & home details</button>
 
           <div className="family-v2__room-picker">
             {ROOM_CHOICES.map((type) => (
@@ -194,7 +174,7 @@ export function FamilyFlow({
               </div>
               <ul className="family-v2__room-list">
                 {state.spaces.map((space, index) => {
-                  const progress = roomProgress(space.id, templateFor(space.type), state.familyAnswers);
+                  const progress = roomProgress(space.id, familyTemplateFor(space), state.familyAnswers);
                   const stateLabel = progress.complete
                     ? "Complete"
                     : progress.answered
@@ -212,12 +192,14 @@ export function FamilyFlow({
                         </span>
                         <Icon name="arrow-right" />
                       </button>
+                      {(state.homeProfile?.levels??1)>1 && <label className="room-level">Level for {space.label}<select value={space.level??""} onChange={e=>api.setRoomLevel(space.id,Number(e.target.value))}><option value="">Not assigned</option>{Array.from({length:state.homeProfile!.levels},(_,n)=><option key={n} value={n+1}>Level {n+1}</option>)}</select></label>}
                       <button
                         className="family-v2__remove"
                         type="button"
                         aria-label={`Remove ${space.label}`}
                         title={`Remove ${space.label}`}
                         onClick={() => {
+                          if(progress.answered && !window.confirm(`Remove ${space.label} and its answers from this check?`))return;
                           api.removeSpace(space.id);
                           api.setFamilyPosition({ phase: "rooms", roomIndex: Math.max(0, roomIndex >= index ? roomIndex - 1 : roomIndex), questionIndex: 0 });
                         }}
@@ -229,12 +211,12 @@ export function FamilyFlow({
                 })}
               </ul>
               <button className="family-v2__button family-v2__button--primary" type="button" onClick={() => {
-                const next = state.spaces.findIndex((space) => !roomProgress(space.id, templateFor(space.type), state.familyAnswers).complete);
+                const next = state.spaces.findIndex((space) => !roomProgress(space.id, familyTemplateFor(space), state.familyAnswers).complete);
                 openRoom(next < 0 ? 0 : next);
               }}>
                 {overall.answered ? "Continue home check" : "Start with the first room"} <Icon name="arrow-right" />
               </button>
-              <p className="family-v2__time">About {minutesRemaining(overall) || 1} minute{minutesRemaining(overall) === 1 ? "" : "s"} remaining</p>
+              <p className="family-v2__time">{overall.total-overall.answered} unanswered questions · Take one room at a time.</p><button className="family-v2__back" onClick={()=>setPhase("report")}>See results so far</button>
             </section>
           ) : (
             <p className="family-v2__empty">Add at least one room to begin.</p>
@@ -304,6 +286,7 @@ export function FamilyFlow({
   return (
     <ReportScreen
       report={report}
+      api={api}
       shareTo={shareTo}
       setShareTo={setShareTo}
       copied={copied}
@@ -348,11 +331,11 @@ function QuestionScreen({
   headingRef: React.RefObject<HTMLHeadingElement | null>;
   onPosition: (position: FlowPosition) => void;
 }) {
-  const groups = useMemo(() => groupItemsForFamily(templateFor(space.type)), [space.type]);
+  const groups = useMemo(() => groupItemsForFamily(familyTemplateFor(space)), [space.type,space.familyKind]);
   const questions = useMemo(() => groups.flatMap((group) => group.items), [groups]);
   const questionIndex = Math.min(savedQuestionIndex, Math.max(0, questions.length - 1));
   const question = questions[questionIndex];
-  const progress = roomProgress(space.id, templateFor(space.type), api.state.familyAnswers);
+  const progress = roomProgress(space.id, familyTemplateFor(space), api.state.familyAnswers);
   const answer = question ? api.state.familyAnswers[familyKey(space.id, question.code)] : undefined;
 
   if (!question) {
@@ -392,14 +375,14 @@ function QuestionScreen({
           <span>Question {questionIndex + 1} of {questions.length}</span>
         </div>
         <p className="family-v2__topic">{groups.find((group) => group.category === question.category)?.label}</p>
-        <h1 ref={headingRef} tabIndex={-1}>{question.promptPlain}</h1>
+        <h1 ref={headingRef} tabIndex={-1}>{homeQuestionText(question.promptPlain,api.state.homeProfile?.forWhom)}</h1>
 
         <details className="family-v2__hint">
           <summary>What should I look for?</summary>
           <p>{LOOK_HINT[question.category]}</p>
         </details>
 
-        <div className="family-v2__answers" role="group" aria-label={question.promptPlain}>
+        <div className="family-v2__answers" role="group" aria-label={homeQuestionText(question.promptPlain,api.state.homeProfile?.forWhom)}>
           {FAMILY_ANSWERS.map((option) => (
             <button
               key={option}
@@ -427,6 +410,7 @@ function QuestionScreen({
 }
 
 function ReportScreen({
+  api,
   report,
   shareTo,
   setShareTo,
@@ -436,6 +420,7 @@ function ReportScreen({
   onRequestHelp,
   onRooms,
 }: {
+  api:CaseApi;
   report: FamilyReport;
   shareTo: string;
   setShareTo: (value: string) => void;
@@ -446,11 +431,12 @@ function ReportScreen({
   onRooms: () => void;
 }) {
   const priorities = topPriorities(report);
+  const fullText=[...profileLines(api.state.homeProfile),"",reportToPlainText(report)].join("\n");
   const [copyError, setCopyError] = useState(false);
 
   const copyReport = async () => {
     try {
-      await navigator.clipboard.writeText(reportToPlainText(report));
+      await navigator.clipboard.writeText(fullText);
       setCopied(true);
       setCopyError(false);
       window.setTimeout(() => setCopied(false), 2500);
@@ -461,7 +447,7 @@ function ReportScreen({
   };
 
   const downloadReport = () => {
-    const url = URL.createObjectURL(new Blob([reportToPlainText(report)], { type: "text/plain;charset=utf-8" }));
+    const url = URL.createObjectURL(new Blob([fullText], { type: "text/plain;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
     link.download = "home-check-full-findings.txt";
@@ -483,6 +469,7 @@ function ReportScreen({
           <div><dt>Answered</dt><dd>{report.answeredCount}/{report.totalCount}</dd></div>
         </dl>
 
+        <HomeInsights api={api} report={report} onRooms={onRooms}/>
         {priorities.length > 0 && (
           <section className="family-v2__report-section" aria-labelledby="start-heading">
             <h2 id="start-heading">Start here</h2>
@@ -534,7 +521,7 @@ function ReportScreen({
           <section className="family-v2__help">
             <div>
               <h2>Would you like help with next steps?</h2>
-              <p>A professional can review what you noticed and assess the home in person.</p>
+              <p>Request a professional review through MyIntel. You can choose to share this home check and add guided photos after your request is saved. Nothing is sent to a professional automatically.</p>
             </div>
             <button className="family-v2__button family-v2__button--primary" type="button" onClick={() => onRequestHelp("professional_assessment")}>Request help <Icon name="arrow-right" /></button>
           </section>

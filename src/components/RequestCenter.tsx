@@ -1,4 +1,5 @@
 "use client";
+import {HomeReviewPhotos} from "./HomeReviewPhotos";
 import {useEffect,useState} from "react";
 import {SERVICES,REQUEST_STATUS,type AccountUser,type ServiceRequest} from "@/domain/services";
 export function RequestCenter({user,paymentsEnabled,onNew}:{user:AccountUser|null;paymentsEnabled:boolean;onNew:()=>void}){
@@ -15,6 +16,7 @@ export function RequestCenter({user,paymentsEnabled,onNew}:{user:AccountUser|nul
       {r.provider_name && <p><strong>Professional:</strong> {r.provider_name}</p>}{r.scope && <div className="proposal-scope"><h3>What’s included</h3><p>{r.scope}</p></div>}{r.amount_cents!==null && <p className="proposal-price">{new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(r.amount_cents/100)} <small>Service price · USD</small></p>}
       {r.status==="quoted" && <button className="app-primary" disabled={busy===r.id} onClick={()=>action(r,"accept")}>{busy===r.id?"Saving…":"Accept this proposal"}</button>}
       {r.status==="accepted" && (paymentsEnabled?<button className="app-primary" disabled={busy===r.id} onClick={()=>action(r,"checkout")}>{busy===r.id?"Opening checkout…":"Continue to secure payment"}</button>:<p className="account-note">Your acceptance is saved. Online payment is not enabled yet; no charge has been made.</p>)}
+      <HomeReviewPhotos requestId={r.id} readOnly={["cancelled","completed"].includes(r.status)}/>
       <p className="request-contact">Follow-up by {r.contact_method==="phone"?"phone · "+r.phone:"email · "+r.email}</p></article>)}</div>}
     </>}
   </main>;
