@@ -8,7 +8,7 @@ import { SPACE_TYPES, ASSESSMENT_MODES, SEVERITIES, LIKELIHOODS, CONSEQUENCES,
 import { AGE_BANDS, HOUSING_TYPES, CLINICAL_CONCERNS } from "@/domain/case";
 
 const text = z.string();
-const space = z.object({id:text.min(1),type:z.enum(SPACE_TYPES),label:text,familyKind:z.literal("half_bath").optional(),level:z.number().int().min(1).max(4).optional()});
+const space = z.object({id:text.min(1),type:z.enum(SPACE_TYPES),label:text,excludedFromHome:z.boolean().optional(),familyKind:z.literal("half_bath").optional(),level:z.number().int().min(1).max(4).optional()});
 const intake = z.object({ageBand:z.enum(["",...AGE_BANDS]),housingType:z.enum(["",...HOUSING_TYPES]),
   floors:text,livesAlone:z.enum(["","alone","with_others"]),mobilityAids:text,
   fallsLast12Months:text,concerns:z.array(z.enum(CLINICAL_CONCERNS)),concernNotes:text});

@@ -3,8 +3,9 @@ import { requestSchema, serviceSchema } from "../src/domain/services";
 import { savedCaseSchema } from "../src/lib/case-validation";
 import {createCheckout,verifyStripeEvent} from "./stripe";
 import {homePhotoRoute,type PhotoBucket} from "./home-photos";
+import {homeActionsText} from "../src/domain/home-actions";
 import {buildFamilyReport,reportToPlainText} from "../src/domain/family-report";
-import {familyTemplateFor,profileLines} from "../src/domain/home-profile";
+import {familyTemplateFor,profileLines,activeHomeSpaces} from "../src/domain/home-profile";
 
 export interface Statement {bind(...values:unknown[]):Statement;first<T=Record<string,unknown>>():Promise<T|null>;all<T=Record<string,unknown>>():Promise<{results:T[]}>;run():Promise<{meta:{changes:number}}>}
 export interface Database {prepare(sql:string):Statement;batch(statements:Statement[]):Promise<{meta:{changes:number}}[]>}
@@ -99,9 +100,10 @@ export async function handleApi(request:Request,env:Env):Promise<Response>{
         const found=cases.find((c:{id:string})=>c.id===v.caseId);
         const checked=savedCaseSchema.safeParse(found);
         if(!checked.success || checked.data.audience!=="family" || !checked.data.spaces?.length)throw new ApiError(400,"Save your home check before sharing it. You can also send a request without the check.");
-        const home=checked.data,spaces=home.spaces!;
+        const home=checked.data,spaces=activeHomeSpaces(home.spaces!);
+        if(!spaces.length)throw new ApiError(400,"Choose at least one used space before sharing this home check.");
         const report=buildFamilyReport(spaces.map(s=>({id:s.id,label:s.level?`${s.label} · Level ${s.level}`:s.label,template:familyTemplateFor(s)})),home.familyAnswers??{});
-        sharedHome=JSON.stringify({rooms:spaces.map(s=>s.label),summary:[...profileLines(home.homeProfile),"",reportToPlainText(report)].join("\n"),savedAt:now});
+        sharedHome=JSON.stringify({rooms:spaces.map(s=>s.label),summary:[...profileLines(home.homeProfile),"",reportToPlainText(report),homeActionsText(report,home.homeProfile)].join("\n"),savedAt:now});
       }
       await db.batch([
         db.prepare("INSERT INTO service_requests (id,user_id,email,service,name,postal_code,phone,contact_method,relationship,status,consent_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,'submitted',?,?,?) ON CONFLICT(id) DO NOTHING").bind(v.idempotencyKey,user.id,user.email,v.service,v.name,v.postalCode,v.phone,v.contactMethod,v.relationship,now,now,now),

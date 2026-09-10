@@ -204,6 +204,7 @@
 .room-level select {margin-top:5px;font-size:1rem;min-height:48px;padding:8px}
 .home-insights {margin:30px 0;border:1px solid #c5d7da;border-radius:12px;padding:24px}
 .home-coverage-heading {display:flex;justify-content:space-between;gap:20px;align-items:flex-start}
+.home-guide {margin:22px 0;padding:18px 22px;border-left:3px solid #24756d;background:#f1f7f6;border-radius:0 10px 10px 0}.home-guide p {margin:8px 0;font-size:1rem;line-height:1.65}.home-guide small {font-size:.875rem;line-height:1.5;display:block}.home-answer-feedback {font-size:1rem;line-height:1.6;min-height:48px;color:#274d54}.home-action-plan {margin:30px 0}.home-action-card {border:1px solid #c5d7da;border-radius:12px;padding:22px;margin:16px 0}.home-action-card h3 {font-size:1.3rem;margin:10px 0}.home-action-card p {font-size:1rem;line-height:1.65}.family-v2__remove {min-width:80px!important;font-size:.875rem!important;padding:10px!important}
 .home-coverage-heading h2 {margin:0}.home-coverage-heading p {margin:10px 0}
 .home-coverage-heading>strong {font-size:2.2rem;line-height:1.15;color:#173649}
 .home-coverage-heading small {display:block;font-size:.875rem;font-weight:500;margin-top:6px}

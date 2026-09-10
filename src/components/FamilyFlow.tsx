@@ -20,9 +20,11 @@ import {
 } from "@/domain/family-report";
 import { SPACE_TYPE_META, type ItemCategory, type SpaceType } from "@/domain/types";
 import type { CaseApi, Space } from "@/lib/case-store";
-import {familyTemplateFor,profileLines,homeQuestionText} from "@/domain/home-profile";
+import {familyTemplateFor,profileLines,homeQuestionText,activeHomeSpaces} from "@/domain/home-profile";
 import {HomeSetup} from "./HomeSetup";
 import {HomeInsights} from "./HomeInsights";
+import {homeActionsText} from "@/domain/home-actions";
+import {HomeActionPlan} from "./HomeActionPlan";
 
 const ROOM_CHOICES: SpaceType[] = [
   "entry",
@@ -91,7 +93,8 @@ export function FamilyFlow({
   api: CaseApi;
   onRequestHelp?: (service?: string) => void;
 }) {
-  const { state } = api;
+  const activeSpaces=useMemo(()=>activeHomeSpaces(api.state.spaces),[api.state.spaces]);
+  const state={...api.state,spaces:activeSpaces};
   const maxRoomIndex = Math.max(0, state.spaces.length - 1);
   const roomIndex = Math.min(state.familyPosition?.roomIndex ?? 0, maxRoomIndex);
   const savedPhase = (state.familyPosition?.phase ?? (state.spaces.length ? "rooms" : "welcome")) as Phase;
@@ -146,8 +149,8 @@ export function FamilyFlow({
         <FlowHeader percent={overall.percent} label={`${overall.answered} of ${overall.total} answered`} />
         <section className="family-v2__card">
           <p className="family-v2__eyebrow">Set up your check</p>
-          <h1 ref={headingRef} tabIndex={-1}>Review your room checklist</h1>
-          <p className="family-v2__lead">Check the rooms and levels below. Start anywhere, and come back when you need to.</p><button className="family-v2__back" onClick={()=>setPhase("routine")}>Edit daily life & home details</button>
+          <h1 ref={headingRef} tabIndex={-1}>Your everyday spaces</h1>
+          <p className="family-v2__lead">Start with the place that matters most. Leave out spaces that are not used; add a second room only if it needs its own check.</p><button className="family-v2__back" onClick={()=>setPhase("routine")}>Edit daily life & used spaces</button>
 
           <div className="family-v2__room-picker">
             {ROOM_CHOICES.map((type) => (
@@ -196,15 +199,14 @@ export function FamilyFlow({
                       <button
                         className="family-v2__remove"
                         type="button"
-                        aria-label={`Remove ${space.label}`}
-                        title={`Remove ${space.label}`}
+                        aria-label={`Set aside ${space.label}`}
+                        title={`Set aside ${space.label}`}
                         onClick={() => {
-                          if(progress.answered && !window.confirm(`Remove ${space.label} and its answers from this check?`))return;
-                          api.removeSpace(space.id);
+                          api.setHomeRoomIncluded(space.id,false);
                           api.setFamilyPosition({ phase: "rooms", roomIndex: Math.max(0, roomIndex >= index ? roomIndex - 1 : roomIndex), questionIndex: 0 });
                         }}
                       >
-                        <Icon name="trash" />
+                        <span>Not used</span>
                       </button>
                     </li>
                   );
@@ -221,6 +223,7 @@ export function FamilyFlow({
           ) : (
             <p className="family-v2__empty">Add at least one room to begin.</p>
           )}
+          {api.state.spaces.some(s=>s.excludedFromHome) && <details className="family-v2__hint"><summary>Spaces set aside ({api.state.spaces.filter(s=>s.excludedFromHome).length})</summary><p>These spaces are not included in your results. Their saved answers are kept in case you bring them back.</p>{api.state.spaces.filter(s=>s.excludedFromHome).map(s=><button type="button" className="family-v2__back" key={s.id} onClick={()=>api.setHomeRoomIncluded(s.id,true)}>Include {s.label}</button>)}</details>}
         </section>
       </main>
     );
@@ -263,13 +266,14 @@ export function FamilyFlow({
         <section className="family-v2__card family-v2__milestone">
           <div className="family-v2__success" aria-hidden="true"><Icon name="check" /></div>
           <p className="family-v2__eyebrow">Room saved</p>
-          <h1 ref={headingRef} tabIndex={-1}>{space?.label ?? "Room"} checked</h1>
+          <h1 ref={headingRef} tabIndex={-1}>A useful step forward.</h1>
           <p className="family-v2__lead">
             {noted > 0
               ? `Your answers noted ${noted} item${noted === 1 ? "" : "s"} to look at more closely.`
               : "No concerns were reported in the answers you gave. This does not confirm the room is safe."}
           </p>
           {unanswered > 0 && <p className="family-v2__notice">{unanswered} question{unanswered === 1 ? " is" : "s are"} unanswered. Your results will show this.</p>}
+          <p>You can move on, take a break, or see what your answers suggest so far.</p><button type="button" className="family-v2__back" onClick={()=>setPhase("report")}>See my next steps now</button>
           <div className="family-v2__actions">
             {isLast ? (
               <button className="family-v2__button family-v2__button--primary" type="button" onClick={() => setPhase("report")}>See my results <Icon name="arrow-right" /></button>
@@ -377,10 +381,7 @@ function QuestionScreen({
         <p className="family-v2__topic">{groups.find((group) => group.category === question.category)?.label}</p>
         <h1 ref={headingRef} tabIndex={-1}>{homeQuestionText(question.promptPlain,api.state.homeProfile?.forWhom)}</h1>
 
-        <details className="family-v2__hint">
-          <summary>What should I look for?</summary>
-          <p>{LOOK_HINT[question.category]}</p>
-        </details>
+        <div className="home-guide"><span className="family-v2__eyebrow">Let’s look together</span><p>{LOOK_HINT[question.category]}</p><small>Answer from everyday experience. You do not need to demonstrate anything.</small></div>
 
         <div className="family-v2__answers" role="group" aria-label={homeQuestionText(question.promptPlain,api.state.homeProfile?.forWhom)}>
           {FAMILY_ANSWERS.map((option) => (
@@ -397,6 +398,7 @@ function QuestionScreen({
           ))}
         </div>
 
+        {answer && <p className="home-answer-feedback" role="status">{answer==="unsure"?"That’s okay. We’ll keep this as something to clarify, not a confirmed problem.":answer===question.concernWhen?"Noted. We’ll include a practical next step for this in your results.":"Saved. Let’s look at the next part of this space."}</p>}
         <div className="family-v2__question-actions">
           <button className="family-v2__skip" type="button" onClick={moveForward}>Skip for now</button>
           <button className="family-v2__button family-v2__button--primary" type="button" disabled={!answer} onClick={moveForward}>
@@ -404,6 +406,7 @@ function QuestionScreen({
           </button>
         </div>
         <p className="family-v2__answer-note">Skipped questions stay unanswered. &ldquo;Not sure&rdquo; is saved as your answer.</p>
+        <button type="button" className="family-v2__back" onClick={()=>onPosition({phase:"rooms",roomIndex,questionIndex})}>Pause and return to my spaces</button>
       </section>
     </main>
   );
@@ -431,7 +434,7 @@ function ReportScreen({
   onRooms: () => void;
 }) {
   const priorities = topPriorities(report);
-  const fullText=[...profileLines(api.state.homeProfile),"",reportToPlainText(report)].join("\n");
+  const fullText=[...profileLines(api.state.homeProfile),"",reportToPlainText(report),homeActionsText(report,api.state.homeProfile)].join("\n");
   const [copyError, setCopyError] = useState(false);
 
   const copyReport = async () => {
@@ -470,6 +473,7 @@ function ReportScreen({
         </dl>
 
         <HomeInsights api={api} report={report} onRooms={onRooms}/>
+        <HomeActionPlan profile={api.state.homeProfile} report={report} onRequestHelp={onRequestHelp}/>
         {priorities.length > 0 && (
           <section className="family-v2__report-section" aria-labelledby="start-heading">
             <h2 id="start-heading">Start here</h2>

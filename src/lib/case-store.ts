@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {EMPTY_PROFILE,mergeSuggestedRooms,suggestedRooms,type HomeProfile} from "@/domain/home-profile";
+import {EMPTY_PROFILE,mergeSuggestedRooms,selectUsedRooms,suggestedRooms,type HomeProfile} from "@/domain/home-profile";
 import { createReportVersion, type ReportVersion } from "@/domain/report-version";
 import { buildCaseView } from "./selectors";
 import { savedCaseSchema } from "./case-validation";
@@ -44,6 +44,7 @@ export interface Space {
   readonly label: string;
   readonly familyKind?:"half_bath";
   readonly level?:number;
+  readonly excludedFromHome?:boolean;
 }
 
 export interface Response {
@@ -420,7 +421,8 @@ export function useCase(options?: {userId:string}) {
 
   return {
     patchHomeProfile:(patch:Partial<HomeProfile>)=>updateDraft(s=>({...s,homeProfile:{...EMPTY_PROFILE,...s.homeProfile,...patch}})),
-    prepareHomeRooms:()=>updateDraft(s=>({...s,homeProfile:{...EMPTY_PROFILE,...s.homeProfile,confirmed:true},spaces:mergeSuggestedRooms(s.spaces,suggestedRooms(s.homeProfile??EMPTY_PROFILE)),familyPosition:{phase:"rooms",roomIndex:0,questionIndex:0}})),
+    prepareHomeRooms:()=>updateDraft(s=>({...s,homeProfile:{...EMPTY_PROFILE,...s.homeProfile,confirmed:true},spaces:(s.homeProfile?.usedAreas!==undefined?selectUsedRooms:mergeSuggestedRooms)(s.spaces,suggestedRooms(s.homeProfile??EMPTY_PROFILE)),familyPosition:{phase:"rooms",roomIndex:0,questionIndex:0}})),
+    setHomeRoomIncluded:(id:string,included:boolean)=>updateDraft(s=>({...s,spaces:s.spaces.map(room=>room.id===id?{...room,excludedFromHome:!included}:room)})),
     setRoomLevel:(id:string,level:number)=>updateDraft(s=>({...s,spaces:s.spaces.map(room=>room.id===id?{...room,level:level>=1 && level<=4?level:undefined}:room)})),
     state,
     hydrated,
