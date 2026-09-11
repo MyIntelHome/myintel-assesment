@@ -10,8 +10,9 @@ Austin authorized work toward a small pilot and public launch to the existing Gi
 - Production application services currently depend on Sites identity headers, a Cloudflare Worker, D1 records and R2 photos.
 - Existing vercel.json only ran next build with static export. It cannot deploy these services. A deliberate failing readiness guard now prevents an accidental broken release from this branch; replace only after a working, tested Vercel implementation exists.
 - This checkpoint adds active/new/proposal/closed queue filters, oldest-first sorting and submission age. Accepted/paid requests remain active until closed. These are internal tools, not customer response-time promises or notifications.
-- GitHub and Vercel were discovered as not installed in this session; connections were requested. No external account access or production domain has been verified.
-- No overnight automation was created: its instructions require a successful harmless read on every required connector before scheduling. Usage remaining and reset time are not visible.
+- GitHub and Vercel are now confirmed installed. Their account tools remain absent from this session's callable tools, and neither CLI is available. No external account access or production domain has been verified. Do not ask Austin to reinstall; refresh the tool environment and perform read-only verification when tools become available.
+- No overnight automation was created: its instructions require a successful harmless read on every required connector before scheduling. Austin reports reset at 9:40 p.m. Mountain time (America/Denver); requested continuation may be scheduled just after that reset once access checks succeed. Last user-reported allowance was 49%; current remaining usage is not visible.
+- Staff coordination is now implemented: claim a request, display its coordinator, and release your own claim back to the unassigned queue. Server-side staff checks, atomic ownership, idempotent retries and audit events protect assignments. Coordination does not book a professional or share client records. Existing records migrate with no coordinator assigned.
 
 ## Resume in this order
 

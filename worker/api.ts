@@ -174,7 +174,28 @@ export async function handleApi(request:Request,env:Env):Promise<Response>{
     }
     if(path.startsWith("/api/admin")){
       if(!user.isAdmin)throw new ApiError(403,"This area is for MyIntel staff.");
-      if(path==="/api/admin/requests" && method==="GET")return json({requests:(await db.prepare(requestSelect+" ORDER BY r.created_at DESC LIMIT 200").all()).results});
+      if(path==="/api/admin/requests" && method==="GET")return json({requests:(await db.prepare("SELECT r.*,p.name AS provider_name,c.staff_name AS coordinator_name,c.staff_id AS coordinator_id FROM service_requests r LEFT JOIN providers p ON p.id=r.provider_id LEFT JOIN request_coordinators c ON c.request_id=r.id ORDER BY CASE WHEN r.status IN ('completed','cancelled') THEN 1 ELSE 0 END,r.created_at ASC LIMIT 200").all()).results,userId:user.id});
+      const claim=path.match(/^\/api\/admin\/requests\/([\w-]+)\/claim$/);
+      if(claim && method==="POST"){
+        const current=await db.prepare("SELECT status FROM service_requests WHERE id=?").bind(claim[1]).first<{status:string}>();
+        if(!current)throw new ApiError(404,"Request not found.");
+        if(["completed","cancelled"].includes(current.status))throw new ApiError(409,"This request is closed.");
+        const now=new Date().toISOString();
+        await db.batch([
+          db.prepare("INSERT INTO request_coordinators (request_id,staff_id,staff_name,claimed_at) SELECT id,?,?,? FROM service_requests WHERE id=? AND status NOT IN ('completed','cancelled') ON CONFLICT(request_id) DO NOTHING").bind(user.id,user.name,now,claim[1]),
+          db.prepare("INSERT INTO request_events (id,request_id,actor_id,status,created_at) SELECT ?,request_id,?,'coordinator_assigned',? FROM request_coordinators WHERE request_id=? AND changes()=1").bind(crypto.randomUUID(),user.id,now,claim[1]),
+        ]);
+        const owner=await db.prepare("SELECT staff_id FROM request_coordinators WHERE request_id=?").bind(claim[1]).first<{staff_id:string}>();
+        if(owner?.staff_id!==user.id)throw new ApiError(409,"This request is assigned elsewhere or is closed. Refresh the queue.");
+        return json({claimed:true});
+      }
+      if(claim && method==="DELETE"){
+        await db.batch([
+          db.prepare("DELETE FROM request_coordinators WHERE request_id=? AND staff_id=?").bind(claim[1],user.id),
+          db.prepare("INSERT INTO request_events (id,request_id,actor_id,status,created_at) SELECT ?,?,?,'coordinator_released',? WHERE changes()=1").bind(crypto.randomUUID(),claim[1],user.id,new Date().toISOString()),
+        ]);
+        return json({released:true});
+      }
       if(path==="/api/admin/providers" && method==="GET")return json({providers:(await db.prepare("SELECT * FROM providers ORDER BY created_at DESC").all()).results});
       if(path==="/api/admin/providers" && method==="POST"){
         const p=z.object({name:z.string().trim().min(2).max(150),service:serviceSchema,area:z.string().trim().min(2).max(120),credentials:z.string().trim().min(2).max(200),verificationNote:z.string().trim().min(10).max(1000)}).parse(await body(request));

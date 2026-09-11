@@ -11,6 +11,9 @@ export const caseArchives = sqliteTable("case_archives", {
   userId: text("user_id").primaryKey(), payload: text("payload").notNull(),
   revision: integer("revision").notNull().default(1), updatedAt: text("updated_at").notNull(),
 });
+export const requestCoordinators=sqliteTable("request_coordinators",{
+  requestId:text("request_id").primaryKey(),staffId:text("staff_id").notNull(),staffName:text("staff_name").notNull(),claimedAt:text("claimed_at").notNull(),
+});
 export const requests = sqliteTable("service_requests", {
   id:text("id").primaryKey(), userId:text("user_id").notNull(), email:text("email").notNull(),
   service:text("service").notNull(), name:text("name").notNull(), postalCode:text("postal_code").notNull(),

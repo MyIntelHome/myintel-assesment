@@ -40,6 +40,7 @@ export class SqliteTestDatabase implements Database {
       readFileSync(migrationPath, "utf8").replaceAll("--> statement-breakpoint", ""),
     );
     this.sqlite.exec(readFileSync(new URL("../../drizzle/0002_stormy_carnage.sql",import.meta.url),"utf8"));
+    this.sqlite.exec(readFileSync(new URL("../../drizzle/0003_nebulous_viper.sql",import.meta.url),"utf8"));
   }
 
   prepare(sql: string): Statement {
