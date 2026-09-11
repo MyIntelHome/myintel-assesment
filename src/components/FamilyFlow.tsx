@@ -23,6 +23,7 @@ import type { CaseApi, Space } from "@/lib/case-store";
 import {familyTemplateFor,profileLines,homeQuestionText,activeHomeSpaces} from "@/domain/home-profile";
 import {HomeSetup} from "./HomeSetup";
 import {HomeInsights} from "./HomeInsights";
+import {HomeSectionPause} from "./HomeSectionPause";
 import {homeActionsText} from "@/domain/home-actions";
 import {HomeActionPlan} from "./HomeActionPlan";
 
@@ -141,7 +142,7 @@ export function FamilyFlow({
     headingRef.current?.focus({ preventScroll: true });
   }, [phase, roomIndex, questionIndex]);
 
-  if (phase === "welcome" || phase === "routine" || phase === "home") return <HomeSetup api={api} step={phase==="home"?"home":"routine"}/>;
+  if (phase === "welcome" || phase === "routine" || phase === "home") return <HomeSectionPause key={phase==="home"?"home":"routine"} title={phase==="home"?"Where does a normal day happen?":"Let’s start with everyday life."} detail={phase==="home"?"Next, choose only the spaces that matter. Spare rooms can stay out of this check.":"A few optional questions will help this check fit the person. We’ll take them one at a time."} button={phase==="home"?"Choose my spaces":"Begin"}><HomeSetup api={api} step={phase==="home"?"home":"routine"}/></HomeSectionPause>;
 
   if (phase === "rooms") {
     return (
@@ -242,7 +243,7 @@ export function FamilyFlow({
       );
     }
     return (
-      <QuestionScreen
+      <HomeSectionPause key={space.id} title={`Let’s look at ${space.label.toLowerCase()}.`} detail="Think about how this space is used on an ordinary day. You can answer from experience, choose ‘not sure’, or pause whenever you need." button="Start this space"><QuestionScreen
         api={api}
         space={space}
         roomIndex={roomIndex}
@@ -250,7 +251,7 @@ export function FamilyFlow({
         savedQuestionIndex={questionIndex}
         headingRef={headingRef}
         onPosition={setPosition}
-      />
+      /></HomeSectionPause>
     );
   }
 
@@ -288,7 +289,7 @@ export function FamilyFlow({
   }
 
   return (
-    <ReportScreen
+    <HomeSectionPause key="report" title="Ready to look at the next steps?" detail="We’ll show what your answers suggest and what still needs a closer look. You can choose one manageable step to start with." button="See my next steps"><ReportScreen
       report={report}
       api={api}
       shareTo={shareTo}
@@ -298,7 +299,7 @@ export function FamilyFlow({
       headingRef={headingRef}
       onRequestHelp={onRequestHelp}
       onRooms={() => setPhase("rooms")}
-    />
+    /></HomeSectionPause>
   );
 }
 
@@ -373,7 +374,7 @@ function QuestionScreen({
         label={`${space.label} · ${progress.answered} of ${progress.total}`}
         onBack={moveBack}
       />
-      <section className="family-v2__card family-v2__question-card">
+      <section className="family-v2__card family-v2__question-card home-question-enter" key={question.code}>
         <div className="family-v2__question-meta">
           <span>Room {roomIndex + 1} of {totalRooms}</span>
           <span>Question {questionIndex + 1} of {questions.length}</span>
@@ -381,7 +382,7 @@ function QuestionScreen({
         <p className="family-v2__topic">{groups.find((group) => group.category === question.category)?.label}</p>
         <h1 ref={headingRef} tabIndex={-1}>{homeQuestionText(question.promptPlain,api.state.homeProfile?.forWhom)}</h1>
 
-        <div className="home-guide"><span className="family-v2__eyebrow">Let’s look together</span><p>{LOOK_HINT[question.category]}</p><small>Answer from everyday experience. You do not need to demonstrate anything.</small></div>
+        <details className="home-guide"><summary>Help me answer this</summary><p>{LOOK_HINT[question.category]}</p><small>Answer from everyday experience. You do not need to demonstrate anything.</small></details>
 
         <div className="family-v2__answers" role="group" aria-label={homeQuestionText(question.promptPlain,api.state.homeProfile?.forWhom)}>
           {FAMILY_ANSWERS.map((option) => (
@@ -400,7 +401,7 @@ function QuestionScreen({
 
         {answer && <p className="home-answer-feedback" role="status">{answer==="unsure"?"That’s okay. We’ll keep this as something to clarify, not a confirmed problem.":answer===question.concernWhen?"Noted. We’ll include a practical next step for this in your results.":"Saved. Let’s look at the next part of this space."}</p>}
         <div className="family-v2__question-actions">
-          <button className="family-v2__skip" type="button" onClick={moveForward}>Skip for now</button>
+          {!answer && <button className="family-v2__skip" type="button" onClick={moveForward}>Skip for now</button>}
           <button className="family-v2__button family-v2__button--primary" type="button" disabled={!answer} onClick={moveForward}>
             {questionIndex === questions.length - 1 ? "Finish room" : "Next question"} <Icon name="arrow-right" />
           </button>
