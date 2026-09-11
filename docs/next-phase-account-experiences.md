@@ -1,7 +1,11 @@
-# Queued next: customer and clinical account separation
+# Client and professional experiences
 
-After the customer home-check flow is approved, implement separate customer and clinical-business sign-in, layouts and dashboards. Do not expose clinical self-assessment as a customer action.
+The private review now has separate client and professional entry, navigation and dashboards. Clients see home checks and support; approved professionals see their own clinical case list, report workflow and practice/access page.
 
-Use server-verified clinical membership and organization roles, not a self-selected browser role or the existing MyIntel staff flag. Enforce clinical access at API and route boundaries. Add tests preventing customers from starting, opening or modifying clinical records, including direct URLs and crafted API requests. Preserve existing records through migration and provide an explicit staff review path.
+Authentication still uses Sites ChatGPT identity. Selecting a professional URL grants no privileges; staff status does not grant clinical access. MyIntel operations reviews credential applications with applicant-visible notes and audited, revision-checked decisions. Revocation blocks subsequent clinical reads and writes. No real account is automatically approved.
 
-Customer dashboard: everyday home checks, practical next steps, shared requests and chosen professionals. Clinical dashboard: assigned cases, assessment/report workflow and business administration. Do not portray customer answers as clinician findings or signed reports. This phase is queued, not implemented in the current home-check edit.
+Account reads return only the chosen workspace's records; writes preserve the other workspace and signed report history. Legacy clinical content is conservatively classified even without an audience. Device imports are filtered by audience and original local records are retained.
+
+To review: use Professional sign-in in the client footer, request access, and review that application in MyIntel operations using the configured staff account. Independently verify credentials before approving. Refresh professional entry after approval.
+
+Still future work: shared organization/team membership, assigned client caseloads, delegated family access, clinician receipt of customer handoffs, and external family sign-in. A practice name is affiliation information, not organization tenancy. Professional approval does not create a referral listing. The private preview retains its owner-only audience.

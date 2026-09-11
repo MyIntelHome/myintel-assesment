@@ -1,3 +1,4 @@
+import {isClinicalRecord,type ProfessionalAccess} from "../src/domain/access";
 import { z } from "zod";
 import { requestSchema, serviceSchema } from "../src/domain/services";
 import { savedCaseSchema } from "../src/lib/case-validation";
@@ -62,14 +63,44 @@ export async function handleApi(request:Request,env:Env):Promise<Response>{
       const origin=request.headers.get("origin");
       if(!origin || (origin!==url.origin && origin!==env.APP_ORIGIN))return json({error:"This request must come from the MyIntel app."},403);
     }
-    if(path==="/api/account" && method==="GET")return json({user,paymentsEnabled:!!env.STRIPE_SECRET_KEY && !!env.STRIPE_WEBHOOK_SECRET});
+    if(path==="/api/account" && method==="GET")return json({user,professionalAccess:user && env.DB?await env.DB.prepare("SELECT * FROM professional_access WHERE user_id=?").bind(user.id).first():null,paymentsEnabled:!!env.STRIPE_SECRET_KEY && !!env.STRIPE_WEBHOOK_SECRET});
     if(!user)return json({error:"Sign in to continue."},401);
     if(!env.DB)throw new ApiError(503,"Your account service is temporarily unavailable. Your draft is still here.");
     const db=env.DB;
+    if(path==="/api/professional-access" && method==="POST"){
+      const v=z.object({name:z.string().trim().min(2).max(100),practice:z.string().trim().min(2).max(150),credential:z.string().trim().min(2).max(200),region:z.string().trim().min(2).max(100)}).strict().parse(await body(request));
+      const result=await db.prepare("INSERT INTO professional_access (user_id,email,name,practice,credential,region,status,revision,review_note,updated_at) VALUES (?,?,?,?,?,?,'pending',1,'',?) ON CONFLICT(user_id) DO NOTHING").bind(user.id,user.email,v.name,v.practice,v.credential,v.region,new Date().toISOString()).run();
+      if(!result.meta.changes)throw new ApiError(409,"An access request already exists. Refresh to see its status.");
+      return json({submitted:true},201);
+    }
+    if(path==="/api/admin/professional-access"){
+      if(!user.isAdmin)throw new ApiError(403,"MyIntel staff access required.");
+      if(method==="GET")return json({applications:(await db.prepare("SELECT * FROM professional_access ORDER BY updated_at DESC").all()).results});
+      if(method==="PATCH"){
+        const v=z.object({userId:z.string().min(1),revision:z.number().int().positive(),status:z.enum(["approved","rejected","revoked"]),note:z.string().trim().min(10).max(1000)}).strict().parse(await body(request));
+        const now=new Date().toISOString();
+        const result=await db.batch([
+          db.prepare("UPDATE professional_access SET status=?,review_note=?,revision=revision+1,updated_at=? WHERE user_id=? AND revision=?").bind(v.status,v.note,now,v.userId,v.revision),
+          db.prepare("INSERT INTO professional_access_events (id,user_id,actor_id,status,note,created_at) SELECT ?,user_id,?,?,?,? FROM professional_access WHERE user_id=? AND revision=? AND updated_at=? AND changes()=1").bind(crypto.randomUUID(),user.id,v.status,v.note,now,v.userId,v.revision+1,now),
+        ]);
+        if(!result[0]?.meta.changes)throw new ApiError(409,"This application changed. Refresh before reviewing it.");
+        return json({updated:true});
+      }
+    }
+    const scope=url.searchParams.get("audience")??"family";
+    if(path==="/api/cases"){
+      if(!["family","clinician"].includes(scope))throw new ApiError(400,"Choose a valid workspace.");
+      if(scope==="clinician"){
+        const access=await db.prepare("SELECT status FROM professional_access WHERE user_id=?").bind(user.id).first<ProfessionalAccess>();
+        if(access?.status!=="approved")throw new ApiError(403,"Approved professional access is required.");
+      }
+    }
     const homeResponse=await homePhotoRoute(request,db,env.BUCKET,user);if(homeResponse)return homeResponse;
     if(path==="/api/cases" && method==="GET"){
       const row=await db.prepare("SELECT payload, revision FROM case_archives WHERE user_id=?").bind(user.id).first<{payload:string;revision:number}>();
-      return json({archive:row?JSON.parse(row.payload):null,revision:row?.revision??0});
+      const archive=row?JSON.parse(row.payload):null;
+      const cases=archive?.cases.filter((c:Parameters<typeof isClinicalRecord>[0])=>isClinicalRecord(c)===(scope==="clinician"))??[];
+      return json({archive:cases.length?{activeId:cases.some((c:{id:string})=>c.id===archive.activeId)?archive.activeId:cases[0].id,cases}:null,revision:row?.revision??0});
     }
     if(path==="/api/cases" && method==="PUT"){
       const parsed=archiveSchema.safeParse(await body(request,2_000_000));if(!parsed.success)throw new ApiError(400,"Some saved assessment fields are invalid. Keep your draft open.");
@@ -78,7 +109,14 @@ export async function handleApi(request:Request,env:Env):Promise<Response>{
       if(new Set(archive.cases.map(c=>c.id)).size!==archive.cases.length || !archive.cases.some(c=>c.id===archive.activeId))throw new ApiError(400,"The selected assessment is missing or duplicated.");
       const old=await db.prepare("SELECT payload, revision FROM case_archives WHERE user_id=?").bind(user.id).first<{payload:string;revision:number}>();
       if((old?.revision??0)!==revision)throw new ApiError(409,"A newer version was saved elsewhere. Your changes have not overwritten it.");
-      if(old && !preservedHistory(JSON.parse(old.payload),archive))throw new ApiError(409,"Earlier cases and signed reports must be preserved. Create an amendment to make changes.");
+      if(archive.cases.some(c=>scope==="family"?isClinicalRecord(c):c.audience==="family"))throw new ApiError(403,"This assessment belongs in the other workspace.");
+      if(scope==="clinician")archive.cases.forEach(c=>{c.audience="clinician"});
+      const previous=old?JSON.parse(old.payload):{cases:[]};
+      const hidden=previous.cases.filter((c:Parameters<typeof isClinicalRecord>[0])=>isClinicalRecord(c)!==(scope==="clinician"));
+      if(hidden.some((c:{id:string})=>archive.cases.some(next=>next.id===c.id)))throw new ApiError(403,"This record belongs in the other workspace.");
+      archive.cases.push(...hidden);
+      if(archive.cases.length>100)throw new ApiError(400,"This account has reached its assessment limit.");
+      if(old && !preservedHistory(previous,archive))throw new ApiError(409,"Earlier cases and signed reports must be preserved. Create an amendment to make changes.");
       const now=new Date().toISOString(),payload=JSON.stringify(archive);
       const result=old?await db.prepare("UPDATE case_archives SET payload=?, revision=revision+1, updated_at=? WHERE user_id=? AND revision=?").bind(payload,now,user.id,revision).run():await db.prepare("INSERT INTO case_archives (user_id,payload,revision,updated_at) VALUES (?,?,1,?) ON CONFLICT(user_id) DO NOTHING").bind(user.id,payload,now).run();
       if(result.meta.changes!==1)throw new ApiError(409,"Another save arrived first. Reload before continuing.");

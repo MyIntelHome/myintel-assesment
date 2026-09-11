@@ -1,5 +1,12 @@
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 
+export const professionalAccess=sqliteTable("professional_access",{
+  userId:text("user_id").primaryKey(),email:text("email").notNull(),name:text("name").notNull(),practice:text("practice").notNull(),credential:text("credential").notNull(),region:text("region").notNull(),status:text("status").notNull().default("pending"),revision:integer("revision").notNull().default(1),reviewNote:text("review_note").notNull().default(""),updatedAt:text("updated_at").notNull(),
+});
+export const professionalAccessEvents=sqliteTable("professional_access_events",{
+  id:text("id").primaryKey(),userId:text("user_id").notNull(),actorId:text("actor_id").notNull(),status:text("status").notNull(),note:text("note").notNull(),createdAt:text("created_at").notNull(),
+});
+
 export const caseArchives = sqliteTable("case_archives", {
   userId: text("user_id").primaryKey(), payload: text("payload").notNull(),
   revision: integer("revision").notNull().default(1), updatedAt: text("updated_at").notNull(),

@@ -206,7 +206,7 @@ describe("MyIntel API integration", () => {
     it("returns a public account envelope but protects every other account route", async () => {
       const account = await call("/api/account");
       expect(account.response.status).toBe(200);
-      expect(account.data).toEqual({ user: null, paymentsEnabled: false });
+      expect(account.data).toEqual({ user: null, paymentsEnabled: false, professionalAccess:null });
 
       const cases = await call("/api/cases");
       expect(cases.response.status).toBe(401);
@@ -290,9 +290,11 @@ describe("MyIntel API integration", () => {
     });
 
     it("allows an appended amendment but rejects mutation or deletion of a signed snapshot", async () => {
+      await call("/api/professional-access",{user:alice,method:"POST",body:{name:"Alice Analyst",practice:"Example OT",credential:"OT 123",region:"MA"}});
+      await call("/api/admin/professional-access",{user:admin,method:"PATCH",body:{userId:alice.id,revision:1,status:"approved",note:"Test credentials verified"}});
       const v1 = signedSnapshot();
-      const original = { activeId: "case-a", cases: [caseRecord("case-a", [v1])] };
-      const initial = await call("/api/cases", {
+      const original = { activeId: "case-a", cases: [{...caseRecord("case-a", [v1]),audience:"clinician"}] };
+      const initial = await call("/api/cases?audience=clinician", {
         method: "PUT",
         user: alice,
         body: { ownerId: alice.id, revision: 0, archive: original },
@@ -300,8 +302,8 @@ describe("MyIntel API integration", () => {
       expect(initial.response.status).toBe(200);
 
       const v2 = { ...signedSnapshot("report-v2", "Amendment attestation"), revision: 2, supersedesId: "report-v1" };
-      const amended = { activeId: "case-a", cases: [caseRecord("case-a", [v1, v2])] };
-      const append = await call("/api/cases", {
+      const amended = { activeId: "case-a", cases: [{...caseRecord("case-a", [v1, v2]),audience:"clinician"}] };
+      const append = await call("/api/cases?audience=clinician", {
         method: "PUT",
         user: alice,
         body: { ownerId: alice.id, revision: 1, archive: amended },
@@ -309,7 +311,7 @@ describe("MyIntel API integration", () => {
       expect(append.response.status).toBe(200);
 
       const changedV1 = signedSnapshot("report-v1", "Changed after signing");
-      const mutation = await call("/api/cases", {
+      const mutation = await call("/api/cases?audience=clinician", {
         method: "PUT",
         user: alice,
         body: {
@@ -320,13 +322,13 @@ describe("MyIntel API integration", () => {
       });
       expect(mutation.response.status).toBe(409);
 
-      const deletion = await call("/api/cases", {
+      const deletion = await call("/api/cases?audience=clinician", {
         method: "PUT",
         user: alice,
         body: { ownerId: alice.id, revision: 2, archive: { activeId: "case-b", cases: [caseRecord("case-b")] } },
       });
       expect(deletion.response.status).toBe(409);
-      expect((await call("/api/cases", { user: alice })).data).toEqual({ archive: amended, revision: 2 });
+      expect((await call("/api/cases?audience=clinician", { user: alice })).data).toEqual({ archive: amended, revision: 2 });
     });
   });
 

@@ -46,3 +46,16 @@ it("never writes a blank archive when loading the account fails",async()=>{
   fetchMock.mockReset().mockRejectedValue(Error("Offline"));await mount();await save();
   expect(api.storageProblem).toBeTruthy();expect(fetchMock).toHaveBeenCalledTimes(1);
 });
+it("imports only home checks from a mixed legacy archive",async()=>{
+ await mount();await save();
+ localStorage.setItem("myintel.cases.v1",JSON.stringify({activeId:"clinical",cases:[{id:"clinical",audience:"clinician",reference:"CLINICAL"},{id:"home",audience:"family",reference:"HOME"}]}));
+ act(()=>api.importLocal());await save();
+ expect(api.state.reference).toBe("HOME");
+ const payload=JSON.parse(fetchMock.mock.calls.at(-1)![1].body);
+ expect(payload.archive.cases.some((c:{reference:string})=>c.reference==="CLINICAL")).toBe(false);
+});
+it("leaves the current draft intact when all device records belong to professionals",async()=>{
+ await mount();await save();const id=api.state.id;
+ localStorage.setItem("myintel.cases.v1",JSON.stringify({activeId:"clinical",cases:[{id:"clinical",audience:"clinician"}]}));
+ act(()=>api.importLocal());expect(api.state.id).toBe(id);
+});

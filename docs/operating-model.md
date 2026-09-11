@@ -40,4 +40,6 @@ Before enabling: establish the merchant/service model and terms, verify Stripe t
 
 Select and implement family-facing authentication suitable for the public app; confirm real-device and assistive-technology usability with seniors/families/OTs; review clinical content and the actual healthcare data flow; arrange applicable privacy, retention, contractual and security controls; onboard real professionals and define response ownership.
 
-Organization memberships, clinician credential verification, delegated family access, automated provider matching, appointment availability, request alerts, payment refunds, device monitoring and cross-site data migration are outside this implemented preview.
+Professional access requires a staff-reviewed application with credential details and an auditable decision. Verification is manual, not an automated licensing-registry check. Approval grants only the account's own clinical workspace, not a network listing. Clinical reads and writes enforce current approval on the server. Client saves preserve inaccessible clinical records, including earlier signed versions.
+
+Shared organization memberships, delegated family access, automatic credential verification, automated provider matching, appointment availability, request alerts, payment refunds, device monitoring and cross-site data migration remain outside this implemented preview.

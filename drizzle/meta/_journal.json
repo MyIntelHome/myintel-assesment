@@ -15,6 +15,13 @@
       "when": 1788893706032,
       "tag": "0001_nebulous_karma",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789154285855,
+      "tag": "0002_stormy_carnage",
+      "breakpoints": true
     }
   ]
 }

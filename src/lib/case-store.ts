@@ -8,6 +8,7 @@
  * de-identification is claimed; see docs/operating-model.md.
  */
 
+import {isClinicalRecord} from "@/domain/access";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {EMPTY_PROFILE,mergeSuggestedRooms,selectUsedRooms,suggestedRooms,type HomeProfile} from "@/domain/home-profile";
 import { createReportVersion, type ReportVersion } from "@/domain/report-version";
@@ -156,8 +157,10 @@ export function preserveCase(cases: readonly CaseState[], state: CaseState, upda
 
 export type SaveState = "idle" | "saving" | "saved" | "error";
 
-export function useCase(options?: {userId:string}) {
+export function useCase(options?: {userId:string;audience?:"family"|"clinician"}) {
   const userId=options?.userId;
+  const audience=options?.audience??"family";
+  const endpoint=audience==="clinician"?"/api/cases?audience=clinician":"/api/cases";
   const [state, setState] = useState<CaseState>(EMPTY_CASE);
   const [hydrated, setHydrated] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -179,12 +182,12 @@ export function useCase(options?: {userId:string}) {
   useEffect(() => {
     if(userId){
       let live=true;
-      fetch("/api/cases",{cache:"no-store"}).then(async r=>{if(!r.ok)throw new Error("Account unavailable");return r.json()}).then(data=>{
+      fetch(endpoint,{cache:"no-store"}).then(async r=>{if(!r.ok)throw new Error("Account unavailable");return r.json()}).then(data=>{
         if(!live)return;
         const saved=data.archive?readArchive(JSON.stringify(data.archive)):{cases:[] as CaseState[],activeId:undefined};
         cloudRevision.current=data.revision;
         archiveRef.current=saved.cases;setCases(saved.cases);
-        setState(saved.cases.find(c=>c.id===saved.activeId)??normalise({}));setHydrated(true);
+        setState(saved.cases.find(c=>c.id===saved.activeId)??normalise(audience==="clinician"?{audience:"clinician"}:{}));setHydrated(true);
       }).catch(()=>{if(live){setStorageProblem("We could not load your account. Your saved assessments have not been changed. Try again when your connection is available.");setSaveState("error");setHydrated(true);cloudBlocked.current=true;}});
       return ()=>{live=false};
     }
@@ -194,7 +197,8 @@ export function useCase(options?: {userId:string}) {
       const saved = readArchive(raw);
       archiveRef.current = saved.cases;
       setCases(archiveRef.current);
-      setState(archiveRef.current.find(c=>c.id===saved.activeId) ?? load());
+      const current=archiveRef.current.find(c=>c.id===saved.activeId) ?? load();
+      setState(isClinicalRecord(current)?normalise({}):current);
       // Contact details are no longer required or retained by this flow.
       window.localStorage.removeItem(CONTACT_KEY);
     } catch {
@@ -202,7 +206,7 @@ export function useCase(options?: {userId:string}) {
       setStorageProblem("Saved cases could not be read, or storage is unavailable. Existing records have not been overwritten. Reopen the original browser profile or contact support before clearing browser data.");
     }
     setHydrated(true);
-  }, [userId]);
+  }, [userId,audience,endpoint]);
 
   useEffect(() => {
     if(userId)return;
@@ -226,7 +230,7 @@ export function useCase(options?: {userId:string}) {
           if(generation!==generationRef.current || cloudBlocked.current)return;
           const list=preserveCase(archiveRef.current,state,new Date().toISOString());
           try{
-            const r=await fetch("/api/cases",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({ownerId:userId,revision:cloudRevision.current,archive:{activeId:state.id,cases:list}})});
+            const r=await fetch(endpoint,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({ownerId:userId,revision:cloudRevision.current,archive:{activeId:state.id,cases:list}})});
             const data=await r.json();
             if(!r.ok){if(r.status===409 || r.status===403){cloudBlocked.current=true;setStorageConflict(true);}throw new Error(data.error??"Save failed");}
             cloudRevision.current=data.revision;archiveRef.current=list;setCases(list);
@@ -264,7 +268,7 @@ export function useCase(options?: {userId:string}) {
     // Flush the latest committed edit when leaving instead of losing the debounce window.
     window.addEventListener("pagehide", persist);
     return () => { clearTimeout(t); window.removeEventListener("pagehide", persist); };
-  }, [state, hydrated, storageConflict,userId,retryTick]);
+  }, [state, hydrated, storageConflict,userId,retryTick,endpoint]);
 
   useEffect(()=>{
     if(!userId || saveState==="saved" || !hydrated)return;
@@ -278,10 +282,11 @@ export function useCase(options?: {userId:string}) {
       const raw=localStorage.getItem(ARCHIVE_KEY);
       const local=raw?readArchive(raw).cases:localStorage.getItem(STORAGE_KEY)?[load()]:[];
       if(!local.length)return;
-      const imported=local.map(c=>({...c,id:newId("case")}));
+      const imported=local.filter(c=>isClinicalRecord(c)===(audience==="clinician")).map(c=>({...c,id:newId("case")}));
+      if(!imported.length)return;
       archiveRef.current=[...archiveRef.current,...imported];setState(imported[0]!);
     }catch{setStorageProblem("These device drafts could not be read. The original records have not been changed.");}
-  },[userId,saveState]);
+  },[userId,saveState,audience]);
 
   const setReference = useCallback((reference: string) => {
     updateDraft((s) => ({ ...s, reference }));
