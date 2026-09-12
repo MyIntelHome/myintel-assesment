@@ -7,6 +7,8 @@ import { createClient, type Client } from "@libsql/client";
 export const migrationFiles = [
   "0000_broad_green_goblin.sql", "0001_nebulous_karma.sql",
   "0002_stormy_carnage.sql", "0003_nebulous_viper.sql",
+  "0004_spicy_bloodstrike.sql",
+  "0005_fair_proemial_gods.sql",
 ] as const;
 export interface Migration { name: string; sql: string }
 

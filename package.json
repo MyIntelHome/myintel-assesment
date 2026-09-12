@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build-hosted.mjs",
+    "build:production": "node scripts/build-production.mjs",
+    "start:production": "next start web-production",
     "db:generate": "drizzle-kit generate",
     "db:migrate:production": "node --experimental-strip-types production/migrations.ts",
     "start": "next start",
@@ -16,6 +18,7 @@
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",
+    "@supabase/supabase-js": "^2.116.0",
     "drizzle-orm": "0.45.2",
     "next": "^15.5.4",
     "react": "^19.2.0",

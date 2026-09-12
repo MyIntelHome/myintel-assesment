@@ -1,6 +1,6 @@
 # Pilot readiness checkpoint
 
-Latest recovery: see [September 12 source and hosting verification](recovery-2026-09-12.md). The saved source has been recovered, actual GitHub/Vercel access verified, the authentication boundary refactored, and a libSQL database adapter with migration/restore rehearsal added. All 236 tests pass. Public authentication and backend provisioning are still launch blockers; the readiness guard remains. Recover the latest continuation work from the isolated Sites source branch `pilot/recover-and-auth-2026-09-12`, not its unchanged `main` branch.
+Latest recovery: see [September 12 source and hosting verification](recovery-2026-09-12.md). The saved source has been recovered, actual GitHub/Vercel access verified, the authentication boundary refactored, and a libSQL database adapter with migration/restore rehearsal added. The public account/recovery and private-storage adapters are now implemented and locally tested; see [production account setup](production-account-setup.md). Remote provisioning, migration and complete launch checks remain blockers; the readiness guard remains. Recover the latest continuation work from the isolated Sites source branch `pilot/recover-and-auth-2026-09-12`, not its unchanged `main` branch.
 
 ## Authorization and destination
 
@@ -12,8 +12,8 @@ Austin authorized work toward a small pilot and public launch to the existing Gi
 - Production application services currently depend on Sites identity headers, a Cloudflare Worker, D1 records and R2 photos.
 - Existing vercel.json only ran next build with static export. It cannot deploy these services. A deliberate failing readiness guard now prevents an accidental broken release from this branch; replace only after a working, tested Vercel implementation exists.
 - This checkpoint adds active/new/proposal/closed queue filters, oldest-first sorting and submission age. Accepted/paid requests remain active until closed. These are internal tools, not customer response-time promises or notifications.
-- GitHub and Vercel are now confirmed installed. Their account tools remain absent from this session's callable tools, and neither CLI is available. No external account access or production domain has been verified. Do not ask Austin to reinstall; refresh the tool environment and perform read-only verification when tools become available.
-- No overnight automation was created: its instructions require a successful harmless read on every required connector before scheduling. Austin reports reset at 9:40 p.m. Mountain time (America/Denver); requested continuation may be scheduled just after that reset once access checks succeed. Last user-reported allowance was 49%; current remaining usage is not visible.
+- GitHub administrator/write access and the existing Vercel browser session were verified. The only configured production domain is myintel-assesment.vercel.app. See recovery-2026-09-12.md for the actual project settings and source reconciliation; public deployment is still unchanged.
+- A single bounded continuation is scheduled for September 12 at 9:45 p.m. America/Denver. It must recheck connections, stop for missing credentials or human decisions, and pause after one attempt. It does not monitor quota.
 - Staff coordination is now implemented: claim a request, display its coordinator, and release your own claim back to the unassigned queue. Server-side staff checks, atomic ownership, idempotent retries and audit events protect assignments. Coordination does not book a professional or share client records. Existing records migrate with no coordinator assigned.
 
 ## Resume in this order

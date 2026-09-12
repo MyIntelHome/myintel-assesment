@@ -29,6 +29,20 @@
       "when": 1789168474006,
       "tag": "0003_nebulous_viper",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1789247703519,
+      "tag": "0004_spicy_bloodstrike",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1789248230919,
+      "tag": "0005_fair_proemial_gods",
+      "breakpoints": true
     }
   ]
 }

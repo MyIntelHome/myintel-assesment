@@ -1,5 +1,15 @@
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 
+export const publicSessions=sqliteTable("public_sessions",{
+  idHash:text("id_hash").primaryKey(),userId:text("user_id").notNull(),encryptedTokens:text("encrypted_tokens").notNull(),purpose:text("purpose").notNull(),expiresAt:integer("expires_at").notNull(),
+},t=>[index("public_sessions_user").on(t.userId)]);
+export const publicAuthAttempts=sqliteTable("public_auth_attempts",{
+  key:text("key").primaryKey(),window:integer("window").notNull(),attempts:integer("attempts").notNull(),
+});
+export const publicAuthRevocations=sqliteTable("public_auth_revocations",{
+  userId:text("user_id").primaryKey(),revokedBefore:integer("revoked_before").notNull(),resetting:integer("resetting").notNull().default(0),
+});
+
 export const professionalAccess=sqliteTable("professional_access",{
   userId:text("user_id").primaryKey(),email:text("email").notNull(),name:text("name").notNull(),practice:text("practice").notNull(),credential:text("credential").notNull(),region:text("region").notNull(),status:text("status").notNull().default("pending"),revision:integer("revision").notNull().default(1),reviewNote:text("review_note").notNull().default(""),updatedAt:text("updated_at").notNull(),
 });

@@ -8,7 +8,7 @@ This is a tested compatibility option, not a provisioned production service or a
 
 ## Schema migration
 
-The four checked-in Drizzle migrations are applied in order by `production/migrations.ts`. A checksum journal detects altered, missing, or unknown migrations. All pending migrations and journal entries are committed in one transaction; a failure rolls back the batch. A pre-existing database without this journal is rejected rather than silently adopted.
+The six checked-in Drizzle migrations are applied in order by `production/migrations.ts`. A checksum journal detects altered, missing, or unknown migrations. All pending migrations and journal entries are committed in one transaction; a failure rolls back the batch. A pre-existing database without this journal is rejected rather than silently adopted.
 
 Use Node 24 and the locked dependencies. Set `MYINTEL_DATABASE_URL` and `MYINTEL_DATABASE_AUTH_TOKEN` securely for the selected empty target, then set `MYINTEL_MIGRATION_TARGET` to the same URL as an explicit target check. Run `pnpm run db:migrate:production` from the checkout. The command prints only a migration count or a generic failure, never credentials or rows. Do not run it as a deployment build step or on each request. Clear the target confirmation after use.
 
@@ -39,3 +39,5 @@ The tests rehearse a source-to-empty-target restore using real local libSQL data
 Keep the previous backend and immutable pre-cutover backups until the retention decision is made. Stop new writes before rollback. If the new backend accepted writes, export and reconcile them before switching; returning to a pre-cutover snapshot would otherwise lose those records. Restore into a fresh target, verify counts/hashes/permissions, then switch only to the tested compatible deployment and target. Do not drop tables, reuse an occupied restore target, or overwrite the original source to make a failed migration appear successful.
 
 Remote migration, D1 export/conversion, identity mapping, photo transfer, and production switchback remain unperformed launch gates.
+
+Active public sessions, rate-limit buckets and reset revocation state are intentionally excluded from application snapshots. Restored targets require new sign-in; never copy old encrypted sessions into a restored environment. Keep the session encryption key separate from database backups.

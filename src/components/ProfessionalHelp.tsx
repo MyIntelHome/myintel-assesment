@@ -1,4 +1,5 @@
 "use client";
+import {signInHref,signOutHref,signInLabel,accountProviderLabel,accountNotice} from "@/lib/auth-navigation";
 
 import {createUuid} from "@/lib/ids";
 import { useEffect, useRef, useState } from "react";
@@ -144,10 +145,10 @@ export default function ProfessionalHelp({
               <p>Your request and any updates will be saved to your account.</p>
               <a
                 className="help-button help-button-primary"
-                href="/signin-with-chatgpt?return_to=%2F%3Fview%3Dhelp"
+                href={signInHref("/?view=help")}
                 target="_top"
               >
-                Continue with ChatGPT
+                {signInLabel}
               </a>
             </div>
           </section>
