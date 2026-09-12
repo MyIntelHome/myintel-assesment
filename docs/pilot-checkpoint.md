@@ -1,5 +1,7 @@
 # Pilot readiness checkpoint
 
+Latest recovery: see [September 12 source and hosting verification](recovery-2026-09-12.md). The saved source has been recovered, actual GitHub/Vercel access verified, and the authentication boundary refactored with 225 passing tests and a passing build. Public authentication and backend provisioning are still launch blockers; the readiness guard remains.
+
 ## Authorization and destination
 
 Austin authorized work toward a small pilot and public launch to the existing GitHub/Vercel domain once ready. Do not switch public hosting silently. The separate owner-private Sites preview is not the public deployment. Do not publish private test information or assume permission to email customers or professionals.

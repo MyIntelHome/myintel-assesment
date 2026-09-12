@@ -1,6 +1,7 @@
+import {handleSitesApi as handleApi} from "../../worker/sites-api";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {createHmac} from "node:crypto";
-import {handleApi,type Env} from "../../worker/api";
+import {type Env} from "../../worker/api";
 import {SqliteTestDatabase} from "./sqlite-test-db";
 let db:SqliteTestDatabase,env:Env;
 const origin="https://myintel.example";

@@ -1,5 +1,6 @@
+import {handleSitesApi as handleApi} from "../../worker/sites-api";
 import {beforeEach,afterEach,expect,it} from "vitest";
-import {handleApi,type Env} from "../../worker/api";
+import {type Env} from "../../worker/api";
 import {SqliteTestDatabase} from "./sqlite-test-db";
 let db:SqliteTestDatabase,env:Env;
 beforeEach(()=>{db=new SqliteTestDatabase();env={DB:db,ASSETS:{fetch:async()=>new Response("")},MYINTEL_ADMIN_EMAIL:"staff@example.test"}});

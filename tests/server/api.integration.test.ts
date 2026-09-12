@@ -1,6 +1,7 @@
+import {handleSitesApi as handleApi} from "../../worker/sites-api";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  handleApi,
+
   type Env,
 } from "../../worker/api";
 import { SqliteTestDatabase } from "./sqlite-test-db";

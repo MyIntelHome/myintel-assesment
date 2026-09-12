@@ -7,17 +7,11 @@ import {homePhotoRoute,type PhotoBucket} from "./home-photos";
 import {homeActionsText} from "../src/domain/home-actions";
 import {buildFamilyReport,reportToPlainText} from "../src/domain/family-report";
 import {familyTemplateFor,profileLines,activeHomeSpaces} from "../src/domain/home-profile";
+import {accountIdentity,anonymousIdentity,type IdentityResolver} from "./auth";
 
 export interface Statement {bind(...values:unknown[]):Statement;first<T=Record<string,unknown>>():Promise<T|null>;all<T=Record<string,unknown>>():Promise<{results:T[]}>;run():Promise<{meta:{changes:number}}>}
 export interface Database {prepare(sql:string):Statement;batch(statements:Statement[]):Promise<{meta:{changes:number}}[]>}
 export interface Env {DB:Database;BUCKET?:PhotoBucket;ASSETS:{fetch(request:Request):Promise<Response>};MYINTEL_ADMIN_EMAIL?:string;APP_ORIGIN?:string;STRIPE_SECRET_KEY?:string;STRIPE_WEBHOOK_SECRET?:string}
-export function identity(request:Request,env:Env) {
-  const id=request.headers.get("oai-authenticated-user-id"),email=request.headers.get("oai-authenticated-user-email");
-  if(!id || !email) return null;
-  let name=email; const raw=request.headers.get("oai-authenticated-user-full-name");
-  if(raw && request.headers.get("oai-authenticated-user-full-name-encoding")==="percent-encoded-utf-8") {try{name=decodeURIComponent(raw)}catch{}}
-  return {id,email,name,isAdmin:!!env.MYINTEL_ADMIN_EMAIL && email.toLowerCase()===env.MYINTEL_ADMIN_EMAIL.toLowerCase()};
-}
 export function json(data:unknown,status=200){return Response.json(data,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}})}
 async function body(request:Request,max=16000){
   if(!request.headers.get("content-type")?.startsWith("application/json")) throw new ApiError(415,"Send JSON data.");
@@ -55,14 +49,15 @@ export function preservedHistory(before: {cases: Array<{id?:string;reportVersion
   return before.cases.every(old=>{const next=after.cases.find(c=>c.id===old.id);return !!next && (old.reportVersions??[]).every((v,i)=>JSON.stringify(v)===JSON.stringify(next.reportVersions?.[i]));});
 }
 const requestSelect="SELECT r.*, p.name AS provider_name FROM service_requests r LEFT JOIN providers p ON p.id=r.provider_id";
-export async function handleApi(request:Request,env:Env):Promise<Response>{
+export async function handleApi(request:Request,env:Env,resolveIdentity:IdentityResolver=anonymousIdentity):Promise<Response>{
   try{
-    const url=new URL(request.url),path=url.pathname,method=request.method,user=identity(request,env);
+    const url=new URL(request.url),path=url.pathname,method=request.method;
     if(path==="/api/stripe/webhook" && method==="POST")return await webhook(request,env);
     if(method!=="GET" && method!=="HEAD"){
       const origin=request.headers.get("origin");
       if(!origin || (origin!==url.origin && origin!==env.APP_ORIGIN))return json({error:"This request must come from the MyIntel app."},403);
     }
+    const user=accountIdentity(await resolveIdentity(request),env.MYINTEL_ADMIN_EMAIL);
     if(path==="/api/account" && method==="GET")return json({user,professionalAccess:user && env.DB?await env.DB.prepare("SELECT * FROM professional_access WHERE user_id=?").bind(user.id).first():null,paymentsEnabled:!!env.STRIPE_SECRET_KEY && !!env.STRIPE_WEBHOOK_SECRET});
     if(!user)return json({error:"Sign in to continue."},401);
     if(!env.DB)throw new ApiError(503,"Your account service is temporarily unavailable. Your draft is still here.");

@@ -1,7 +1,8 @@
+import {handleSitesApi as handleApi} from "../../worker/sites-api";
 import {beforeEach,afterEach,it,expect} from "vitest";
 import {readFileSync} from "node:fs";
 import {SqliteTestDatabase} from "./sqlite-test-db";
-import {handleApi,type Env} from "../../worker/api";
+import {type Env} from "../../worker/api";
 import {acceptableJpeg} from "../../worker/home-photos";
 let db:SqliteTestDatabase,env:Env;const objects=new Map<string,Uint8Array>();
 const base="https://myintel.test",requestId="request-home",id="00000000-0000-4000-8000-000000000001";
