@@ -1,6 +1,6 @@
 # Pilot readiness checkpoint
 
-Latest recovery: see [September 12 source and hosting verification](recovery-2026-09-12.md). The saved source has been recovered, actual GitHub/Vercel access verified, and the authentication boundary refactored with 225 passing tests and a passing build. Public authentication and backend provisioning are still launch blockers; the readiness guard remains.
+Latest recovery: see [September 12 source and hosting verification](recovery-2026-09-12.md). The saved source has been recovered, actual GitHub/Vercel access verified, the authentication boundary refactored, and a libSQL database adapter with migration/restore rehearsal added. All 236 tests pass. Public authentication and backend provisioning are still launch blockers; the readiness guard remains. Recover the latest continuation work from the isolated Sites source branch `pilot/recover-and-auth-2026-09-12`, not its unchanged `main` branch.
 
 ## Authorization and destination
 

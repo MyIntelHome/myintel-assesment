@@ -7,6 +7,7 @@
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build-hosted.mjs",
     "db:generate": "drizzle-kit generate",
+    "db:migrate:production": "node --experimental-strip-types production/migrations.ts",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -14,6 +15,7 @@
     "verify": "npm run typecheck && npm run test"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "drizzle-orm": "0.45.2",
     "next": "^15.5.4",
     "react": "^19.2.0",

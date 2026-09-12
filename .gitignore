@@ -15,5 +15,12 @@ next-env.d.ts
 coverage
 .vercel
 
+# Database backups contain private account and assessment records.
+backups/
+*.sqlite-backup.json
+*.db
+*.db-shm
+*.db-wal
+
 # Local agent tooling — holds machine-specific paths
 .claude

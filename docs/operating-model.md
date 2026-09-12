@@ -2,6 +2,8 @@
 
 Updated September 8, 2026. This describes implementation, not a legal determination.
 
+September 12 development update: the shared API now defaults to anonymous and only the Sites Worker selects its trusted-header adapter. A libSQL production database compatibility adapter and local migration/restore rehearsal are available but are not connected to public hosting. See `recovery-2026-09-12.md` and `production-data-migration.md`. The deployed private preview has not been updated by this work.
+
 ## Identity and records
 
 The hosted preview identifies visitors using the Sites dispatcher's trusted authenticated-user ID and email headers. A missing identity cannot read/write account assessments or service requests. Every assessment operation is owner-scoped. The verified site owner's configured email grants operations access on the server; a browser role flag does not grant access.
