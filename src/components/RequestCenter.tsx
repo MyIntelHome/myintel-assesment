@@ -1,6 +1,7 @@
 "use client";
 import {signInHref,signOutHref,signInLabel,accountProviderLabel,accountNotice} from "@/lib/auth-navigation";
 import {HomeReviewPhotos} from "./HomeReviewPhotos";
+import {ProfessionalHandoff} from "./ProfessionalHandoff";
 import {useEffect,useState} from "react";
 import {SERVICES,REQUEST_STATUS,type AccountUser,type ServiceRequest} from "@/domain/services";
 export function RequestCenter({user,paymentsEnabled,onNew}:{user:AccountUser|null;paymentsEnabled:boolean;onNew:()=>void}){
@@ -18,6 +19,7 @@ export function RequestCenter({user,paymentsEnabled,onNew}:{user:AccountUser|nul
       {r.status==="quoted" && <button className="app-primary" disabled={busy===r.id} onClick={()=>action(r,"accept")}>{busy===r.id?"Saving…":"Accept this proposal"}</button>}
       {r.status==="accepted" && (paymentsEnabled?<button className="app-primary" disabled={busy===r.id} onClick={()=>action(r,"checkout")}>{busy===r.id?"Opening checkout…":"Continue to secure payment"}</button>:<p className="account-note">Your acceptance is saved. Online payment is not enabled yet; no charge has been made.</p>)}
       <HomeReviewPhotos requestId={r.id} readOnly={["cancelled","completed"].includes(r.status)}/>
+      {r.provider_id&&["quoted","accepted","paid","completed","cancelled"].includes(r.status)&&<ProfessionalHandoff request={r}/>}
       <p className="request-contact">Follow-up by {r.contact_method==="phone"?"phone · "+r.phone:"email · "+r.email}</p></article>)}</div>}
     </>}
   </main>;

@@ -43,6 +43,13 @@
       "when": 1789248230919,
       "tag": "0005_fair_proemial_gods",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789268121676,
+      "tag": "0006_known_argent",
+      "breakpoints": true
     }
   ]
 }

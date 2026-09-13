@@ -2,7 +2,7 @@
 
 Updated September 8, 2026. This describes implementation, not a legal determination.
 
-September 12 development update: the shared API now defaults to anonymous and only the Sites Worker selects its trusted-header adapter. A libSQL production database compatibility adapter and local migration/restore rehearsal are available but are not connected to public hosting. See `recovery-2026-09-12.md` and `production-data-migration.md`. The deployed private preview has not been updated by this work.
+September 12 development update: the shared API now defaults to anonymous and only the Sites Worker selects its trusted-header adapter. A server production app now provides verified public sessions, account recovery, a libSQL database adapter and private Supabase photo storage. Supabase project settings and a private photo bucket are prepared, but provider keys, the production database, migration and Vercel deployment are not connected. See `recovery-2026-09-12.md`, `production-account-setup.md` and `production-data-migration.md`. The deployed private preview has not been updated by this work.
 
 ## Identity and records
 
@@ -26,11 +26,13 @@ No outbound AI or partner monitoring is connected.
 
 Submitting an inquiry requires sign-in, a service choice, contact name, US ZIP code, contact preference, relationship and contact consent. A phone number is required for callbacks. Email comes from authenticated identity. Home-check sharing is optional and unchecked by default. With explicit consent, the server attaches a snapshot of the account owner's saved family report, home layout and daily-life answers to the inquiry. Later assessment edits do not change that snapshot. Clinical archives are not attached.
 
-After that request is saved, the owner may share up to six guided room photos. The browser resizes supported images and re-encodes them as JPEG to remove original metadata. Each photo requires a separate sharing confirmation. The server limits file size, format and dimensions, verifies ownership and stores bytes in private R2 storage. Only the owner and configured MyIntel staff can retrieve images through authenticated routes. Owners can remove photos. MyIntel coordinates professional review; the app does not automatically forward reports or images to a professional. A full retention/deletion policy and operational access review remain public-launch work.
+After that request is saved, the owner may share up to six guided room photos. The browser resizes supported images and re-encodes them as JPEG to remove original metadata. Each photo requires a separate sharing confirmation. The server limits file size, format and dimensions, verifies ownership and stores bytes privately. The owner and configured MyIntel staff can retrieve them through authenticated routes. A professional can retrieve only the specific photo IDs the owner later consents to share with that named professional. New photos and later assessment edits are not added automatically. Owners can stop professional access and can remove their photos. A full retention/deletion policy and operational access review remain public-launch work.
 
 The server records a receipt and deduplicates retries using the request ID. Clients can see their own requests; configured MyIntel staff can review requests in operations. No automatic emails/SMS are sent. Staff must check the queue and arrange follow-up.
 
-Provider listings are entered only after manual MyIntel review of credentials, service area and listing permission. There are no seeded professionals or claims of automatic credential verification. A proposal requires a reviewed professional for that service, scope and USD price. Acceptance binds the current quote version. Scheduling is not confirmed merely by an inquiry, proposal or acceptance.
+Provider listings are entered only after manual MyIntel review of credentials, service area and listing permission. There are no seeded professionals or claims of automatic credential verification. Staff may link a currently approved professional account to a reviewed listing; linking is audited and shares no customer information by itself. A proposal requires a reviewed professional for that service, scope and USD price. Acceptance binds the current quote version. The customer must separately consent before the named professional can see contact details, the request, the home-check snapshot or selected photos. Access ends when consent is withdrawn, the request closes, the proposal/listing link changes, or professional approval is lost. Clinical archives are never part of this handoff. Scheduling is not confirmed merely by an inquiry, proposal, handoff or acceptance.
+
+Staff can claim and release responsibility for a request. The responsible staff member can record a dated follow-up plan with optimistic revision checks; prior plans remain in audit history and the current plan is cleared when ownership is released. These dates are internal work plans, not promised response times, and no automatic message is sent.
 
 ## Payment foundation
 
@@ -40,8 +42,8 @@ Before enabling: establish the merchant/service model and terms, verify Stripe t
 
 ## Public launch requirements
 
-Select and implement family-facing authentication suitable for the public app; confirm real-device and assistive-technology usability with seniors/families/OTs; review clinical content and the actual healthcare data flow; arrange applicable privacy, retention, contractual and security controls; onboard real professionals and define response ownership.
+Connect and test the implemented family-facing authentication on the public stack; confirm real-device and assistive-technology usability with seniors/families/OTs; review clinical content and the actual healthcare data flow; arrange applicable privacy, retention, contractual and security controls; onboard real professionals and define response ownership.
 
-Professional access requires a staff-reviewed application with credential details and an auditable decision. Verification is manual, not an automated licensing-registry check. Approval grants only the account's own clinical workspace, not a network listing. Clinical reads and writes enforce current approval on the server. Client saves preserve inaccessible clinical records, including earlier signed versions.
+Professional access requires a staff-reviewed application with credential details and an auditable decision. Verification is manual, not an automated licensing-registry check. Approval grants the account's own clinical workspace. A separate reviewed-listing link and customer consent are required for service requests. Clinical reads and writes enforce current approval on the server. Client saves preserve inaccessible clinical records, including earlier signed versions.
 
 Shared organization memberships, delegated family access, automatic credential verification, automated provider matching, appointment availability, request alerts, payment refunds, device monitoring and cross-site data migration remain outside this implemented preview.

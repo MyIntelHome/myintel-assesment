@@ -38,6 +38,24 @@ export const providers = sqliteTable("providers", {
   area:text("area").notNull(), credentials:text("credentials").notNull(), verificationNote:text("verification_note").notNull(),
   status:text("status").notNull().default("pending"), createdAt:text("created_at").notNull(),
 });
+export const providerAccounts=sqliteTable("provider_accounts",{
+  providerId:text("provider_id").primaryKey(),userId:text("user_id").notNull(),revision:integer("revision").notNull().default(1),linkedBy:text("linked_by").notNull(),linkedAt:text("linked_at").notNull(),
+},t=>[index("provider_accounts_user").on(t.userId)]);
+export const providerAccountEvents=sqliteTable("provider_account_events",{
+  id:text("id").primaryKey(),providerId:text("provider_id").notNull(),userId:text("user_id").notNull(),actorId:text("actor_id").notNull(),action:text("action").notNull(),revision:integer("revision").notNull(),createdAt:text("created_at").notNull(),
+},t=>[index("provider_account_events_provider").on(t.providerId,t.createdAt)]);
+export const requestProfessionalGrants=sqliteTable("request_professional_grants",{
+  requestId:text("request_id").primaryKey(),providerId:text("provider_id").notNull(),professionalUserId:text("professional_user_id").notNull(),providerRevision:integer("provider_revision").notNull(),quoteVersion:integer("quote_version").notNull(),shareContact:integer("share_contact").notNull(),shareHome:integer("share_home").notNull(),sharePhotos:integer("share_photos").notNull(),photoIds:text("photo_ids").notNull().default("[]"),consentAt:text("consent_at").notNull(),revokedAt:text("revoked_at"),
+},t=>[index("request_professional_grants_user").on(t.professionalUserId,t.consentAt)]);
+export const requestProfessionalEvents=sqliteTable("request_professional_events",{
+  id:text("id").primaryKey(),requestId:text("request_id").notNull(),actorId:text("actor_id").notNull(),action:text("action").notNull(),details:text("details").notNull(),createdAt:text("created_at").notNull(),
+},t=>[index("request_professional_events_request").on(t.requestId,t.createdAt)]);
+export const requestFollowups=sqliteTable("request_followups",{
+  requestId:text("request_id").primaryKey(),coordinatorId:text("coordinator_id").notNull(),dueAt:text("due_at").notNull(),note:text("note").notNull(),revision:integer("revision").notNull().default(1),updatedAt:text("updated_at").notNull(),
+});
+export const requestFollowupEvents=sqliteTable("request_followup_events",{
+  id:text("id").primaryKey(),requestId:text("request_id").notNull(),coordinatorId:text("coordinator_id").notNull(),actorId:text("actor_id").notNull(),dueAt:text("due_at").notNull(),note:text("note").notNull(),revision:integer("revision").notNull(),createdAt:text("created_at").notNull(),
+},t=>[index("request_followup_events_request").on(t.requestId,t.createdAt)]);
 export const requestEvents = sqliteTable("request_events", {
   id:text("id").primaryKey(), requestId:text("request_id").notNull(), actorId:text("actor_id").notNull(),
   status:text("status").notNull(), createdAt:text("created_at").notNull(),

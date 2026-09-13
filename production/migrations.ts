@@ -9,6 +9,7 @@ export const migrationFiles = [
   "0002_stormy_carnage.sql", "0003_nebulous_viper.sql",
   "0004_spicy_bloodstrike.sql",
   "0005_fair_proemial_gods.sql",
+  "0006_known_argent.sql",
 ] as const;
 export interface Migration { name: string; sql: string }
 

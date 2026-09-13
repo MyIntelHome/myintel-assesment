@@ -16,5 +16,5 @@ export const requestSchema=z.object({
 export const REQUEST_STATUS={submitted:"Request received",reviewing:"MyIntel is reviewing",quoted:"Your proposal is ready",accepted:"Proposal accepted",paid:"Payment received",completed:"Service completed",cancelled:"Cancelled"} as const;
 export type RequestStatus=keyof typeof REQUEST_STATUS;
 export interface ServiceRequest {id:string;user_id:string;email:string;service:ServiceType;name:string;postal_code:string;phone:string;contact_method:string;relationship:string;status:RequestStatus;provider_id:string|null;provider_name?:string|null;scope:string;amount_cents:number|null;quote_version:number;created_at:string;updated_at:string;}
-export interface Provider {id:string;name:string;service:ServiceType;area:string;credentials:string;status:string;}
+export interface Provider {id:string;name:string;service:ServiceType;area:string;credentials:string;status:string;account_user_id?:string|null;account_revision?:number|null;account_email?:string|null;account_status?:string|null;}
 export interface AccountUser {id:string;email:string;name:string;isAdmin:boolean;}

@@ -4,12 +4,14 @@ import { z } from "zod";
 
 export const applicationTables = [
   "case_archives", "home_handoffs", "home_photos", "payment_events",
-  "professional_access", "professional_access_events", "providers",
-  "request_coordinators", "request_events", "service_requests",
+  "professional_access", "professional_access_events", "provider_account_events",
+  "provider_accounts", "providers", "request_coordinators", "request_events",
+  "request_followup_events", "request_followups", "request_professional_events",
+  "request_professional_grants", "service_requests",
 ] as const;
 
 const snapshotSchema = z.object({
-  version: z.literal(1), createdAt: z.string().datetime(),
+  version: z.literal(2), createdAt: z.string().datetime(),
   tables: z.array(z.object({
     name: z.string(), columns: z.array(z.string()),
     rows: z.array(z.array(z.union([z.string(), z.number().finite(), z.null()]))),
@@ -36,7 +38,7 @@ export async function exportSnapshot(client: Client): Promise<Snapshot> {
       })) });
     }
     await tx.commit();
-    const payload = { version: 1 as const, createdAt: new Date().toISOString(), tables };
+    const payload = { version: 2 as const, createdAt: new Date().toISOString(), tables };
     return { ...payload, checksum: hash(payload) };
   } catch (error) { await tx.rollback(); throw error; }
   finally { tx.close(); }

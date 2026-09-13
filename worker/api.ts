@@ -4,6 +4,7 @@ import { requestSchema, serviceSchema } from "../src/domain/services";
 import { savedCaseSchema } from "../src/lib/case-validation";
 import {createCheckout,verifyStripeEvent} from "./stripe";
 import {homePhotoRoute,type PhotoBucket} from "./home-photos";
+import {professionalSharedHomeRoute} from "./professional-referrals";
 import {homeActionsText} from "../src/domain/home-actions";
 import {buildFamilyReport,reportToPlainText} from "../src/domain/family-report";
 import {familyTemplateFor,profileLines,activeHomeSpaces} from "../src/domain/home-profile";
@@ -83,6 +84,13 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
       }
     }
     const scope=url.searchParams.get("audience")??"family";
+    if(path==="/api/professional/referrals" && method==="GET"){
+      const access=await db.prepare("SELECT status FROM professional_access WHERE user_id=?").bind(user.id).first<ProfessionalAccess>();
+      if(access?.status!=="approved")throw new ApiError(403,"Approved professional access is required.");
+      const referrals=(await db.prepare("SELECT r.id,r.service,r.name,r.email,r.phone,r.contact_method,r.postal_code,r.status,r.scope,r.updated_at,p.name AS provider_name,g.consent_at,g.share_home,g.share_photos FROM request_professional_grants g JOIN service_requests r ON r.id=g.request_id JOIN providers p ON p.id=g.provider_id AND p.status='verified' JOIN provider_accounts a ON a.provider_id=g.provider_id AND a.user_id=g.professional_user_id AND a.revision=g.provider_revision JOIN professional_access pa ON pa.user_id=g.professional_user_id AND pa.status='approved' WHERE g.professional_user_id=? AND g.revoked_at IS NULL AND g.share_contact=1 AND r.provider_id=g.provider_id AND r.quote_version=g.quote_version AND r.status IN ('quoted','accepted','paid') ORDER BY g.consent_at DESC").bind(user.id).all()).results;
+      return json({referrals});
+    }
+    const professionalHome=await professionalSharedHomeRoute(request,db,env.BUCKET,user.id);if(professionalHome)return professionalHome;
     if(path==="/api/cases"){
       if(!["family","clinician"].includes(scope))throw new ApiError(400,"Choose a valid workspace.");
       if(scope==="clinician"){
@@ -147,6 +155,41 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
       if(!created)throw new ApiError(409,"Please refresh this request form.");
       return json({request:{...created,createdAt:created.created_at}},201);
     }
+    const handoff=path.match(/^\/api\/requests\/([\w-]+)\/professional-handoff$/);
+    if(handoff){
+      const current=await db.prepare("SELECT r.*,p.name AS provider_name FROM service_requests r LEFT JOIN providers p ON p.id=r.provider_id WHERE r.id=? AND r.user_id=?").bind(handoff[1],user.id).first<Record<string,unknown>>();
+      if(!current)throw new ApiError(404,"Request not found.");
+      if(method==="GET"){
+        const grant=await db.prepare("SELECT * FROM request_professional_grants WHERE request_id=?").bind(handoff[1]).first<Record<string,unknown>>();
+        const account=current.provider_id?await db.prepare("SELECT a.revision,a.user_id FROM provider_accounts a JOIN professional_access pa ON pa.user_id=a.user_id AND pa.status='approved' JOIN providers p ON p.id=a.provider_id AND p.status='verified' WHERE a.provider_id=?").bind(current.provider_id).first<{revision:number;user_id:string}>():null;
+        const home=await db.prepare("SELECT request_id FROM home_handoffs WHERE request_id=?").bind(handoff[1]).first();
+        const photos=(await db.prepare("SELECT id FROM home_photos WHERE request_id=? AND ready=1").bind(handoff[1]).all<{id:string}>()).results;
+        const active=!!grant && !grant.revoked_at && grant.provider_id===current.provider_id && grant.quote_version===current.quote_version && grant.provider_revision===account?.revision && grant.professional_user_id===account?.user_id && ["quoted","accepted","paid"].includes(String(current.status));
+        return json({providerReady:!!account,providerName:current.provider_name??null,hasHome:!!home,photoCount:photos.length,handoff:grant?{active,consentAt:grant.consent_at,shareHome:!!grant.share_home,sharePhotos:!!grant.share_photos,revokedAt:grant.revoked_at??null}:null});
+      }
+      if(method==="POST"){
+        const v=z.object({quoteVersion:z.number().int().positive(),shareContact:z.literal(true),shareHome:z.boolean(),sharePhotos:z.boolean()}).strict().refine(value=>!value.sharePhotos||value.shareHome).parse(await body(request));
+        if(current.quote_version!==v.quoteVersion || !current.provider_id || !["quoted","accepted","paid"].includes(String(current.status)))throw new ApiError(409,"The proposal changed. Refresh before sharing.");
+        const home=v.shareHome?await db.prepare("SELECT request_id FROM home_handoffs WHERE request_id=?").bind(handoff[1]).first():null;
+        if(v.shareHome&&!home)throw new ApiError(400,"No saved home check is attached to this request.");
+        const photos=v.sharePhotos?(await db.prepare("SELECT id FROM home_photos WHERE request_id=? AND ready=1 ORDER BY created_at").bind(handoff[1]).all<{id:string}>()).results:[];
+        if(v.sharePhotos&&!photos.length)throw new ApiError(400,"Add at least one saved photo before choosing to share photos.");
+        const now=new Date().toISOString(),details=JSON.stringify({providerId:current.provider_id,quoteVersion:v.quoteVersion,shareContact:true,shareHome:v.shareHome,sharePhotos:v.sharePhotos,photoCount:photos.length});
+        const result=await db.batch([
+          db.prepare("INSERT INTO request_professional_grants (request_id,provider_id,professional_user_id,provider_revision,quote_version,share_contact,share_home,share_photos,photo_ids,consent_at,revoked_at) SELECT r.id,r.provider_id,a.user_id,a.revision,r.quote_version,1,?,?,?,?,NULL FROM service_requests r JOIN providers p ON p.id=r.provider_id AND p.status='verified' JOIN provider_accounts a ON a.provider_id=p.id JOIN professional_access pa ON pa.user_id=a.user_id AND pa.status='approved' WHERE r.id=? AND r.user_id=? AND r.quote_version=? AND r.status IN ('quoted','accepted','paid') ON CONFLICT(request_id) DO UPDATE SET provider_id=excluded.provider_id,professional_user_id=excluded.professional_user_id,provider_revision=excluded.provider_revision,quote_version=excluded.quote_version,share_contact=1,share_home=excluded.share_home,share_photos=excluded.share_photos,photo_ids=excluded.photo_ids,consent_at=excluded.consent_at,revoked_at=NULL").bind(v.shareHome?1:0,v.sharePhotos?1:0,JSON.stringify(photos.map(photo=>photo.id)),now,handoff[1],user.id,v.quoteVersion),
+          db.prepare("INSERT INTO request_professional_events (id,request_id,actor_id,action,details,created_at) SELECT ?,?,?,'consented',?,? WHERE changes()=1").bind(crypto.randomUUID(),handoff[1],user.id,details,now),
+        ]);
+        if(result[0]?.meta.changes!==1)throw new ApiError(409,"The professional account or proposal changed. Refresh before sharing.");
+        return json({shared:true});
+      }
+      if(method==="DELETE"){
+        const now=new Date().toISOString(),result=await db.batch([
+          db.prepare("UPDATE request_professional_grants SET revoked_at=? WHERE request_id=? AND revoked_at IS NULL AND EXISTS(SELECT 1 FROM service_requests WHERE id=? AND user_id=?)").bind(now,handoff[1],handoff[1],user.id),
+          db.prepare("INSERT INTO request_professional_events (id,request_id,actor_id,action,details,created_at) SELECT ?,?,?,'revoked','{}',? WHERE changes()=1").bind(crypto.randomUUID(),handoff[1],user.id,now),
+        ]);
+        return json({revoked:result[0]?.meta.changes===1});
+      }
+    }
     const accept=path.match(/^\/api\/requests\/([\w-]+)\/accept$/);
     if(accept && method==="POST"){
       const p=z.object({quoteVersion:z.number().int().positive()}).parse(await body(request));
@@ -169,7 +212,7 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
     }
     if(path.startsWith("/api/admin")){
       if(!user.isAdmin)throw new ApiError(403,"This area is for MyIntel staff.");
-      if(path==="/api/admin/requests" && method==="GET")return json({requests:(await db.prepare("SELECT r.*,p.name AS provider_name,c.staff_name AS coordinator_name,c.staff_id AS coordinator_id FROM service_requests r LEFT JOIN providers p ON p.id=r.provider_id LEFT JOIN request_coordinators c ON c.request_id=r.id ORDER BY CASE WHEN r.status IN ('completed','cancelled') THEN 1 ELSE 0 END,r.created_at ASC LIMIT 200").all()).results,userId:user.id});
+      if(path==="/api/admin/requests" && method==="GET")return json({requests:(await db.prepare("SELECT r.*,p.name AS provider_name,c.staff_name AS coordinator_name,c.staff_id AS coordinator_id,f.due_at AS followup_due_at,f.note AS followup_note,f.revision AS followup_revision FROM service_requests r LEFT JOIN providers p ON p.id=r.provider_id LEFT JOIN request_coordinators c ON c.request_id=r.id LEFT JOIN request_followups f ON f.request_id=r.id ORDER BY CASE WHEN r.status IN ('completed','cancelled') THEN 1 ELSE 0 END,r.created_at ASC LIMIT 200").all()).results,userId:user.id});
       const claim=path.match(/^\/api\/admin\/requests\/([\w-]+)\/claim$/);
       if(claim && method==="POST"){
         const current=await db.prepare("SELECT status FROM service_requests WHERE id=?").bind(claim[1]).first<{status:string}>();
@@ -188,13 +231,51 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
         await db.batch([
           db.prepare("DELETE FROM request_coordinators WHERE request_id=? AND staff_id=?").bind(claim[1],user.id),
           db.prepare("INSERT INTO request_events (id,request_id,actor_id,status,created_at) SELECT ?,?,?,'coordinator_released',? WHERE changes()=1").bind(crypto.randomUUID(),claim[1],user.id,new Date().toISOString()),
+          db.prepare("DELETE FROM request_followups WHERE request_id=? AND coordinator_id=?").bind(claim[1],user.id),
         ]);
         return json({released:true});
       }
-      if(path==="/api/admin/providers" && method==="GET")return json({providers:(await db.prepare("SELECT * FROM providers ORDER BY created_at DESC").all()).results});
+      const followup=path.match(/^\/api\/admin\/requests\/([\w-]+)\/follow-up$/);
+      if(followup && method==="PUT"){
+        const v=z.object({revision:z.number().int().nonnegative(),dueAt:z.string().datetime(),note:z.string().trim().min(3).max(1000)}).strict().parse(await body(request));
+        const due=new Date(v.dueAt).getTime();if(due<Date.now()-60_000 || due>Date.now()+90*86400000)throw new ApiError(400,"Choose a follow-up time within the next 90 days.");
+        const owner=await db.prepare("SELECT c.staff_id,r.status FROM request_coordinators c JOIN service_requests r ON r.id=c.request_id WHERE c.request_id=?").bind(followup[1]).first<{staff_id:string;status:string}>();
+        if(owner?.staff_id!==user.id)throw new ApiError(409,"Take responsibility for this request before setting follow-up.");
+        if(["completed","cancelled"].includes(owner.status))throw new ApiError(409,"This request is closed.");
+        const now=new Date().toISOString(),next=v.revision+1,result=await db.batch([
+          v.revision===0?db.prepare("INSERT INTO request_followups (request_id,coordinator_id,due_at,note,revision,updated_at) VALUES (?,?,?,?,1,?) ON CONFLICT(request_id) DO NOTHING").bind(followup[1],user.id,v.dueAt,v.note,now):db.prepare("UPDATE request_followups SET due_at=?,note=?,revision=revision+1,updated_at=? WHERE request_id=? AND coordinator_id=? AND revision=?").bind(v.dueAt,v.note,now,followup[1],user.id,v.revision),
+          db.prepare("INSERT INTO request_followup_events (id,request_id,coordinator_id,actor_id,due_at,note,revision,created_at) SELECT ?,?,?,?,?,?,?,? WHERE changes()=1").bind(crypto.randomUUID(),followup[1],user.id,user.id,v.dueAt,v.note,next,now),
+        ]);
+        if(result[0]?.meta.changes!==1)throw new ApiError(409,"The follow-up plan changed. Refresh before saving.");
+        return json({saved:true,revision:next});
+      }
+      if(path==="/api/admin/providers" && method==="GET")return json({providers:(await db.prepare("SELECT p.*,a.user_id AS account_user_id,a.revision AS account_revision,pa.email AS account_email,pa.status AS account_status FROM providers p LEFT JOIN provider_accounts a ON a.provider_id=p.id LEFT JOIN professional_access pa ON pa.user_id=a.user_id ORDER BY p.created_at DESC").all()).results});
       if(path==="/api/admin/providers" && method==="POST"){
         const p=z.object({name:z.string().trim().min(2).max(150),service:serviceSchema,area:z.string().trim().min(2).max(120),credentials:z.string().trim().min(2).max(200),verificationNote:z.string().trim().min(10).max(1000)}).parse(await body(request));
         const id=crypto.randomUUID();await db.prepare("INSERT INTO providers (id,name,service,area,credentials,verification_note,status,created_at) VALUES (?,?,?,?,?,?,'verified',?)").bind(id,p.name,p.service,p.area,p.credentials,p.verificationNote,new Date().toISOString()).run();return json({id},201);
+      }
+      const providerAccount=path.match(/^\/api\/admin\/providers\/([\w-]+)\/account$/);
+      if(providerAccount && method==="PUT"){
+        const v=z.object({userId:z.string().min(1).max(200),revision:z.number().int().nonnegative()}).strict().parse(await body(request));
+        const provider=await db.prepare("SELECT id FROM providers WHERE id=? AND status='verified'").bind(providerAccount[1]).first();
+        const approved=await db.prepare("SELECT user_id FROM professional_access WHERE user_id=? AND status='approved'").bind(v.userId).first();
+        if(!provider||!approved)throw new ApiError(400,"Choose an approved professional account and a verified listing.");
+        const current=await db.prepare("SELECT revision FROM provider_accounts WHERE provider_id=?").bind(providerAccount[1]).first<{revision:number}>();
+        if((current?.revision??0)!==v.revision)throw new ApiError(409,"This account link changed. Refresh before saving.");
+        const now=new Date().toISOString(),next=v.revision+1,result=await db.batch([
+          v.revision===0?db.prepare("INSERT INTO provider_accounts (provider_id,user_id,revision,linked_by,linked_at) VALUES (?,?,1,?,?) ON CONFLICT(provider_id) DO NOTHING").bind(providerAccount[1],v.userId,user.id,now):db.prepare("UPDATE provider_accounts SET user_id=?,revision=revision+1,linked_by=?,linked_at=? WHERE provider_id=? AND revision=?").bind(v.userId,user.id,now,providerAccount[1],v.revision),
+          db.prepare("INSERT INTO provider_account_events (id,provider_id,user_id,actor_id,action,revision,created_at) SELECT ?,?,?,?,'linked',?,? WHERE changes()=1").bind(crypto.randomUUID(),providerAccount[1],v.userId,user.id,next,now),
+        ]);
+        if(result[0]?.meta.changes!==1)throw new ApiError(409,"This account link changed. Refresh before saving.");
+        return json({linked:true,revision:next});
+      }
+      if(providerAccount && method==="DELETE"){
+        const current=await db.prepare("SELECT user_id,revision FROM provider_accounts WHERE provider_id=?").bind(providerAccount[1]).first<{user_id:string;revision:number}>();
+        if(!current?.user_id)return json({unlinked:false});
+        const now=new Date().toISOString(),result=await db.batch([
+          db.prepare("UPDATE provider_accounts SET user_id='',revision=revision+1,linked_by=?,linked_at=? WHERE provider_id=? AND revision=?").bind(user.id,now,providerAccount[1],current.revision),
+          db.prepare("INSERT INTO provider_account_events (id,provider_id,user_id,actor_id,action,revision,created_at) SELECT ?,?,?,?,'unlinked',?,? WHERE changes()=1").bind(crypto.randomUUID(),providerAccount[1],current.user_id,user.id,current.revision+1,now),
+        ]);if(result[0]?.meta.changes!==1)throw new ApiError(409,"This account link changed. Refresh before saving.");return json({unlinked:true});
       }
       const edit=path.match(/^\/api\/admin\/requests\/([\w-]+)$/);
       if(edit && method==="PATCH"){
@@ -212,6 +293,12 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
         }else result=await db.prepare("UPDATE service_requests SET status=?,updated_at=? WHERE id=? AND status=? AND quote_version=?").bind(p.status,new Date().toISOString(),edit[1],current.status,p.quoteVersion).run();
         if(result.meta.changes!==1)throw new ApiError(409,"Another update arrived first. Refresh the queue.");
         await db.prepare("INSERT INTO request_events (id,request_id,actor_id,status,created_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(),edit[1],user.id,p.status,new Date().toISOString()).run();
+        if(["completed","cancelled"].includes(p.status)){
+          const now=new Date().toISOString();await db.batch([
+            db.prepare("UPDATE request_professional_grants SET revoked_at=? WHERE request_id=? AND revoked_at IS NULL").bind(now,edit[1]),
+            db.prepare("INSERT INTO request_professional_events (id,request_id,actor_id,action,details,created_at) SELECT ?,?,?,'closed','{}',? WHERE changes()=1").bind(crypto.randomUUID(),edit[1],user.id,now),
+          ]);
+        }
         return json({updated:true});
       }
     }

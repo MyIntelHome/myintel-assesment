@@ -36,6 +36,12 @@ it("uses a dedicated professional dashboard and scoped archive requests",async()
  expect(container.textContent).toContain("Clinical assessments");
  expect(container.textContent).not.toContain("Get professional help");
 });
+it("shows only customer-consented requests in the professional handoff view",async()=>{
+ fetchMock.mockImplementation((path:string)=>Promise.resolve(reply(path==="/api/professional/referrals"?{referrals:[{id:"request-a",service:"home_modifications",name:"Example Client",email:"client@example.test",phone:"",contact_method:"email",postal_code:"80202",status:"quoted",scope:"Example scope",provider_name:"Example Practice",consent_at:"2026-09-12T00:00:00Z",share_home:0,share_photos:0,updated_at:"2026-09-12T00:00:00Z"}]}:{archive:null,revision:0})));
+ await render(createElement(ProfessionalPortal,{user,access}));
+ const shared=[...container.querySelectorAll("button")].find(button=>button.textContent==="Shared requests")!;await act(async()=>shared.click());await act(async()=>{});
+ expect(container.textContent).toContain("Example Client");expect(container.textContent).toContain("client@example.test");expect(fetchMock).toHaveBeenCalledWith("/api/professional/referrals",{cache:"no-store"});
+});
 it("keeps professional entry gated when unsigned in",async()=>{
  await render(createElement(ProfessionalPortal,{user:null,access:null}));
  expect(container.querySelector('a[href^="/signin-with-chatgpt"]')?.textContent).toBe("Continue with ChatGPT");

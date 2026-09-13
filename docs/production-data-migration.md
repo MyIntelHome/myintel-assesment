@@ -8,7 +8,7 @@ This is a tested compatibility option, not a provisioned production service or a
 
 ## Schema migration
 
-The six checked-in Drizzle migrations are applied in order by `production/migrations.ts`. A checksum journal detects altered, missing, or unknown migrations. All pending migrations and journal entries are committed in one transaction; a failure rolls back the batch. A pre-existing database without this journal is rejected rather than silently adopted.
+The seven checked-in Drizzle migrations are applied in order by `production/migrations.ts`. A checksum journal detects altered, missing, or unknown migrations. All pending migrations and journal entries are committed in one transaction; a failure rolls back the batch. A pre-existing database without this journal is rejected rather than silently adopted.
 
 Use Node 24 and the locked dependencies. Set `MYINTEL_DATABASE_URL` and `MYINTEL_DATABASE_AUTH_TOKEN` securely for the selected empty target, then set `MYINTEL_MIGRATION_TARGET` to the same URL as an explicit target check. Run `pnpm run db:migrate:production` from the checkout. The command prints only a migration count or a generic failure, never credentials or rows. Do not run it as a deployment build step or on each request. Clear the target confirmation after use.
 
@@ -18,7 +18,7 @@ A network failure during commit can leave the client uncertain whether the serve
 
 ## Backup and restore rehearsal
 
-`exportSnapshot(client)` takes a consistent read transaction across all ten application tables and returns a versioned snapshot with a SHA-256 checksum. `restoreSnapshot(client, snapshot)` checks that checksum, the complete table inventory, column order, and destination emptiness before inserting. It compares every restored row with the backup, then commits all records together. Any failure rolls back. Existing data is never cleared or overwritten.
+`exportSnapshot(client)` takes a consistent read transaction across all sixteen application tables and returns a versioned snapshot with a SHA-256 checksum. `restoreSnapshot(client, snapshot)` checks that checksum, the complete table inventory, column order, and destination emptiness before inserting. It compares every restored row with the backup, then commits all records together. Any failure rolls back. Existing data is never cleared or overwritten.
 
 Snapshots contain private information. Keep them in encrypted, access-controlled storage outside Git; the local `backups/` directory and `*.sqlite-backup.json` names are ignored as a precaution. A checksum detects accidental changes; it is not authentication, encryption, or proof against a maliciously rewritten backup. These functions currently operate through a libSQL client; they do not export hosted Sites D1 themselves.
 
