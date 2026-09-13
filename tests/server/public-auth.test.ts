@@ -70,6 +70,12 @@ it("keeps recovery sessions out of account APIs, resets the password, and revoke
   expect(await auth.identity(identityRequest(oldCookie))).toBeNull();
   expect((await auth.route(request("password", { password: "another password" }, recoveryCookie))).status).toBe(401);
 });
+it("accepts a default provider email fragment only after remote token verification", async () => {
+  const response = await auth.route(request("confirm", { type: "signup", accessToken: "provider-access-token", refreshToken: "provider-refresh-token" }));
+  expect(response.status).toBe(200);
+  expect(provider.verify).toHaveBeenCalledWith({ accessToken: "provider-access-token", refreshToken: "provider-refresh-token" });
+  expect(await auth.identity(identityRequest(cookieOf(response)))).toMatchObject({ id: "alice", emailVerified: true });
+});
 it("does not allow an ordinary session to use the recovery password endpoint", async () => {
   const cookie = cookieOf(await login());
   expect((await auth.route(request("password", { password: "new example password" }, cookie))).status).toBe(401);

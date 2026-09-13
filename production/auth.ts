@@ -102,9 +102,16 @@ export class PublicAuth {
         return response({ message: "If an account matches that email, you will receive a link to choose a new password." });
       }
       if (action === "confirm") {
-        const v = z.object({ token: z.string().min(10).max(2048), type: z.enum(["signup", "recovery"]) }).strict().parse(body);
-        await this.limit(action, v.token);
-        return await this.start(await this.provider.confirm(v.token, v.type), v.type === "recovery" ? "recovery" : "account", request, startedAt);
+        const v = z.union([
+          z.object({ token: z.string().min(10).max(2048), type: z.enum(["signup", "recovery"]) }).strict(),
+          z.object({ accessToken: z.string().min(10).max(8192), refreshToken: z.string().min(10).max(8192), type: z.enum(["signup", "recovery"]) }).strict(),
+        ]).parse(body);
+        await this.limit(action, "token" in v ? v.token : v.accessToken);
+        const providerResult = "token" in v
+          ? await this.provider.confirm(v.token, v.type)
+          : await this.provider.verify({ accessToken: v.accessToken, refreshToken: v.refreshToken });
+        if (!providerResult) throw new AuthRejected();
+        return await this.start(providerResult, v.type === "recovery" ? "recovery" : "account", request, startedAt);
       }
       if (action === "password") {
         const v = z.object({ password: z.string().min(12).max(128) }).strict().parse(body);

@@ -1,20 +1,32 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import "./auth.css";
 
 const titles: Record<string, string> = { login: "Welcome back", signup: "Create your MyIntel account", recover: "Let’s recover your account", confirm: "Confirm your email link", password: "Choose a new password", logout: "Sign out of MyIntel" };
 const labels: Record<string, string> = { login: "Sign in", signup: "Create account", recover: "Send recovery link", confirm: "Continue securely", password: "Save new password", logout: "Sign out" };
 export function AuthForm({ mode }: { mode: string }) {
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [message, setMessage] = useState(""), [show, setShow] = useState(false);
+  const [callback, setCallback] = useState<{ accessToken: string; refreshToken: string; type: string } | null>(null);
+  useEffect(() => {
+    if (mode !== "confirm" || !window.location.hash) return;
+    const fragment = new URLSearchParams(window.location.hash.slice(1));
+    const accessToken = fragment.get("access_token"), refreshToken = fragment.get("refresh_token"), type = fragment.get("type");
+    if (accessToken && refreshToken && ["signup", "recovery"].includes(type ?? "")) setCallback({ accessToken, refreshToken, type: type! });
+    // Provider tokens belong in memory only; remove them from history immediately.
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  }, [mode]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (busy) return;
     const form = event.currentTarget, data = new FormData(form), body: Record<string, string> = {};
     for (const key of ["email", "password"]) if (data.has(key)) body[key] = String(data.get(key));
     if (data.has("confirmPassword") && body.password !== String(data.get("confirmPassword"))) { setError("The passwords do not match. Please try again."); return; }
     if (mode === "confirm") {
-      const query = new URLSearchParams(window.location.search);
-      body.token = query.get("token_hash") ?? ""; body.type = query.get("type") ?? "";
-      if (!body.token || !["signup", "recovery"].includes(body.type)) { setError("This link is incomplete. Please request a new email link."); return; }
+      if (callback) Object.assign(body, callback);
+      else {
+        const query = new URLSearchParams(window.location.search);
+        body.token = query.get("token_hash") ?? ""; body.type = query.get("type") ?? "";
+      }
+      if ((!body.token && (!body.accessToken || !body.refreshToken)) || !body.type || !["signup", "recovery"].includes(body.type)) { setError("This link is incomplete. Please request a new email link."); return; }
     }
     setBusy(true); setError(""); setMessage("");
     try {

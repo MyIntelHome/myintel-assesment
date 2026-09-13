@@ -23,7 +23,7 @@ No payment credentials are forwarded by the production adapter. Checkout remains
 
 Enable email/password authentication with email confirmation required. Set the provider Site URL and allowed confirmation redirect to the exact selected origin. Use a reviewed sender and SMTP configuration; verify delivery only to an explicitly authorized test recipient. Do not claim account recovery works until inbox delivery and the complete reset flow have been tested on the actual stack.
 
-The app expects token-hash confirmation links, not the provider's default browser-fragment session links. Configure the signup template link as `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup` and the recovery template as `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery`. The confirmation page consumes the token only after an explicit POST from the form, so a GET-only email scanner does not consume it. Referrer policy is no-referrer. Do not log confirmation query strings, tokens, request bodies, or cookies in external analytics.
+The app accepts both token-hash confirmation links and Supabase's default browser-fragment session links. For a default link, the confirmation page moves the provider tokens into page memory and removes the fragment from browser history immediately; the server still verifies the provider identity before creating a MyIntel session. Custom token-hash templates are preferred because the confirmation page consumes them only after an explicit POST, so a GET-only email scanner does not consume the token. Configure the signup template link as `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup` and the recovery template as `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery` once reviewed SMTP is enabled. Referrer policy is no-referrer. Do not log confirmation query strings, tokens, request bodies, fragments, or cookies in external analytics.
 
 See the official [email template documentation](https://supabase.com/docs/guides/auth/auth-email-templates) and [recovery API](https://supabase.com/docs/reference/javascript/auth-resetpasswordforemail). Provider email limits, abuse controls, availability, region and data terms still require account-specific verification. The local email/action limiter supplements provider controls; it is not a complete distributed-abuse defence.
 
@@ -35,7 +35,7 @@ Automated tests use real local libSQL databases and controlled auth/storage resp
 
 ## Remaining launch gates
 
-1. Owner signs into the service accounts and resolves terms/region/vendor decisions. Provision isolated staging services and securely configure them.
+1. Owner signs into the remaining service account and resolves terms/region/vendor decisions. Supabase project `yyueldzkxdcykljbdquz` is healthy in East US (Ohio); email confirmation is enabled, its Site URL and exact callback now use `https://myintel-assesment.vercel.app`, and private bucket `home-photos` limits uploads to 3 MB JPEGs. Custom SMTP remains unconfigured.
 2. Apply all six journalled migrations to the explicitly confirmed empty target; rehearse backup/restore. See `production-data-migration.md`.
 3. Preserve existing Sites accounts through an explicit verified identity mapping and migrate D1 records and R2 bytes with hashes, access checks and rollback. No real migration has occurred.
 4. Complete named-professional consent, revocation, handoff audit and operational follow-up. Existing staff claims do not grant professionals access to customer reports/photos.
