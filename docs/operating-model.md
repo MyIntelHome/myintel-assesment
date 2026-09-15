@@ -2,7 +2,7 @@
 
 Updated September 8, 2026. This describes implementation, not a legal determination.
 
-September 12 development update: the shared API now defaults to anonymous and only the Sites Worker selects its trusted-header adapter. A server production app now provides verified public sessions, account recovery, a libSQL database adapter and private Supabase photo storage. Supabase project settings and a private photo bucket are prepared, but provider keys, the production database, migration and Vercel deployment are not connected. See `recovery-2026-09-12.md`, `production-account-setup.md` and `production-data-migration.md`. The deployed private preview has not been updated by this work.
+September 15 development update: the shared API defaults to anonymous and only the Sites Worker selects its trusted-header adapter. The server production app provides verified public sessions, account recovery, a libSQL database adapter and private Supabase photo storage. Supabase and Turso are provisioned, the production schema is current, and production-only Vercel settings are present with credentials stored as Secrets. The existing public deployment is unchanged. Exact import of the one legacy assessment/account, verified identity linking, live flow tests, reviewed SMTP and the human launch requirements below remain open. See `recovery-2026-09-12.md`, `production-account-setup.md` and `production-data-migration.md`.
 
 ## Identity and records
 

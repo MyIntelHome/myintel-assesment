@@ -1,10 +1,10 @@
 # Public accounts and private storage: implementation checkpoint
 
-## September 12 status
+## September 15 status
 
-The recovered UI is reused by `web-production`, a server-rendered Next application with real API routes. `pnpm run build:production` builds it separately from the existing Sites Worker build. The Vercel project has not been reconfigured or redeployed. Its readiness guard still blocks release.
+The recovered UI is reused by `web-production`, a server-rendered Next application with real API routes. `pnpm run build:production` builds it separately from the existing Sites Worker build. `vercel.json` now selects that server build and its `web-production/.next` output. This change is saved only on the isolated pilot branch; the existing production deployment and domain have not been changed.
 
-The selected adapters use Supabase Auth and a private Supabase Storage bucket, plus the previously tested libSQL database adapter (Turso-compatible). These services are not yet provisioned or connected. The owner's Supabase and Turso browser tabs currently require sign-in. No accounts, paid plans, agreements, provider passwords, or recovery emails were created by the agent.
+The selected adapters use Supabase Auth and a private Supabase Storage bucket, plus the libSQL database adapter. Supabase project `yyueldzkxdcykljbdquz` and Turso database `myintel-production` are provisioned in East US (Ohio). Seven journalled migrations were applied to the Turso database, and a second run after database-token rotation reported zero pending migrations. The production-only Vercel environment contains the required database, authentication, storage, origin and session settings. Database, Supabase server and session credentials are stored as Vercel Secrets; the database hostname remains a readable config value. No production user exists yet, no recovery email has been tested, and the Vercel production deployment remains unchanged.
 
 ## Required server configuration
 
@@ -35,10 +35,10 @@ Automated tests use real local libSQL databases and controlled auth/storage resp
 
 ## Remaining launch gates
 
-1. Owner signs into the remaining service account and resolves terms/region/vendor decisions. Supabase project `yyueldzkxdcykljbdquz` is healthy in East US (Ohio); email confirmation is enabled, its Site URL and exact callback now use `https://myintel-assesment.vercel.app`, and private bucket `home-photos` limits uploads to 3 MB JPEGs. Custom SMTP remains unconfigured.
-2. Apply all six journalled migrations to the explicitly confirmed empty target; rehearse backup/restore. See `production-data-migration.md`.
-3. Preserve existing Sites accounts through an explicit verified identity mapping and migrate D1 records and R2 bytes with hashes, access checks and rollback. No real migration has occurred.
+1. Resolve vendor/privacy/retention decisions. Supabase project `yyueldzkxdcykljbdquz` is healthy in East US (Ohio); email confirmation is enabled, its Site URL and exact callback use `https://myintel-assesment.vercel.app`, and private bucket `home-photos` limits uploads to 3 MB JPEGs. Custom SMTP remains unconfigured.
+2. Rehearse remote backup/restore. The production schema is current and the replacement database credential was verified after rotation. See `production-data-migration.md`.
+3. Preserve the one existing Sites account through an explicit verified identity mapping. The Sites database currently contains one assessment archive and one approved test-professional record plus its audit event; the other six legacy tables have no rows and there are no photo metadata rows. The bounded D1 reader truncated the assessment payload, so exact export and import remain pending. No record has been copied to Turso.
 4. Rehearse the implemented named-professional consent, revocation, handoff audit and operational follow-up with authorized remote test accounts. Staff claims or provider links alone do not grant access to customer reports/photos.
 5. Test the complete customer, approved-professional and staff journeys on the remote stack, including approved test-email delivery and recovery, expired sessions, failed saves, photo access and restored data.
 6. Record human sign-off for actual provider capacity, clinical content, privacy/retention/vendor agreements, senior/family usability and response ownership.
-7. Only then replace the readiness guard and configure the existing Vercel project for the server application. Verify a staging deployment and a compatible rollback release before production cutover. Do not enable the static export or switch public hosting.
+7. Verify the server build on a Vercel deployment and define a compatible rollback release before production cutover. The file-based build configuration now selects `web-production`; do not enable the static export or switch public hosting.

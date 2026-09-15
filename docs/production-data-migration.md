@@ -4,7 +4,7 @@
 
 `production/database.ts` adapts the existing D1-shaped API to the official libSQL client. The production factory accepts only a configured secure service URL and token. It cannot fall back to a local file or memory database. Individual queries remain parameterized. Batches use one write transaction, preserving SQLite `changes()` behavior needed for atomic coordination and professional-access audit events.
 
-This is a tested compatibility option, not a provisioned production service or a change to hosting. It keeps the existing SQLite schema and avoids an untested SQL dialect conversion. A service account, region, vendor/data obligations, credentials, and remote testing remain required. The Vercel guard stays in place. See the [official client transaction reference](https://docs.turso.tech/sdk/ts/reference#batch-transactions).
+This keeps the existing SQLite schema and avoids an untested SQL dialect conversion. Turso database `myintel-production` is provisioned in AWS East US (Ohio) with deletion protection. Its database-scoped credential is stored as a Vercel Secret. Vendor/data obligations and remote application testing remain required. See the [official client transaction reference](https://docs.turso.tech/sdk/ts/reference#batch-transactions).
 
 ## Schema migration
 
@@ -15,6 +15,8 @@ Use Node 24 and the locked dependencies. Set `MYINTEL_DATABASE_URL` and `MYINTEL
 The runner parses the current, simple table/index DDL; it is not an arbitrary SQL-dump importer. Future trigger/procedure migrations require updating and testing that parser first. Unknown migration history blocks older code, so use restoration/switchback instead of destructive down-migrations.
 
 A network failure during commit can leave the client uncertain whether the server committed. Inspect the target journal and row counts before retrying. Do not infer rollback from a missing success response. A retry of a confirmed migration is idempotent; a restore retry refuses an occupied destination.
+
+On September 13 all seven migrations were applied to the empty production target. On September 15 all database tokens were invalidated, a replacement token was stored as a Vercel Secret, and the migration runner authenticated with that replacement token and reported `0 migration(s) applied`. This verifies current schema history and token access; it is not a backup/restore rehearsal or legacy-record import.
 
 ## Backup and restore rehearsal
 
@@ -38,6 +40,6 @@ The tests rehearse a source-to-empty-target restore using real local libSQL data
 
 Keep the previous backend and immutable pre-cutover backups until the retention decision is made. Stop new writes before rollback. If the new backend accepted writes, export and reconcile them before switching; returning to a pre-cutover snapshot would otherwise lose those records. Restore into a fresh target, verify counts/hashes/permissions, then switch only to the tested compatible deployment and target. Do not drop tables, reuse an occupied restore target, or overwrite the original source to make a failed migration appear successful.
 
-Remote migration, D1 export/conversion, identity mapping, photo transfer, and production switchback remain unperformed launch gates.
+Remote schema migration is complete. Exact D1 export/conversion, verified identity mapping, backup/restore rehearsal, remote photo-path testing, and production switchback remain launch gates. The live Sites database currently has one assessment archive and one approved test-professional record plus one audit event. It has no request, provider, payment, handoff or photo metadata rows. The assessment cell was truncated by the bounded reader and must be recovered through an authorized exact export before import.
 
 Active public sessions, rate-limit buckets and reset revocation state are intentionally excluded from application snapshots. Restored targets require new sign-in; never copy old encrypted sessions into a restored environment. Keep the session encryption key separate from database backups.
