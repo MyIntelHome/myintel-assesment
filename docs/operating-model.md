@@ -1,8 +1,8 @@
 # MyIntel private review operating model
 
-Updated September 8, 2026. This describes implementation, not a legal determination.
+Updated September 17, 2026. This describes implementation, not a legal determination.
 
-September 15 development update: the shared API defaults to anonymous and only the Sites Worker selects its trusted-header adapter. The server production app provides verified public sessions, account recovery, a libSQL database adapter and private Supabase photo storage. Supabase and Turso are provisioned, the production schema is current, and production-only Vercel settings are present with credentials stored as Secrets. The existing public deployment is unchanged. Exact import of the one legacy assessment/account, verified identity linking, live flow tests, reviewed SMTP and the human launch requirements below remain open. See `recovery-2026-09-12.md`, `production-account-setup.md` and `production-data-migration.md`.
+September 17 development update: the shared API defaults to anonymous and only the Sites Worker selects its trusted-header adapter. The server production app provides verified public sessions, account recovery, a libSQL database adapter and private Supabase photo storage. Supabase and Turso are provisioned, the production schema is current, and branch-only Vercel settings are present with credentials stored as Secrets. Resend custom SMTP and redirect-aware signup/recovery templates are configured. The administrator account exists but still needs to complete confirmation and live recovery testing. The existing public deployment is unchanged. Exact import of the one legacy assessment/account, verified identity linking, remote flow tests and the human launch requirements below remain open. See `recovery-2026-09-12.md`, `production-account-setup.md` and `production-data-migration.md`.
 
 ## Identity and records
 
