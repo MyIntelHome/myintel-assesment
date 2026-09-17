@@ -23,5 +23,8 @@ backups/
 *.db-shm
 *.db-wal
 
+# Local recovery exports and validation helpers may contain private records.
+.codex-tmp/
+
 # Local agent tooling — holds machine-specific paths
 .claude

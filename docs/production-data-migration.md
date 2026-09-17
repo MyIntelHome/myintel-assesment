@@ -36,10 +36,24 @@ The tests rehearse a source-to-empty-target restore using real local libSQL data
 6. Rehearse restoration into a second empty target and run complete customer, professional, and staff flows on the real remote stack. Exercise concurrent saves, access revocation, consent withdrawal, expired sessions, password recovery, photo failures, and audit history.
 7. Before cutover, record the current Vercel deployment, backend configuration, and exact source snapshot. The current static deployment is not a usable fallback for newly created account records. Keep the source private backend intact and define an app-compatible rollback deployment first.
 
+## Exact legacy archive import
+
+`pnpm run db:import:legacy` is the reviewed one-time importer for the recovered Sites export. It accepts only the reviewed export shape: one archive containing six cases, one known test-professional row and its audit event, with all request, provider, payment, handoff and photo tables empty. It imports only the archive. The two test-professional rows remain quarantined in the private source export so they cannot grant pilot access or be mistaken for provider capacity.
+
+Before running it, create and verify the `austin@myintelhome.com` Supabase account and record its provider user ID as the deliberate target mapping. Set the production database credentials and all of these one-time operator values outside Git:
+
+- `MYINTEL_IMPORT_TARGET`: must exactly match `MYINTEL_DATABASE_URL`.
+- `MYINTEL_LEGACY_EXPORT_PATH`: absolute path to the private export. Its reviewed file SHA-256 is `fd04c17207a16a1bcdd7a0f90c22edabd4b19b2a6dfd2f302dfeb95c5326344e`.
+- `MYINTEL_LEGACY_SOURCE_USER_ID` and `MYINTEL_TARGET_USER_ID`: the explicit old Sites owner to verified Supabase user mapping. The target must be a UUID.
+- `MYINTEL_LEGACY_EXPORT_SHA256` and `MYINTEL_LEGACY_PAYLOAD_SHA256`: expected values for the exact file and archive payload. The reviewed payload SHA-256 is `8bf3d981d92be4406a94c72bd94f27480f6643c0070bc2bc68ac5039e8ad3cc9`.
+- `MYINTEL_PREIMPORT_BACKUP_PATH` and `MYINTEL_POSTIMPORT_BACKUP_PATH`: new absolute paths in encrypted, access-controlled storage. The command refuses to overwrite either file.
+
+The command exports the empty target before writing, restores through the transaction-checked snapshot path, verifies exactly one mapped archive and its payload hash, then writes the post-import snapshot. It reports no record content or account IDs. A failure after the remote commit can still leave an uncertain outcome; inspect target counts and both private snapshots before any retry. The restore path refuses an occupied target, so it cannot silently duplicate or replace the archive.
+
 ## Rollback
 
 Keep the previous backend and immutable pre-cutover backups until the retention decision is made. Stop new writes before rollback. If the new backend accepted writes, export and reconcile them before switching; returning to a pre-cutover snapshot would otherwise lose those records. Restore into a fresh target, verify counts/hashes/permissions, then switch only to the tested compatible deployment and target. Do not drop tables, reuse an occupied restore target, or overwrite the original source to make a failed migration appear successful.
 
-Remote schema migration is complete. Exact D1 export is complete; conversion/import, verified identity mapping, backup/restore rehearsal, remote photo-path testing, and production switchback remain launch gates. The export contains one assessment archive with six saved cases, one test-only professional approval and one audit event. It has no request, provider, payment, handoff or photo metadata rows. The archive is revision 260; its 9,099-byte payload has SHA-256 `8bf3d981d92be4406a94c72bd94f27480f6643c0070bc2bc68ac5039e8ad3cc9`.
+Remote schema migration and exact D1 export are complete. The strict archive converter/importer is implemented and locally rehearsed, but the live import, verified identity mapping, remote backup/restore rehearsal, remote photo-path testing, and production switchback remain launch gates. The export contains one assessment archive with six saved cases, one test-only professional approval and one audit event. It has no request, provider, payment, handoff or photo metadata rows. The archive is revision 260; its 9,099-byte payload has SHA-256 `8bf3d981d92be4406a94c72bd94f27480f6643c0070bc2bc68ac5039e8ad3cc9`.
 
 Active public sessions, rate-limit buckets and reset revocation state are intentionally excluded from application snapshots. Restored targets require new sign-in; never copy old encrypted sessions into a restored environment. Keep the session encryption key separate from database backups.

@@ -19,9 +19,18 @@ const snapshotSchema = z.object({
   checksum: z.string().regex(/^[a-f0-9]{64}$/),
 }).strict();
 export type Snapshot = z.infer<typeof snapshotSchema>;
+export type SnapshotTable = Snapshot["tables"][number];
 
 function hash(value: Omit<Snapshot, "checksum">) {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+export function createSnapshot(tables: SnapshotTable[], createdAt = new Date().toISOString()): Snapshot {
+  if (tables.map(table => table.name).join(",") !== applicationTables.join(",")) {
+    throw new Error("Backup table inventory mismatch");
+  }
+  const payload = { version: 2 as const, createdAt, tables };
+  return snapshotSchema.parse({ ...payload, checksum: hash(payload) });
 }
 
 /** Sensitive backup data. The caller must store it privately, outside Git. */
@@ -38,8 +47,7 @@ export async function exportSnapshot(client: Client): Promise<Snapshot> {
       })) });
     }
     await tx.commit();
-    const payload = { version: 2 as const, createdAt: new Date().toISOString(), tables };
-    return { ...payload, checksum: hash(payload) };
+    return createSnapshot(tables);
   } catch (error) { await tx.rollback(); throw error; }
   finally { tx.close(); }
 }

@@ -10,6 +10,7 @@
     "start:production": "next start web-production",
     "db:generate": "drizzle-kit generate",
     "db:migrate:production": "node --experimental-strip-types production/migrations.ts",
+    "db:import:legacy": "node --experimental-strip-types production/legacy-import.ts",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
