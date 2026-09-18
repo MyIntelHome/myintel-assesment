@@ -42,12 +42,15 @@ it("does not refresh after a provider outage and rejects revoked refresh tokens"
   const revoked = fixture([{ status: 401, body: { msg: "expired" } }, { status: 400, body: { msg: "revoked" } }]);
   expect(await revoked.provider.verify({ accessToken: "access", refreshToken: "refresh" })).toBeNull();
 });
-it("sends recovery to the fixed application origin and confirms a token hash", async () => {
-  const f = fixture([{ body: {} }, { body: session }]);
+it("sends email actions to the fixed application origin and confirms a token hash", async () => {
+  const f = fixture([{ body: {} }, { body: {} }, { body: session }]);
+  await f.provider.signup(user.email, "a memorable password");
+  expect(JSON.parse(String(f.requests[0]?.init?.body))).toMatchObject({ email: user.email, password: "a memorable password" });
+  expect(new URL(f.requests[0]!.url).searchParams.get("redirect_to")).toBe("https://myintel.example");
   await f.provider.recover(user.email);
-  expect(new URL(f.requests[0]!.url).searchParams.get("redirect_to")).toBe("https://myintel.example/auth/confirm");
+  expect(new URL(f.requests[1]!.url).searchParams.get("redirect_to")).toBe("https://myintel.example");
   await f.provider.confirm("one-time-hash", "recovery");
-  expect(JSON.parse(String(f.requests[1]?.init?.body))).toMatchObject({ token_hash: "one-time-hash", type: "recovery" });
+  expect(JSON.parse(String(f.requests[2]?.init?.body))).toMatchObject({ token_hash: "one-time-hash", type: "recovery" });
 });
 it("separates invalid credentials from provider failures", async () => {
   const denied = fixture([{ status: 400, body: { msg: "invalid" } }]);

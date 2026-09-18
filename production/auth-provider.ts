@@ -34,10 +34,10 @@ export function supabaseAuth(url: string, key: string, origin: string): AuthProv
       return result(data.session, data.user);
     },
     async signup(email, password) {
-      const { error } = await client().auth.signUp({ email, password, options: { emailRedirectTo: origin + "/auth/confirm" } }); check(error);
+      const { error } = await client().auth.signUp({ email, password, options: { emailRedirectTo: origin } }); check(error);
     },
     async recover(email) {
-      const { error } = await client().auth.resetPasswordForEmail(email, { redirectTo: origin + "/auth/confirm" }); check(error);
+      const { error } = await client().auth.resetPasswordForEmail(email, { redirectTo: origin }); check(error);
     },
     async confirm(token_hash, type) {
       const { data, error } = await client().auth.verifyOtp({ token_hash, type }); check(error);
