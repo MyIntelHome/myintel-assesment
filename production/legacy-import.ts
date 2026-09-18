@@ -37,6 +37,25 @@ const mappingSchema = z.object({
   expectedPayloadSha256: hashSchema,
 }).strict();
 
+const initialArchiveSchema = z.object({
+  activeId: z.string().min(1),
+  cases: z.array(z.object({
+    reference: z.literal(""),
+    intake: z.object({
+      ageBand: z.literal(""), housingType: z.literal(""), floors: z.literal(""), livesAlone: z.literal(""),
+      mobilityAids: z.literal(""), fallsLast12Months: z.literal(""), concerns: z.array(z.never()), concernNotes: z.literal(""),
+    }).strict(),
+    spaces: z.array(z.never()), responses: z.record(z.string(), z.never()), findings: z.record(z.string(), z.never()),
+    plan: z.array(z.never()),
+    signoff: z.object({
+      assessorName: z.literal(""), credentials: z.literal(""), licenseNumber: z.literal(""), licenseState: z.literal(""),
+      licenseExpiry: z.literal(""), organisation: z.literal(""), signedAt: z.null(),
+    }).strict(),
+    id: z.string().min(1), audience: z.literal("unchosen"), mode: z.literal("standard_ot"),
+    reportVersions: z.array(z.never()), familyAnswers: z.record(z.string(), z.never()), updatedAt: z.string().datetime(),
+  }).strict()).length(1),
+}).strict().refine(value => value.activeId === value.cases[0]?.id, "Initial archive active case mismatch");
+
 function sha256(value: string) { return createHash("sha256").update(value).digest("hex"); }
 
 /**
@@ -70,6 +89,40 @@ export async function prepareLegacyArchiveSnapshot(
   return createSnapshot(tables, legacy.exportedAt);
 }
 
+/**
+ * A first account visit creates one untouched starter case. The reviewed legacy
+ * import may replace only that exact shell; any answer or other application row
+ * blocks the migration. The caller writes a private pre-import snapshot first.
+ */
+export async function clearInitialArchiveForLegacyImport(client: Client, targetUserId: string) {
+  const userId = z.string().uuid().parse(targetUserId);
+  const tx = await client.transaction("write");
+  try {
+    for (const name of applicationTables) {
+      const count = await tx.execute(`SELECT COUNT(*) AS total FROM "${name}"`);
+      const total = Number(count.rows[0]?.total ?? -1);
+      if (name === "case_archives") {
+        if (total > 1) throw new Error("Legacy import target contains more than the starter archive");
+      } else if (total !== 0) throw new Error(`Legacy import target contains application data in ${name}`);
+    }
+
+    const result = await tx.execute("SELECT user_id, payload FROM case_archives");
+    if (!result.rows.length) {
+      await tx.commit();
+      return "already-empty" as const;
+    }
+    if (result.rows[0]?.user_id !== userId) throw new Error("Starter archive belongs to a different account");
+    initialArchiveSchema.parse(JSON.parse(String(result.rows[0]?.payload)));
+    const deleted = await tx.execute({ sql: "DELETE FROM case_archives WHERE user_id = ?", args: [userId] });
+    if (deleted.rowsAffected !== 1) throw new Error("Starter archive was not removed exactly once");
+    await tx.commit();
+    return "cleared-initial-archive" as const;
+  } catch (error) {
+    await tx.rollback();
+    throw error;
+  } finally { tx.close(); }
+}
+
 async function writePrivateSnapshot(path: string, snapshot: Snapshot) {
   if (!isAbsolute(path)) throw new Error("Backup paths must be absolute");
   await writeFile(path, JSON.stringify(snapshot), { encoding: "utf8", flag: "wx", mode: 0o600 });
@@ -98,6 +151,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         expectedExportSha256: process.env.MYINTEL_LEGACY_EXPORT_SHA256,
         expectedPayloadSha256: process.env.MYINTEL_LEGACY_PAYLOAD_SHA256,
       });
+      await clearInitialArchiveForLegacyImport(client, process.env.MYINTEL_TARGET_USER_ID ?? "");
       const counts = await restoreSnapshot(client, prepared);
       if (counts.case_archives !== 1 || Object.entries(counts).some(([name, count]) => name !== "case_archives" && count !== 0)) {
         throw new Error("Imported row counts differ from the reviewed plan");

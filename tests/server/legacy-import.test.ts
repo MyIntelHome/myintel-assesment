@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { createClient, type Client } from "@libsql/client";
-import { prepareLegacyArchiveSnapshot } from "../../production/legacy-import";
+import { clearInitialArchiveForLegacyImport, prepareLegacyArchiveSnapshot } from "../../production/legacy-import";
 import { applyMigrations, readMigrations } from "../../production/migrations";
 import { exportSnapshot, restoreSnapshot } from "../../production/snapshot";
 
@@ -44,6 +44,39 @@ it("maps the exact archive and quarantines legacy test-professional access", asy
   expect(counts.professional_access_events).toBe(0);
   const restored = await exportSnapshot(target);
   expect(restored.tables.find(table => table.name === "case_archives")?.rows[0]).toEqual([targetUserId, payload, 260, "2026-09-16T00:00:00.000Z"]);
+});
+
+it("replaces only the untouched starter archive created by the first account visit", async () => {
+  const initialPayload = JSON.stringify({
+    activeId: "case-new",
+    cases: [{
+      reference: "",
+      intake: { ageBand: "", housingType: "", floors: "", livesAlone: "", mobilityAids: "", fallsLast12Months: "", concerns: [], concernNotes: "" },
+      spaces: [], responses: {}, findings: {}, plan: [],
+      signoff: { assessorName: "", credentials: "", licenseNumber: "", licenseState: "", licenseExpiry: "", organisation: "", signedAt: null },
+      id: "case-new", audience: "unchosen", mode: "standard_ot", reportVersions: [], familyAnswers: {}, updatedAt: "2026-09-18T03:17:24.707Z",
+    }],
+  });
+  await target.execute({
+    sql: "INSERT INTO case_archives (user_id, payload, revision, updated_at) VALUES (?, ?, ?, ?)",
+    args: [targetUserId, initialPayload, 2, "2026-09-18T03:17:24.917Z"],
+  });
+
+  expect(await clearInitialArchiveForLegacyImport(target, targetUserId)).toBe("cleared-initial-archive");
+  const raw = sourceExport();
+  await restoreSnapshot(target, await prepareLegacyArchiveSnapshot(target, raw, mapping(raw)));
+  const restored = await exportSnapshot(target);
+  expect(restored.tables.find(table => table.name === "case_archives")?.rows[0]).toEqual([targetUserId, payload, 260, "2026-09-16T00:00:00.000Z"]);
+});
+
+it("preserves a starter archive once it contains an answer", async () => {
+  const answered = JSON.stringify({ activeId: "case-new", cases: [{ id: "case-new", familyAnswers: { entry_clear: true } }] });
+  await target.execute({
+    sql: "INSERT INTO case_archives (user_id, payload, revision, updated_at) VALUES (?, ?, ?, ?)",
+    args: [targetUserId, answered, 3, "2026-09-18T03:17:24.917Z"],
+  });
+  await expect(clearInitialArchiveForLegacyImport(target, targetUserId)).rejects.toThrow();
+  expect((await target.execute("SELECT payload FROM case_archives")).rows[0]?.payload).toBe(answered);
 });
 
 it("rejects a different export, payload, owner, case count or nonempty service table", async () => {
