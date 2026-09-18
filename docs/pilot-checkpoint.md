@@ -1,5 +1,9 @@
 # Pilot readiness checkpoint
 
+## Latest verified update — September 17, 2026
+
+The exact six-case legacy archive is now imported into the existing Turso database and visible through the signed-in pilot dashboard. See [verified import and remaining gates](migration-checkpoint-2026-09-17.md); this supersedes the pending-import statements below. Before/after snapshots are encrypted locally. The public production cutover remains pending. The next requested assessment improvements are recorded in [the follow-up brief](next-assessment-improvements.md).
+
 Latest recovery: see [September 12 source and hosting verification](recovery-2026-09-12.md). The saved source has been recovered and reconciled, actual GitHub/Vercel access verified, and the public account/recovery, database, private-storage and consented professional-handoff code implemented and locally tested. Supabase and Turso are provisioned, the seven production migrations are current, Resend custom SMTP is active, and an isolated Vercel branch deployment is connected to branch-scoped credentials; see [production account setup](production-account-setup.md). The isolated pilot branch is published to GitHub. An exact legacy export is secured locally and its source endpoint has been removed. The administrator account is confirmed and the signed-in account dashboard has been verified on the live pilot deployment. The import, recovery journey, remaining remote flows and human launch requirements remain blockers. The existing public deployment is unchanged.
 
 ## Authorization and destination
