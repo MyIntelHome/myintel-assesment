@@ -1,5 +1,7 @@
 # Pilot readiness checkpoint
 
+Latest launch audit: [September 18 verification](launch-verification-2026-09-18.md). GitHub and the existing production domain were reverified. Authenticated tests await fresh sign-in; preview SSO blocks anonymous external probes. Public cutover remains pending.
+
 ## Latest verified update — September 17, 2026
 
 The exact six-case legacy archive is now imported into the existing Turso database and visible through the signed-in pilot dashboard. See [verified import and remaining gates](migration-checkpoint-2026-09-17.md); this supersedes the pending-import statements below. Before/after snapshots are encrypted locally. The public production cutover remains pending. The next requested assessment improvements are recorded in [the follow-up brief](next-assessment-improvements.md).

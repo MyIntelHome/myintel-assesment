@@ -2,6 +2,8 @@
 
 Updated September 17, 2026. This describes implementation, not a legal determination.
 
+September 18 status correction: the administrator account was confirmed, and the six-case legacy archive was imported and verified on the production-compatible pilot backend. The pending-confirmation/import statements below are historical. Supabase Auth/Storage and Turso serve the Vercel pilot; Sites still uses its separate Worker/D1/R2 stack. See [the current launch audit](launch-verification-2026-09-18.md) for remaining live tests and human gates. Public cutover has not occurred.
+
 September 17 development update: the shared API defaults to anonymous and only the Sites Worker selects its trusted-header adapter. The server production app provides verified public sessions, account recovery, a libSQL database adapter and private Supabase photo storage. Supabase and Turso are provisioned, the production schema is current, and branch-only Vercel settings are present with credentials stored as Secrets. Resend custom SMTP and redirect-aware signup/recovery templates are configured. The administrator account exists but still needs to complete confirmation and live recovery testing. The existing public deployment is unchanged. Exact import of the one legacy assessment/account, verified identity linking, remote flow tests and the human launch requirements below remain open. See `recovery-2026-09-12.md`, `production-account-setup.md` and `production-data-migration.md`.
 
 ## Identity and records
