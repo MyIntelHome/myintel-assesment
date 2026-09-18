@@ -2,6 +2,8 @@
 
 Status: production cutover is not ready. Existing authorization permits launch once the gates below pass; it does not substitute for test evidence or human review.
 
+Use the supervised pilot checklist for evaluation. Keep participant and operational details in private notes. Confirm a fresh session in the test browser before recording authenticated results.
+
 ## Reverified
 
 - GitHub read access succeeded. Pilot branch is `eeb528a62815ea009c84986ef55360dfc0faa4b3`; main is `ef0c6ca3dcc13349fe78a2b040663ab6968cc3bd`; platform is `442c7777b7e50fcb12052db6d06e05b148c4b1e3`.
@@ -26,3 +28,4 @@ Status: production cutover is not ready. Existing authorization permits launch o
 Record a fresh source and destination checkpoint; reconcile any new Sites writes before migration is declared final. Recheck upstream branches without force-pushing. Use the existing Vercel project and domain, build with Production settings and verify the canonical APP_ORIGIN before changing the public alias. Confirm Supabase origin/callback allowlist and email templates for that exact production origin. Keep payments disabled.
 
 After cutover verify signup, account navigation, saved assessments, recovery, role isolation and consented photo access on the actual public domain. Record deployment ID, commit and checks. If a gate fails, retain the protected pilot and document the failure instead of declaring launch complete.
+
