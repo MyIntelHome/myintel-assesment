@@ -461,7 +461,7 @@ export default function ProfessionalHelp({
                 {errors.phone && <p id="help-phone-error" className="help-field-error" role="alert">{errors.phone}</p>}
               </div>
 
-              {homeCaseId && <label className="help-consent"><input type="checkbox" checked={shareAssessment} onChange={e=>setShareAssessment(e.target.checked)}/><span>Include my saved home check, home layout and daily-life answers with this request. I agree to share them with MyIntel to coordinate professional review. I can add optional photos after sending.</span></label>}
+              {homeCaseId && <label className="help-consent"><input type="checkbox" checked={shareAssessment} onChange={e=>setShareAssessment(e.target.checked)}/><span>Include my saved home check, home layout and daily-life answers (including any mobility, falls, eating and drinking answers) with this request. I agree to share them with MyIntel to coordinate professional review. I can add optional photos after sending.</span></label>}
               <label className={`help-consent${errors.consent ? " has-error" : ""}`}>
                 <input
                   id="help-consent"

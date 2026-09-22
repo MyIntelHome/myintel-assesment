@@ -1,10 +1,11 @@
+import {healthNextSteps} from "./health-profile";
 import type {HomeProfile} from "./home-profile";
 import type {FamilyReport} from "./family-report";
 import type {ServiceType} from "./services";
 export interface HomeAction {id:string;label:string;title:string;why:string;step:string;service?:ServiceType}
 const simple:Record<string,string>={l2:"Ask someone to help clear the usual walking route. Start with small items; leave heavy furniture to someone who can move it safely.",l4:"Arrange for cords to be routed away from the usual walking path.",l6:"Choose a reachable place for a charged phone and agree who to call.",k2:"Ask someone to bring frequently used items within comfortable reach.",k3:"Clear an accessible place to set items beside the preparation area.",k7:"Ask someone to move frequently used items down so climbing is not needed."};
 export function homeActions(report:FamilyReport,p?:HomeProfile):HomeAction[]{
- const result:HomeAction[]=[],known=report.priority.filter(e=>!e.uncertain),diy=known.find(e=>simple[e.code]);
+ const result:HomeAction[]=healthNextSteps(p).map((step,index)=>({id:`daily-health-${index}`,label:"Daily-life support",title:"A point to discuss",why:"Based on your optional reported mobility or eating answers, not a clinical rating.",step})),known=report.priority.filter(e=>!e.uncertain),diy=known.find(e=>simple[e.code]);
  if(diy)result.push({id:"simple",label:"A simple first step",title:"Start with an everyday adjustment",why:`You reported a concern in ${diy.spaceLabel}: ${diy.question}`,step:simple[diy.code]!});
  const modification=known.find(e=>["e1","e4","e5","b1","b2","b3","s1","s2"].includes(e.code));
  if(modification)result.push({id:"modification",label:"Plan with a professional",title:"Check fit before making a home change",why:`You reported a concern in ${modification.spaceLabel}: ${modification.question}`,step:"Ask for a review of the space, the resident’s needs and the installation requirements before buying or fitting equipment. Confirm the work, price and permissions first.",service:"home_modifications"});

@@ -1,3 +1,4 @@
+import {healthProfileLines} from "./health-profile";
 import {createUuid} from "@/lib/ids";
 import {z} from "zod";
 import {templateFor} from "@/seed/templates";
@@ -8,6 +9,13 @@ export const GOALS={independence:"Keep doing things independently",confidence:"F
 export const USED_AREAS={bedroom:"Where I sleep",bathroom:"Bathroom with a bath or shower",half_bath:"Toilet and sink only",living:"Where I sit or spend time",kitchen:"Where I prepare food",entry:"The entrance I use",stairway:"Steps or stairs I use",exterior:"An outside area I use"} as const;
 export const HELP_STYLE={diy:"Simple changes I can arrange myself",professional:"Help planning or installing changes",explore:"Talk through my options first"} as const;
 export const profileSchema=z.object({
+  movement:z.enum(["comfortable","difficult","help","unsure","prefer_not"]).optional(),
+  movementTask:z.enum(["indoors","outside","transfers","stairs","several","prefer_not"]).optional(),
+  fallConcern:z.enum(["none","fall","unsteady","worried","several","prefer_not"]).optional(),
+  meals:z.enum(["regular","sometimes_skipped","often_skipped","varies","prefer_not"]).optional(),
+  foodAccess:z.enum(["manageable","shopping","preparing","both","prefer_not"]).optional(),
+  appetite:z.enum(["usual","less","chewing","swallowing","prefer_not"]).optional(),
+  hydration:z.enum(["regular","forget","difficult","care_plan","prefer_not"]).optional(),
   forWhom:z.enum(["","self","family","support"]),livingWith:z.enum(["","alone","others","varies","prefer_not"]),
   mobility:z.enum(["","none","cane","walker","wheelchair","varies","prefer_not"]),
   routines:z.array(z.enum(["night","cooking","bathing","outside"])).max(4),goal:z.enum(["","independence","confidence","planning","support"]),
@@ -60,6 +68,7 @@ export function selectUsedRooms(existing:Space[],proposed:Space[]):Space[]{
 export function profileLines(p:HomeProfile|undefined):string[]{
   if(!p)return [];
   return [p.usedAreas!==undefined?`${p.homeType?HOME_TYPES[p.homeType]:"Home check"} · Selected everyday spaces only; other areas are not assessed.`:p.homeType?`${HOME_TYPES[p.homeType]} · ${p.bedrooms} ${p.bedrooms===1?"bedroom":"bedrooms"} · ${p.fullBaths} full + ${p.halfBaths} half baths · ${p.levels} ${p.levels===1?"level":"levels"}`:"Home layout not provided",
+    ...healthProfileLines(p),
     p.helpStyle?`Preferred next step: ${HELP_STYLE[p.helpStyle]}`:"",
     p.technology?`Technology preference: ${{interested:"open to options",help:"would need setup and ongoing help",no:"not interested right now"}[p.technology]}`:"",
     p.helpReach?`Can reach help from usual spaces: ${{yes:"yes",no:"no",unsure:"not sure"}[p.helpReach]}`:"",
