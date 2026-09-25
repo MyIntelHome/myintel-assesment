@@ -10,16 +10,27 @@ beforeEach(()=>{Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});vi.spy
 afterEach(()=>{act(()=>root.unmount());container.remove();vi.restoreAllMocks()});
 async function click(text:string){const button=[...container.querySelectorAll("button")].find(b=>b.textContent===text);if(!button)throw Error(text);await act(async()=>button.click())}
 it("keeps questions absent until the reader continues, then moves focus",async()=>{await act(async()=>root.render(createElement(HomeSectionPause,{title:"Next room",detail:"Take your time",children:createElement("h1",{tabIndex:-1},"Room question")})));expect(container.textContent).not.toContain("Room question");expect(document.activeElement?.textContent).toBe("Next room");await click("Continue");expect(container.textContent).toContain("Room question");expect(document.activeElement?.textContent).toBe("Room question")});
-it("shows one routine question and preserves its choice when going back",async()=>{function Harness(){const api=useCase();return createElement(HomeRoutineConversation,{api,onNext:()=>{}})}await act(async()=>root.render(createElement(Harness)));expect(container.textContent).toContain("Who are we checking");expect(container.textContent).not.toContain("Who lives in the home?");const self=[...container.querySelectorAll("button")].find(b=>b.textContent?.includes("Myself"))!;await act(async()=>self.click());await click("Continue");expect(container.textContent).toContain("Who lives in the home?");await click("Back");expect([...container.querySelectorAll("button")].find(b=>b.textContent?.includes("Myself"))?.getAttribute("aria-pressed")).toBe("true")});
+it("shows one routine question and preserves its choice when going back",async()=>{function Harness(){const api=useCase();return createElement(HomeRoutineConversation,{api,onNext:()=>{}})}await act(async()=>root.render(createElement(Harness)));expect(container.textContent).toContain("Who are we checking");expect(container.textContent).not.toContain("What helps with getting around?");const self=[...container.querySelectorAll("button")].find(b=>b.textContent?.includes("Myself"))!;await act(async()=>self.click());await click("Continue");expect(container.textContent).toContain("What helps with getting around?");await click("Back");expect([...container.querySelectorAll("button")].find(b=>b.textContent?.includes("Myself"))?.getAttribute("aria-pressed")).toBe("true")});
 
 it("shows movement follow-up only when relevant",async()=>{
  function Harness(){const api=useCase();return createElement(HomeRoutineConversation,{api,onNext:()=>{}})}
  await act(async()=>root.render(createElement(Harness)));
- for(let i=0;i<3;i++)await click("Continue");
+ for(let i=0;i<2;i++)await click("Continue");
  const choose=async(text:string)=>{const b=[...container.querySelectorAll("button")].find(b=>b.textContent?.includes(text))!;await act(async()=>b.click())};
  await choose("Difficult or tiring");await click("Continue");
  expect(container.textContent).toContain("Which movement needs the most support?");
  await choose("Using steps or stairs");await click("Back");await choose("Usually comfortable");await click("Continue");
  expect(container.textContent).toContain("Have falls or balance been a concern?");
  expect(container.textContent).not.toContain("Which movement needs the most support?");
+});
+
+it("offers extra details after the short path without losing the route to spaces",async()=>{
+ function Harness(){const api=useCase();return createElement(HomeRoutineConversation,{api,onNext:()=>{}})}
+ await act(async()=>root.render(createElement(Harness)));
+ for(let i=0;i<7;i++)await click("Continue");
+ expect(container.textContent).toContain("Add more daily-life details (optional)");
+ await click("Add more daily-life details (optional)");
+ expect(container.textContent).toContain("Has eating become more difficult?");
+ await click("Back");
+ expect(container.textContent).toContain("Could help be reached if it were needed?");
 });
