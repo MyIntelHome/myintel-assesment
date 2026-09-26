@@ -56,6 +56,15 @@ it("rejects expired sessions without calling the identity provider", async () =>
   const cookie = cookieOf(await login()); await db.prepare("UPDATE public_sessions SET expires_at=0").run();
   expect(await auth.identity(identityRequest(cookie))).toBeNull(); expect(provider.verify).not.toHaveBeenCalled();
 });
+it("requires a fresh sign-in when a restored session used an older encryption key", async () => {
+  const oldCookie = cookieOf(await login());
+  const rotated = new PublicAuth(db, provider, origin, Buffer.alloc(32, 8).toString("base64"));
+  expect(await rotated.identity(identityRequest(oldCookie))).toBeNull();
+  expect(provider.verify).not.toHaveBeenCalled();
+  const fresh = await rotated.route(request("login", { email: verified.user.email, password: "example password" }, oldCookie));
+  expect(fresh.status).toBe(200);
+  expect(await rotated.identity(identityRequest(cookieOf(fresh)))).toMatchObject({ id: "alice", emailVerified: true });
+});
 it("never creates an account session for an unverified email", async () => {
   vi.mocked(provider.login).mockResolvedValue({ ...verified, user: { ...verified.user, verified: false } });
   const response = await login(); expect(response.status).toBe(401); expect(response.headers.get("set-cookie")).toBeNull();

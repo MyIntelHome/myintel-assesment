@@ -44,7 +44,11 @@ export class PublicAuth {
   async identity(request: Request): Promise<VerifiedPrincipal | null> {
     const session = await this.session(request);
     if (!session || session.purpose !== "account") return null;
-    const originalTokens = this.open(session.encrypted_tokens);
+    // A restored database may contain sessions sealed with an older key.
+    // Treat those cookies as signed out while preserving real provider outages.
+    let originalTokens: AuthTokens;
+    try { originalTokens = this.open(session.encrypted_tokens); }
+    catch { return null; }
     const verified = await this.provider.verify(originalTokens);
     if (!verified || !verified.user.verified || verified.user.id !== session.user_id) return null;
     // Conditional update also detects signout/reset while provider verification ran.

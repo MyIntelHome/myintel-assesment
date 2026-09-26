@@ -1,5 +1,11 @@
 # Production data adapter and recovery runbook
 
+## September 25 recovery checkpoint
+
+The live six-case legacy import was completed and verified on September 17; the older pending-import wording below is historical. On September 25, Turso Dashboard created `myintel-restore-check-0925` from `myintel-production` at its **1 Hour Ago** point-in-time option. The dashboard confirmed the new database was created from backup. Read-only queries on the copy and source matched all seven migration rows and selected counts: three assessment archives, two requests, one consented home snapshot, zero photo metadata rows, one professional-access row, and four request events. The copy is separate and is not connected to Vercel. This proves point-in-time copy creation and basic readback; it does not yet prove per-record equality, photo-object recovery, application switchover, or post-copy write reconciliation.
+
+There are two distinct recovery paths. `exportSnapshot` below intentionally excludes public sessions, auth rate-limit buckets, and reset revocations. A **Turso point-in-time copy includes those tables**. Before any application is pointed at such a copy, plan to invalidate copied sessions and require fresh sign-in; do not reuse stale authentication state as evidence of current access. Preserve and reconcile all writes accepted after the restore point, including requests, consent changes, report revisions and access decisions. Verify the target with a separate compatible deployment and the exact `APP_ORIGIN`, then switch traffic only after read/write and role checks pass. Keep the original database untouched until the recovered path is verified. Do not treat the current static production deployment as a rollback for new account records.
+
 ## Implemented scope
 
 `production/database.ts` adapts the existing D1-shaped API to the official libSQL client. The production factory accepts only a configured secure service URL and token. It cannot fall back to a local file or memory database. Individual queries remain parameterized. Batches use one write transaction, preserving SQLite `changes()` behavior needed for atomic coordination and professional-access audit events.
