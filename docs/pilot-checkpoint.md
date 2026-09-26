@@ -2,13 +2,15 @@
 
 ## Latest verification — September 25, 2026
 
-The isolated GitHub pilot branch is deployed on the existing Vercel preview alias; the public production deployment is still the older site. The shorter daily-life path offers eight default prompts, with conditional movement and appetite follow-ups and an optional detail path. The full local suite passes 285 tests across 33 files. Representative senior timing and occupational-therapist review remain outstanding.
+The isolated GitHub pilot branch is deployed on the existing Vercel preview alias; the public production deployment is still the older site. Commit `96510ee` (old sessions after recovery-key rotation) is Ready on Vercel deployment `Dtc9o9LA6zwThC2jDKJubLKdRxed`. The shorter daily-life path offers eight default prompts, with conditional movement and appetite follow-ups and an optional detail path. The full local suite passes 286 tests across 33 files, typecheck passes, and the production build succeeds. Representative senior timing and occupational-therapist review remain outstanding.
 
 A synthetic customer photo was uploaded to private storage, displayed after reload, and removed. Fresh customer and staff request views both show zero attached photos. Direct navigation to the removed photo URL was blocked by the test browser before an HTTP response, so the deployed old-link 404 is not yet independently confirmed; local server tests cover that case.
 
 Turso's point-in-time recovery created an isolated copy of the production database from one hour earlier. The copy has all seven migrations and matching selected counts for saved archives, requests, shared snapshots, photo records, access records, and request events. This verifies recovery-copy creation and basic readback, while an application switchover and private photo object restore remain untested. The copy is not connected to Vercel.
 
-Public launch remains gated on the remaining deployed access checks, a defined operational response process, clinical content review, provider capacity, privacy/vendor review, and timed sessions with the available senior tester. Payments stay disabled pending pricing and commercial workflow decisions.
+A point-in-time copy also carries public sessions, unlike the curated application snapshot. The server now treats a copied session encrypted under an unavailable prior key as signed out instead of returning a service error; a focused key-rotation test passes. A recovery cutover still needs deliberate session invalidation, post-copy write reconciliation, a compatible deployment against the recovered target, and private photo-object verification.
+
+Public launch remains gated on the remaining deployed access checks, a defined operational response process including coverage when the owner is unavailable, clinical content review, real provider capacity, privacy/vendor review, and timed sessions with the available senior tester. The owner expects the OT and senior sessions roughly one to two weeks after app completion; neither session is booked or completed. Payments stay disabled pending pricing and commercial workflow decisions.
 
 Earlier launch audit: [September 18 verification](launch-verification-2026-09-18.md). GitHub and the existing production domain were reverified. The public cutover remains pending.
 
