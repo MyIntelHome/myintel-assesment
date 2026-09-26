@@ -2,6 +2,8 @@
 
 ## Latest verification — September 25, 2026
 
+Routine access follow-up: the deployed pilot still showed `austingough02@gmail.com` signed in, and its staff page returned "MyIntel staff access required" with no queue data. The home-photo integration test now explicitly checks that another customer receives 404 when reading an existing photo; owner and staff reads still pass, and owner deletion makes later reads return 404. The full suite remains 286/286 across 33 files and typecheck passes. The deployed old-link HTTP response and a remote wrong-owner photo read remain unverified because the test browser blocks direct photo-URL navigation. Test-only request cleanup awaits a staff session.
+
 The isolated GitHub pilot branch is deployed on the existing Vercel preview alias; the public production deployment is still the older site. Commit `96510ee` (old sessions after recovery-key rotation) is Ready on Vercel deployment `Dtc9o9LA6zwThC2jDKJubLKdRxed`. The shorter daily-life path offers eight default prompts, with conditional movement and appetite follow-ups and an optional detail path. The full local suite passes 286 tests across 33 files, typecheck passes, and the production build succeeds. Representative senior timing and occupational-therapist review remain outstanding.
 
 A synthetic customer photo was uploaded to private storage, displayed after reload, and removed. Fresh customer and staff request views both show zero attached photos. Direct navigation to the removed photo URL was blocked by the test browser before an HTTP response, so the deployed old-link 404 is not yet independently confirmed; local server tests cover that case.
