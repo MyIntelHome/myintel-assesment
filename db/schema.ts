@@ -1,4 +1,5 @@
-import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import { sqliteTable, text, integer, index, uniqueIndex, check } from "drizzle-orm/sqlite-core";
 
 export const publicSessions=sqliteTable("public_sessions",{
   idHash:text("id_hash").primaryKey(),userId:text("user_id").notNull(),encryptedTokens:text("encrypted_tokens").notNull(),purpose:text("purpose").notNull(),expiresAt:integer("expires_at").notNull(),
@@ -63,5 +64,21 @@ export const requestEvents = sqliteTable("request_events", {
 export const paymentEvents = sqliteTable("payment_events", {
   id:text("id").primaryKey(), sessionId:text("session_id").notNull(), createdAt:text("created_at").notNull(),
 }, t=>[uniqueIndex("payment_session_unique").on(t.sessionId)]);
+export const paymentAttempts = sqliteTable("payment_attempts", {
+  id: text("id").primaryKey(), requestId: text("request_id").notNull(),
+  quoteVersion: integer("quote_version").notNull(), attempt: integer("attempt").notNull(),
+  amountCents: integer("amount_cents").notNull(), mode: text("mode").notNull(), state: text("state").notNull(),
+  sessionId: text("session_id").unique(), paymentIntentId: text("payment_intent_id").unique(),
+  amountRefundedCents: integer("amount_refunded_cents").notNull().default(0),
+  expiresAt: integer("expires_at").notNull(), createdAt: text("created_at").notNull(), updatedAt: text("updated_at").notNull(),
+}, t => [
+  uniqueIndex("payment_attempt_number_unique").on(t.requestId, t.quoteVersion, t.mode, t.attempt),
+  uniqueIndex("payment_attempt_active_unique").on(t.requestId, t.quoteVersion, t.mode).where(sql`${t.state} <> 'expired'`),
+  check("payment_attempt_positive", sql`${t.attempt} > 0`),
+  check("payment_amount_positive", sql`${t.amountCents} > 0`),
+  check("payment_mode_valid", sql`${t.mode} IN ('test', 'live')`),
+  check("payment_state_valid", sql`${t.state} IN ('creating', 'open', 'expired', 'paid')`),
+  check("payment_refund_valid", sql`${t.amountRefundedCents} >= 0 AND ${t.amountRefundedCents} <= ${t.amountCents}`),
+]);
 export const homeHandoffs=sqliteTable("home_handoffs",{requestId:text("request_id").primaryKey(),payload:text("payload").notNull(),consentAt:text("consent_at").notNull()});
 export const homePhotos=sqliteTable("home_photos",{id:text("id").primaryKey(),requestId:text("request_id").notNull(),room:text("room").notNull(),kind:text("kind").notNull(),objectKey:text("object_key").notNull(),ready:integer("ready").notNull().default(0),createdAt:text("created_at").notNull()},t=>[index("photos_request").on(t.requestId)]);

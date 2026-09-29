@@ -101,6 +101,72 @@ it("detects backup corruption before writing", async () => {
   expect((await target.execute("SELECT * FROM case_archives")).rows).toEqual([]);
 });
 
+async function seedPayment(client: Client, id = "attempt-one", attempt = 1, state = "paid") {
+  await client.execute({
+    sql: "INSERT INTO payment_attempts (id,request_id,quote_version,attempt,amount_cents,mode,state,session_id,payment_intent_id,amount_refunded_cents,expires_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    args: [id, "request", 2, attempt, 34900, "test", state, "cs_" + id, "pi_" + id, 1200, 1800000000, "created", "updated"],
+  });
+}
+
+function oldSnapshot(backup: Snapshot): Snapshot {
+  const payload = { version: 2 as const, createdAt: backup.createdAt, tables: backup.tables.filter(table => table.name !== "payment_attempts") };
+  return { ...payload, checksum: createHash("sha256").update(JSON.stringify(payload)).digest("hex") };
+}
+
+it("backs up and restores the complete payment ledger in version 3", async () => {
+  await seedPayment(source, "expired-attempt", 1, "expired");
+  await seedPayment(source, "paid-attempt", 2);
+  const backup = await exportSnapshot(source);
+  expect(backup.version).toBe(3);
+  expect((await restoreSnapshot(target, backup)).payment_attempts).toBe(2);
+  expect((await exportSnapshot(target)).tables).toEqual(backup.tables);
+});
+
+it("restores a checksummed version 2 snapshot into an empty newly migrated target", async () => {
+  await seed();
+  const backup = oldSnapshot(await exportSnapshot(source));
+  const counts = await restoreSnapshot(target, backup);
+  expect(counts.case_archives).toBe(1);
+  expect(counts.payment_attempts).toBe(0);
+  expect((await exportSnapshot(target)).tables.filter(table => table.name !== "payment_attempts")).toEqual(backup.tables);
+});
+
+it("rejects tampering with a version 2 backup before any restore writes", async () => {
+  await seed();
+  const backup = oldSnapshot(await exportSnapshot(source));
+  backup.tables[0]!.rows[0]![1] = "changed";
+  await expect(restoreSnapshot(target, backup)).rejects.toThrow("checksum mismatch");
+  expect((await target.execute("SELECT * FROM case_archives")).rows).toEqual([]);
+});
+
+it("refuses a version 2 restore when the new payment table contains data", async () => {
+  await seed();
+  await seedPayment(target);
+  const backup = oldSnapshot(await exportSnapshot(source));
+  await expect(restoreSnapshot(target, backup)).rejects.toThrow("empty destination");
+  expect((await target.execute("SELECT * FROM payment_attempts")).rows).toHaveLength(1);
+  expect((await target.execute("SELECT * FROM case_archives")).rows).toEqual([]);
+});
+
+it("rejects a version 3 backup omitting its payment ledger even with a recomputed checksum", async () => {
+  const { checksum: _, ...oldPayload } = oldSnapshot(await exportSnapshot(source));
+  const payload = { ...oldPayload, version: 3 };
+  await expect(restoreSnapshot(target, { ...payload, checksum: createHash("sha256").update(JSON.stringify(payload)).digest("hex") })).rejects.toThrow("inventory mismatch");
+});
+
+it("enforces single active attempts and bounded payment amounts in the migrated database", async () => {
+  await seedPayment(source);
+  await expect(seedPayment(source, "second", 2, "open")).rejects.toThrow();
+  await source.execute("UPDATE payment_attempts SET state='expired'");
+  await seedPayment(source, "second", 2, "open");
+  for (const update of ["attempt=0", "amount_cents=0", "amount_refunded_cents=-1", "amount_refunded_cents=34901", "mode='invalid'", "state='invalid'"]) {
+    await expect(source.execute(`UPDATE payment_attempts SET ${update} WHERE id='second'`)).rejects.toThrow();
+  }
+  await expect(source.execute("UPDATE payment_attempts SET session_id='cs_attempt-one' WHERE id='second'")).rejects.toThrow();
+  await expect(source.execute("UPDATE payment_attempts SET payment_intent_id='pi_attempt-one' WHERE id='second'")).rejects.toThrow();
+  await expect(seedPayment(source, "duplicate-attempt", 1, "expired")).rejects.toThrow();
+});
+
 it("rolls back a restore that fails after some records were inserted", async () => {
   await seed(); const backup = await exportSnapshot(source);
   const photos = backup.tables.find(t => t.name === "home_photos")!;

@@ -1,5 +1,11 @@
 # Pilot readiness checkpoint
 
+## Current state — September 28, 2026
+
+The recovered pilot release is public on the existing Vercel domain `https://myintel-assesment.vercel.app/`. GitHub `main` and the production deployment are at `3fafd9a`; Supabase's default Site URL points to the same public origin. The homepage and account sign-in page were opened successfully after release. The owner explicitly chose public early-pilot availability before the remaining supervised tests and human reviews; the app asks visitors to use example information. Full customer and professional journeys were not re-run on this public origin after cutover. Payments remain disabled on the public deployment.
+
+The isolated `feature/payment-setup-2026-09-26` branch contains the proposed free-check, individually priced proposal payment implementation. It is not on the public deployment. The additive Turso migration is unapplied remotely, Stripe is not connected, and live charging is disabled. See [payment setup checkpoint](payment-setup-checkpoint.md) for what was built, verified locally and still needs a Stripe-account session. Clinical content review, timed senior/OT sessions, privacy/vendor/retention arrangements and an available approved professional remain unconfirmed.
+
 ## Latest verification — September 25, 2026
 
 Routine access follow-up: the deployed pilot showed `austingough02@gmail.com` signed in, and its staff page returned "MyIntel staff access required" with no queue data. The professional portal showed that customer an access application, not the clinical workspace. The home-photo integration test now exercises the public verified-session API: another customer receives 404 when reading an existing photo despite spoofed owner headers; owner and staff reads pass, and owner deletion makes later reads return 404. The full suite remains 286/286 across 33 files and typecheck passes. The deployed old-link HTTP response and a remote wrong-owner photo read remain unverified because the test browser blocks direct photo-URL navigation.
