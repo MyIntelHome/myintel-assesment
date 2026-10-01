@@ -1,10 +1,10 @@
 # Pilot readiness checkpoint
 
-## Current state — September 28, 2026
+## Current state — October 1, 2026
 
 The recovered pilot release is public on the existing Vercel domain `https://myintel-assesment.vercel.app/`. GitHub `main` and the production deployment are at `3fafd9a`; Supabase's default Site URL points to the same public origin. The homepage and account sign-in page were opened successfully after release. The owner explicitly chose public early-pilot availability before the remaining supervised tests and human reviews; the app asks visitors to use example information. Full customer and professional journeys were not re-run on this public origin after cutover. Payments remain disabled on the public deployment.
 
-The isolated `feature/payment-setup-2026-09-26` branch contains the free-check, individually priced proposal payment implementation. It is not on the public deployment. Stripe's test dashboard is connected, and its branch-specific test webhook and paused Vercel payment settings are configured. An isolated Turso branch copied from production now has the additive payment migration and a branch-scoped Vercel credential. The payment preview still needs server access to Supabase and a redeploy; no test or live charge has occurred. See [payment setup checkpoint](payment-setup-checkpoint.md) for the current activation state. Clinical content review, timed senior/OT sessions, privacy/vendor/retention arrangements and an available approved professional remain unconfirmed.
+The isolated `feature/payment-setup-2026-09-26` branch contains the free-check, individually priced proposal payment implementation. It is not on the public deployment. Stripe's test dashboard is connected, and its branch-specific test webhook and paused Vercel payment settings are configured. An isolated Turso branch copied from production has the additive payment migration and a branch-scoped Vercel credential. Austin approved a dedicated Supabase server key, which is now stored only for that payment branch. The preview redeploy is Ready and opens its normal account sign-in form. Stripe's remote webhook is blocked by Vercel Authentication; a payment-preview-only protection exception and test-customer login are pending. No test or live charge has occurred. See [payment setup checkpoint](payment-setup-checkpoint.md) for the current activation state. Clinical content review, timed senior/OT sessions, privacy/vendor/retention arrangements and an available approved professional remain unconfirmed.
 
 ## Latest verification — September 25, 2026
 

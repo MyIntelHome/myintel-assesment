@@ -1,4 +1,6 @@
 const CHECKOUT_SESSIONS_URL = "https://api.stripe.com/v1/checkout/sessions";
+const STRIPE_API_VERSION = "2026-08-26.dahlia";
+const INTEGRATION_IDENTIFIER = "myintel_proposal_checkout_mqnxzbrt";
 const WEBHOOK_TOLERANCE_SECONDS = 300;
 
 const encoder = new TextEncoder();
@@ -103,7 +105,7 @@ export async function createCheckout({
 
   const body = new URLSearchParams({
     mode: "payment",
-    "payment_method_types[0]": "card",
+    integration_identifier: INTEGRATION_IDENTIFIER,
     success_url: `${siteOrigin}/?view=requests&checkout=returned`,
     cancel_url: `${siteOrigin}/?view=requests`,
     "line_items[0][price_data][currency]": currency,
@@ -128,6 +130,7 @@ export async function createCheckout({
       Authorization: `Bearer ${secretKey}`,
       "Content-Type": "application/x-www-form-urlencoded",
       "Idempotency-Key": idempotencyKey,
+      "Stripe-Version": STRIPE_API_VERSION,
     },
     body,
     redirect: "error",
@@ -154,8 +157,8 @@ export async function createCheckout({
 }
 
 function keyLivemode(secretKey: string): boolean {
-  if (secretKey.startsWith("sk_live_")) return true;
-  if (secretKey.startsWith("sk_test_")) return false;
+  if (/^(sk|rk)_live_/.test(secretKey)) return true;
+  if (/^(sk|rk)_test_/.test(secretKey)) return false;
   throw new Error("Stripe secret key mode is invalid");
 }
 
@@ -169,7 +172,7 @@ export async function retrieveCheckout(secretKey: string, sessionId: string, exp
   if (!/^cs_[A-Za-z0-9_]+$/.test(sessionId)) throw new Error("Invalid Checkout Session id");
   const live = checkedKeyMode(secretKey, expectedLivemode);
   const response = await fetch(`${CHECKOUT_SESSIONS_URL}/${encodeURIComponent(sessionId)}`, {
-    headers: { Authorization: `Bearer ${secretKey}` }, redirect: "error", signal: AbortSignal.timeout(15_000),
+    headers: { Authorization: `Bearer ${secretKey}`, "Stripe-Version": STRIPE_API_VERSION }, redirect: "error", signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) throw new Error(`Stripe Checkout retrieval failed (${response.status})`);
   const session = parseCheckoutSession(await response.json(), live);

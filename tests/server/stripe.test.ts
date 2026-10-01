@@ -18,19 +18,28 @@ function stripeReply(value: unknown) {
 }
 
 describe("createCheckout", () => {
-  it("sends only a server-priced card payment with generic metadata and a persisted deadline", async () => {
+  it("sends a server-priced payment with generic metadata and a persisted deadline", async () => {
     const mock = stripeReply(session());
     await expect(createCheckout({ ...options, expiresAt: 1_800_001_860 })).resolves.toEqual(session());
     const [url, init] = mock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://api.stripe.com/v1/checkout/sessions");
-    expect(init).toMatchObject({ method: "POST", redirect: "error", headers: { Authorization: "Bearer sk_test_secret", "Idempotency-Key": "req_42:7:0" } });
+    expect(init).toMatchObject({ method: "POST", redirect: "error", headers: { Authorization: "Bearer sk_test_secret", "Idempotency-Key": "req_42:7:0", "Stripe-Version": "2026-08-26.dahlia" } });
     expect(Object.fromEntries(init.body as URLSearchParams)).toMatchObject({
-      mode: "payment", "payment_method_types[0]": "card", expires_at: "1800001860",
+      mode: "payment", integration_identifier: "myintel_proposal_checkout_mqnxzbrt", expires_at: "1800001860",
       success_url: "https://myintel.example/?view=requests&checkout=returned", cancel_url: "https://myintel.example/?view=requests",
       "line_items[0][price_data][unit_amount]": "12500", "metadata[requestId]": "req_42", "metadata[attempt]": "0",
       "payment_intent_data[metadata][quoteVersion]": "7", "payment_intent_data[metadata][attempt]": "0",
     });
     expect([...((init.body as URLSearchParams).keys())].join(" ")).not.toMatch(/health|assessment|diagnosis|patient|customer_email/i);
+    expect([...((init.body as URLSearchParams).keys())]).not.toContain("payment_method_types[0]");
+  });
+
+  it("accepts a restricted test key while rejecting a restricted live key in test mode", async () => {
+    const mock = stripeReply(session());
+    await expect(createCheckout({ ...options, secretKey: "rk_test_example", expectedLivemode: false })).resolves.toEqual(session());
+    expect(mock.mock.calls[0]![1].headers.Authorization).toBe("Bearer rk_test_example");
+    await expect(createCheckout({ ...options, secretKey: "rk_live_example", expectedLivemode: false })).rejects.toThrow("configured payment mode");
+    expect(mock).toHaveBeenCalledTimes(1);
   });
 
   it("keeps retry parameters stable and gives a replacement attempt a distinct idempotency key", async () => {

@@ -4,6 +4,12 @@ import { parsePaymentConfig } from "../../production/payment-config";
 const testCredentials = { STRIPE_SECRET_KEY: "sk_test_example123", STRIPE_WEBHOOK_SECRET: "whsec_example123" };
 const liveCredentials = { STRIPE_SECRET_KEY: "sk_live_example123", STRIPE_WEBHOOK_SECRET: "whsec_example123" };
 
+it("supports restricted keys without relaxing test/live separation", () => {
+  expect(parsePaymentConfig({ ...testCredentials, STRIPE_SECRET_KEY: "rk_test_example123", MYINTEL_PAYMENT_MODE: "test" })).toMatchObject({ mode: "test", stripeSecretKey: "rk_test_example123" });
+  expect(() => parsePaymentConfig({ ...testCredentials, STRIPE_SECRET_KEY: "rk_live_example123", MYINTEL_PAYMENT_MODE: "test" })).toThrow("Payment configuration is invalid.");
+  expect(() => parsePaymentConfig({ ...liveCredentials, STRIPE_SECRET_KEY: "rk_live_example123", MYINTEL_PAYMENT_MODE: "live" })).toThrow("Payment configuration is invalid.");
+});
+
 it("can pause checkout without losing verified webhook handling credentials",()=>{
   expect(parsePaymentConfig({MYINTEL_PAYMENT_MODE:"test",MYINTEL_PAYMENT_CHECKOUT_ENABLED:"false",...testCredentials})).toEqual({mode:"test",checkoutEnabled:false,stripeSecretKey:testCredentials.STRIPE_SECRET_KEY,stripeWebhookSecret:testCredentials.STRIPE_WEBHOOK_SECRET});
   expect(()=>parsePaymentConfig({MYINTEL_PAYMENT_MODE:"test",MYINTEL_PAYMENT_CHECKOUT_ENABLED:"pause",...testCredentials})).toThrow("Payment configuration is invalid.");

@@ -14,7 +14,7 @@ export function parsePaymentConfig(env: Record<string, string | undefined>): Pay
 
   const stripeSecretKey = env.STRIPE_SECRET_KEY;
   const stripeWebhookSecret = env.STRIPE_WEBHOOK_SECRET;
-  const secretPattern = mode === "test" ? /^sk_test_[A-Za-z0-9]+$/ : /^sk_live_[A-Za-z0-9]+$/;
+  const secretPattern = mode === "test" ? /^(sk|rk)_test_[A-Za-z0-9]+$/ : /^(sk|rk)_live_[A-Za-z0-9]+$/;
   if (!stripeSecretKey || stripeSecretKey.trim() !== stripeSecretKey || !secretPattern.test(stripeSecretKey)
     || !stripeWebhookSecret || stripeWebhookSecret.trim() !== stripeWebhookSecret || !/^whsec_[A-Za-z0-9]+$/.test(stripeWebhookSecret)) throw invalid();
 
