@@ -1,4 +1,4 @@
-# Payment setup checkpoint — October 1, 2026
+# Payment setup checkpoint — October 2, 2026
 
 MyIntel's self-guided home check stays free. A customer can request help for free, review a named professional, service scope and staff-entered USD price, accept that exact proposal, and then use a one-time Stripe-hosted Checkout. There is no subscription or automatic provider split. See [payment and pricing options](payment-commercial-options.md). Prices in that document are research examples, not approved customer prices.
 
@@ -12,6 +12,8 @@ MyIntel's self-guided home check stays free. A customer can request help for fre
 - Migration `0007_payment_attempts` is additive. Application snapshots include payment attempts in version 3; verified version 2 snapshots can restore into a fully empty, newly migrated target.
 
 ## Current activation state
+
+Latest October 2 result: deployed Sandbox Checkout, cancellation, decline, same-session retry, successful payment, partial/full refunds, duplicate/out-of-order signed refund deliveries, staff payment/refund summary, and expired-session replacement have passed the browser checks recorded below. The preview pause deployment `GYCunZijwvn8WYriyhUQ3iByhu3N` at `d6c0091` was Ready: it removed Checkout from the accepted test proposal and preserved acceptance. A `checkout.session.expired` notification was delivered with HTTP 200 while checkout was paused, proving webhook processing stays enabled. Both open expiry-test sessions were expired in Stripe; no payable test link from those attempts remains. Test checkout was then restored to true for the payment branch only, pending the next deployment. Public checkout remains disabled and no real money has moved. These results do not approve live seller terms, merchant verification, production migration, privacy arrangements or professional availability.
 
 October 1: Austin explicitly approved creation of `myintel_payment_preview`, a Supabase server secret with project-wide elevated access. It was created and stored as a Secret only for the Vercel payment branch. The exact payment-preview origin and `/auth/confirm` callback were added to Supabase's redirect allowlist; the public Site URL remains unchanged. Preview deployment `BEimVRstFSbLEBGLMkrUTgrx6ihn` is Ready at commit `efea936`, and its account page reaches the normal sign-in form. A direct unsigned POST to `/api/stripe/webhook` returned Vercel Authentication's 401 before reaching the application, so Stripe delivery is blocked by preview hosting protection. Approval for a payment-preview-only domain exception and the test-customer sign-in are pending. Checkout is still paused and no test or live charge has been made.
 
