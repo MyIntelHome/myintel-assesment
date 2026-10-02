@@ -1,61 +1,44 @@
-import {handleSitesApi as handleApi} from "../../worker/sites-api";
-import {afterEach,beforeEach,expect,it,vi} from "vitest";
-import {createHmac} from "node:crypto";
-import {type Env} from "../../worker/api";
-import {SqliteTestDatabase} from "./sqlite-test-db";
-let db:SqliteTestDatabase,env:Env;
-const origin="https://myintel.example";
-const requestId="00000000-0000-4000-8000-000000000001";
-function post(path:string,data:unknown,user="owner-a"){
-  return handleApi(new Request(origin+path,{method:"POST",headers:{origin,"content-type":"application/json","oai-authenticated-user-id":user,"oai-authenticated-user-email":user+"@example.test"},body:JSON.stringify(data)}),env);
-}
-function signedEvent(overrides:Record<string,unknown>={},eventId="evt_test"){
-  const object={id:"cs_test",payment_status:"paid",amount_total:12500,currency:"usd",metadata:{requestId,quoteVersion:"1"},...overrides};
-  const raw=JSON.stringify({id:eventId,type:"checkout.session.completed",data:{object}}),timestamp=Math.floor(Date.now()/1000);
-  const signature=createHmac("sha256","whsec_test").update(timestamp+"."+raw).digest("hex");
-  return new Request(origin+"/api/stripe/webhook",{method:"POST",headers:{"stripe-signature":`t=${timestamp},v1=${signature}`},body:raw});
-}
+import { productionApi } from "../../production/app";
+import { afterEach,beforeEach,expect,it,vi } from "vitest";
+import { createHmac } from "node:crypto";
+import { type Env } from "../../worker/api";
+import { SqliteTestDatabase } from "./sqlite-test-db";
+import type { PaymentConfig } from "../../production/payment-config";
+let db:SqliteTestDatabase,env:Env,api:ReturnType<typeof productionApi>;
+const origin="https://myintel.example", requestId="00000000-0000-4000-8000-000000000001";
+const config:PaymentConfig={mode:"test",stripeSecretKey:"sk_test_example",stripeWebhookSecret:"whsec_test"};
+function makeApi(paymentConfig:PaymentConfig=config){return productionApi(env,{identity:async r=>({id:r.headers.get("test-user")??"owner-a",email:r.headers.get("test-user")==="staff"?"staff@example.test":"owner@example.test",emailVerified:true}),route:async()=>new Response()},paymentConfig);}
+function post(path:string,data:unknown,user="owner-a",method="POST"){return api(new Request(origin+path,{method,headers:{origin,"content-type":"application/json","test-user":user},body:JSON.stringify(data)}));}
+const pay=()=>post(`/api/requests/${requestId}/checkout`,{quoteVersion:1});
 const row=()=>db.sqlite.prepare("SELECT * FROM service_requests WHERE id=?").get(requestId)!;
-beforeEach(()=>{
-  db=new SqliteTestDatabase();env={DB:db,ASSETS:{fetch:async()=>new Response("asset")},APP_ORIGIN:origin,STRIPE_SECRET_KEY:"sk_test",STRIPE_WEBHOOK_SECRET:"whsec_test"};
-  db.sqlite.prepare("INSERT INTO service_requests (id,user_id,email,service,name,postal_code,contact_method,relationship,status,consent_at,scope,amount_cents,quote_version,created_at,updated_at) VALUES (?, 'owner-a','example@example.test','professional_assessment','Example User','00000','email','self','accepted','now','Example scope',12500,1,'now','now')").run(requestId);
-});
-afterEach(()=>{db.close();vi.unstubAllGlobals()});
-it("fails closed without both payment secrets",async()=>{
-  delete env.STRIPE_WEBHOOK_SECRET;
-  const mock=vi.fn();vi.stubGlobal("fetch",mock);
-  expect((await post(`/api/requests/${requestId}/checkout`,{quoteVersion:1})).status).toBe(503);expect(mock).not.toHaveBeenCalled();expect(row().status).toBe("accepted");
-});
-it("uses the accepted server price and isolates checkout ownership",async()=>{
-  const mock=vi.fn().mockResolvedValue(Response.json({id:"cs_test",url:"https://checkout.stripe.com/c/pay/example"}));vi.stubGlobal("fetch",mock);
-  expect((await post(`/api/requests/${requestId}/checkout`,{quoteVersion:1},"other")).status).toBe(404);
-  expect((await post(`/api/requests/${requestId}/checkout`,{quoteVersion:2})).status).toBe(409);
-  const result=await post(`/api/requests/${requestId}/checkout`,{quoteVersion:1,amountCents:1});expect(result.status).toBe(200);
-  const data=mock.mock.calls[0]![1].body as URLSearchParams;
-  expect(data.get("line_items[0][price_data][unit_amount]")).toBe("12500");expect(data.get("customer_email")).toBeNull();
-  expect(row().payment_session_id).toBe("cs_test");expect(row().status).toBe("accepted");
-});
-it("does not treat a return URL as payment confirmation",async()=>{
-  const result=await handleApi(new Request(origin+"/api/requests?checkout=returned",{headers:{"oai-authenticated-user-id":"owner-a","oai-authenticated-user-email":"example@example.test"}}),env);
-  expect(result.status).toBe(200);expect(row().status).toBe("accepted");
-});
-it("rejects forged notifications without changing the request",async()=>{
-  expect((await handleApi(new Request(origin+"/api/stripe/webhook",{method:"POST",body:"{}"}),env)).status).toBe(400);expect(row().status).toBe("accepted");
-});
-it.each([{amount_total:1},{currency:"eur"},{id:"cs_other"},{metadata:{requestId,quoteVersion:"2"}}])("rejects a signed payment that mismatches its proposal: %j",async(overrides)=>{
-  db.sqlite.prepare("UPDATE service_requests SET payment_session_id='cs_test'").run();
-  expect((await handleApi(signedEvent(overrides),env)).status).toBe(409);expect(row().status).toBe("accepted");
-});
-it("records matching paid notification once across event retries",async()=>{
-  db.sqlite.prepare("UPDATE service_requests SET payment_session_id='cs_test'").run();
-  expect((await handleApi(signedEvent(),env)).status).toBe(200);
-  expect((await handleApi(signedEvent(),env)).status).toBe(200);
-  expect((await handleApi(signedEvent({},"evt_second"),env)).status).toBe(200);
-  expect(row().status).toBe("paid");
-  expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM payment_events").get()!.n).toBe(1);
-  expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM request_events WHERE status='paid'").get()!.n).toBe(1);
-});
-it("waits for asynchronous payment settlement",async()=>{
-  db.sqlite.prepare("UPDATE service_requests SET payment_session_id='cs_test'").run();
-  expect((await handleApi(signedEvent({payment_status:"unpaid"}),env)).status).toBe(200);expect(row().status).toBe("accepted");
-});
+const attempts=()=>db.sqlite.prepare("SELECT * FROM payment_attempts ORDER BY attempt").all();
+function session(overrides:Record<string,unknown>={}){return {id:"cs_test_one",url:"https://checkout.stripe.com/c/pay/example",mode:"payment",status:"open",payment_status:"unpaid",amount_total:12500,currency:"usd",metadata:{requestId,quoteVersion:"1",attempt:"1"},livemode:false,payment_intent:null,expires_at:Math.floor(Date.now()/1000)+3600,...overrides};}
+function signedEvent(object:Record<string,unknown>,type="checkout.session.completed",livemode=false,eventId="evt_test"){
+ const raw=JSON.stringify({id:eventId,type,livemode,data:{object}}),timestamp=Math.floor(Date.now()/1000);
+ const signature=createHmac("sha256","whsec_test").update(timestamp+"."+raw).digest("hex");
+ return new Request(origin+"/api/stripe/webhook",{method:"POST",headers:{"stripe-signature":`t=${timestamp},v1=${signature}`},body:raw});
+}
+const paid=()=>session({status:"complete",url:null,payment_status:"paid",payment_intent:"pi_test_one"});
+async function open(){vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json(session())));expect((await pay()).status).toBe(200);}
+beforeEach(()=>{db=new SqliteTestDatabase();env={DB:db,ASSETS:{fetch:async()=>new Response()},APP_ORIGIN:origin,MYINTEL_ADMIN_EMAIL:"staff@example.test"};api=makeApi();db.sqlite.prepare("INSERT INTO service_requests (id,user_id,email,service,name,postal_code,contact_method,relationship,status,consent_at,scope,amount_cents,quote_version,created_at,updated_at) VALUES (?, 'owner-a','owner@example.test','professional_assessment','Example User','00000','email','self','accepted','now','Example scope',12500,1,'now','now')").run(requestId);});
+afterEach(()=>{db.close();vi.unstubAllGlobals();vi.restoreAllMocks();});
+it("stays disabled without explicit validated server configuration",async()=>{api=makeApi({mode:"disabled"});vi.stubGlobal("fetch",vi.fn());expect((await pay()).status).toBe(503);expect(fetch).not.toHaveBeenCalled();expect(attempts()).toHaveLength(0);});
+it("uses only accepted server price and isolates checkout ownership",async()=>{const mock=vi.fn().mockResolvedValue(Response.json(session()));vi.stubGlobal("fetch",mock);expect((await post(`/api/requests/${requestId}/checkout`,{quoteVersion:1},"other")).status).toBe(404);expect((await post(`/api/requests/${requestId}/checkout`,{quoteVersion:2})).status).toBe(409);expect((await post(`/api/requests/${requestId}/checkout`,{quoteVersion:1,amountCents:1})).status).toBe(200);const body=mock.mock.calls[0]![1].body as URLSearchParams;expect(body.get("line_items[0][price_data][unit_amount]")).toBe("12500");expect(body.get("customer_email")).toBeNull();expect(row().payment_session_id).toBe("cs_test_one");});
+it("reuses an open session without creating another payment",async()=>{await open();const mock=vi.fn().mockResolvedValue(Response.json(session()));vi.stubGlobal("fetch",mock);expect((await pay()).status).toBe(200);expect(String(mock.mock.calls[0]![0])).toMatch(/\/cs_test_one$/);expect(mock.mock.calls[0]![1].method).toBeUndefined();expect(attempts()).toHaveLength(1);});
+it("reserves before the network call and blocks staff completion",async()=>{vi.stubGlobal("fetch",vi.fn(async()=>{expect(String(row().payment_session_id)).toMatch(/^pending:/);expect((await post(`/api/admin/requests/${requestId}`,{quoteVersion:1,status:"completed"},"staff","PATCH")).status).toBe(409);return Response.json(session());}));expect((await pay()).status).toBe(200);expect(row().status).toBe("accepted");});
+it("preserves uncertain attempts and retries identical Stripe parameters",async()=>{const mock=vi.fn().mockRejectedValueOnce(new Error("network lost")).mockImplementation(async()=>Response.json(session()));vi.stubGlobal("fetch",mock);vi.spyOn(console,"error").mockImplementation(()=>{});expect((await pay()).status).toBe(503);expect(String(row().payment_session_id)).toMatch(/^pending:/);expect((await pay()).status).toBe(200);expect(mock.mock.calls[0]![1].headers["Idempotency-Key"]).toBe(mock.mock.calls[1]![1].headers["Idempotency-Key"]);expect(String(mock.mock.calls[0]![1].body)).toBe(String(mock.mock.calls[1]![1].body));expect(attempts()).toHaveLength(1);});
+it("does not retry an uncertain attempt beyond Stripe retention",async()=>{vi.stubGlobal("fetch",vi.fn().mockRejectedValue(new Error("lost")));vi.spyOn(console,"error").mockImplementation(()=>{});await pay();db.sqlite.prepare("UPDATE payment_attempts SET created_at=?").run(new Date(Date.now()-24*60*60*1000).toISOString());const mock=vi.fn();vi.stubGlobal("fetch",mock);expect((await pay()).status).toBe(409);expect(mock).not.toHaveBeenCalled();});
+it("replaces only a Stripe-confirmed expired session with a new attempt",async()=>{await open();const mock=vi.fn().mockResolvedValueOnce(Response.json(session({status:"expired",url:null}))).mockResolvedValueOnce(Response.json(session({id:"cs_test_two",metadata:{requestId,quoteVersion:"1",attempt:"2"}})));vi.stubGlobal("fetch",mock);expect((await pay()).status).toBe(200);expect(attempts().map(a=>a.state)).toEqual(["expired","open"]);expect(mock.mock.calls[1]![1].headers["Idempotency-Key"]).toBe(`${requestId}:1:2`);expect(row().payment_session_id).toBe("cs_test_two");});
+it("never uses a return URL or forged notification as payment authority",async()=>{expect((await api(new Request(origin+"/api/requests?checkout=returned"))).status).toBe(200);expect((await api(new Request(origin+"/api/stripe/webhook",{method:"POST",body:"{}"}))).status).toBe(400);expect(row().status).toBe("accepted");});
+it.each([{amount_total:1},{currency:"eur"},{id:"cs_other"},{metadata:{requestId,quoteVersion:"2",attempt:"1"}}])("rejects mismatched signed payments: %j",async changes=>{await open();expect([400,409]).toContain((await api(signedEvent({...paid(),...changes}))).status);expect(attempts()[0]!.state).toBe("open");});
+it("accepts Stripe no-Origin webhook but rejects forged browser identity and wrong-origin checkout",async()=>{await open();expect((await api(signedEvent(paid()))).status).toBe(200);const r=await api(new Request(origin+`/api/requests/${requestId}/checkout`,{method:"POST",headers:{origin:"https://attacker.test","content-type":"application/json"},body:'{"quoteVersion":1}'}));expect(r.status).toBe(403);});
+it("records test success once without marking the real service paid",async()=>{await open();expect((await api(signedEvent(paid()))).status).toBe(200);expect((await api(signedEvent(paid()))).status).toBe(200);expect((await api(signedEvent(paid(),"checkout.session.completed",false,"evt_second"))).status).toBe(200);expect(row().status).toBe("accepted");expect(attempts()[0]!.state).toBe("paid");expect(db.sqlite.prepare("SELECT COUNT(*) n FROM payment_events").get()!.n).toBe(1);const data=await (await api(new Request(origin+"/api/requests"))).json();expect(data.requests[0].test_paid).toBe(true);expect(await (await pay()).json()).toEqual({paid:true,testPayment:true});});
+it("reconciles a paid session on retry if its webhook is delayed",async()=>{await open();vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json(paid())));expect(await (await pay()).json()).toEqual({paid:true,testPayment:true});expect(attempts()[0]!.state).toBe("paid");});
+it("rejects cross-mode notifications and leaves data unchanged",async()=>{await open();expect((await api(signedEvent({...paid(),livemode:true},"checkout.session.completed",true))).status).toBe(400);expect(attempts()[0]!.state).toBe("open");});
+it("records real payment and preserves completion across retries",async()=>{api=makeApi({mode:"live",stripeSecretKey:"sk_live_example",stripeWebhookSecret:"whsec_test"});vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json(session({livemode:true}))));expect((await pay()).status).toBe(200);const s={...paid(),livemode:true};expect((await api(signedEvent(s,"checkout.session.completed",true))).status).toBe(200);expect(row().status).toBe("paid");expect((await post(`/api/admin/requests/${requestId}`,{quoteVersion:1,status:"completed"},"staff","PATCH")).status).toBe(200);expect((await api(signedEvent(s,"checkout.session.completed",true))).status).toBe(200);expect(row().status).toBe("completed");});
+it("tracks partial and full refunds monotonically without cancelling service",async()=>{await open();await api(signedEvent(paid()));const refund=(amount:number)=>signedEvent({id:"ch_test",payment_intent:"pi_test_one",amount:12500,amount_refunded:amount,currency:"usd"},"charge.refunded");expect((await api(refund(2500))).status).toBe(200);expect((await api(refund(12500))).status).toBe(200);expect((await api(refund(2500))).status).toBe(200);expect(attempts()[0]!.amount_refunded_cents).toBe(12500);expect(row().status).toBe("accepted");expect(db.sqlite.prepare("SELECT COUNT(*) n FROM request_events WHERE status LIKE 'payment_%refunded'").get()!.n).toBe(2);});
+it("retries refunds delivered before payment reconciliation and rejects wrong amounts",async()=>{await open();const refund=signedEvent({id:"ch_test",payment_intent:"pi_test_one",amount:12500,amount_refunded:2500,currency:"usd"},"charge.refunded");expect((await api(refund)).status).toBe(409);await api(signedEvent(paid()));expect((await api(signedEvent({id:"ch_test",payment_intent:"pi_test_one",amount:100,amount_refunded:100,currency:"usd"},"charge.refunded"))).status).toBe(409);expect(attempts()[0]!.amount_refunded_cents).toBe(0);});
+it("acknowledges irrelevant signed events without assuming a checkout shape",async()=>{expect((await api(signedEvent({id:"cus_example"},"customer.created"))).status).toBe(200);});
+
+it("asks for reconciliation when an uncertain fixed expiry is too near",async()=>{vi.stubGlobal("fetch",vi.fn().mockRejectedValue(new Error("lost")));vi.spyOn(console,"error").mockImplementation(()=>{});await pay();db.sqlite.prepare("UPDATE payment_attempts SET expires_at=?").run(Math.floor(Date.now()/1000)+1000);const mock=vi.fn();vi.stubGlobal("fetch",mock);const response=await pay();expect(response.status).toBe(409);expect((await response.json()).error).toContain("MyIntel review");expect(mock).not.toHaveBeenCalled();});
+it("can pause new checkouts while accepting signed payment and refund notifications",async()=>{await open();api=productionApi(env,{identity:async()=>({id:"owner-a",email:"owner@example.test",emailVerified:true}),route:async()=>new Response()},{...config,checkoutEnabled:false});expect((await pay()).status).toBe(503);expect((await (await api(new Request(origin+"/api/account"))).json()).paymentsEnabled).toBe(false);expect((await api(signedEvent(paid()))).status).toBe(200);expect((await api(signedEvent({id:"ch_test",payment_intent:"pi_test_one",amount:12500,amount_refunded:12500,currency:"usd"},"charge.refunded"))).status).toBe(200);const requests=await (await api(new Request(origin+"/api/requests"))).json();expect(requests.requests[0].test_paid).toBe(true);expect(requests.requests[0].amount_refunded_cents).toBe(12500);});

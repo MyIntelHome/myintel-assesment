@@ -1,4 +1,6 @@
 const CHECKOUT_SESSIONS_URL = "https://api.stripe.com/v1/checkout/sessions";
+const STRIPE_API_VERSION = "2026-08-26.dahlia";
+const INTEGRATION_IDENTIFIER = "myintel_proposal_checkout_mqnxzbrt";
 const WEBHOOK_TOLERANCE_SECONDS = 300;
 
 const encoder = new TextEncoder();
@@ -11,24 +13,31 @@ export interface CreateCheckoutOptions {
   currency: "usd";
   origin: string;
   customerEmail?: string;
+  attempt?: number;
+  expiresAt?: number;
+  expectedLivemode?: boolean;
 }
 
 export interface CheckoutSessionReference {
   id: string;
-  url: string;
+  url: string | null;
+  mode: "payment";
+  status: "open" | "expired" | "complete";
+  payment_status: "paid" | "unpaid" | "no_payment_required";
+  amount_total: number;
+  currency: "usd";
+  metadata: Record<string, string>;
+  livemode: boolean;
+  payment_intent: string | null;
+  expires_at: number;
 }
 
 export interface VerifiedStripeEvent {
   id: string;
   type: string;
+  livemode: boolean;
   data: {
-    object: {
-      id: string;
-      payment_status: string;
-      amount_total: number;
-      currency: string;
-      metadata: Record<string, string>;
-    };
+    object: Record<string, unknown>;
   };
 }
 
@@ -68,8 +77,12 @@ export async function createCheckout({
   currency,
   origin,
   customerEmail,
+  attempt = 0,
+  expiresAt,
+  expectedLivemode,
 }: CreateCheckoutOptions): Promise<CheckoutSessionReference> {
   requireNonEmpty(secretKey, "secretKey");
+  const live = checkedKeyMode(secretKey, expectedLivemode);
   requireNonEmpty(requestId, "requestId");
   requireNonEmpty(quoteVersion, "quoteVersion");
   if (!Number.isSafeInteger(amountCents) || amountCents <= 0) {
@@ -83,13 +96,16 @@ export async function createCheckout({
   }
 
   const siteOrigin = normalizedOrigin(origin);
-  const idempotencyKey = `${requestId}:${quoteVersion}`;
+  if (!Number.isSafeInteger(attempt) || attempt < 0) throw new Error("attempt must be a nonnegative integer");
+  if (expiresAt !== undefined && (!Number.isSafeInteger(expiresAt) || expiresAt <= 0)) throw new Error("expiresAt must be a positive timestamp");
+  const idempotencyKey = `${requestId}:${quoteVersion}:${attempt}`;
   if (idempotencyKey.length > 255) {
     throw new Error("requestId and quoteVersion produce an oversized idempotency key");
   }
 
   const body = new URLSearchParams({
     mode: "payment",
+    integration_identifier: INTEGRATION_IDENTIFIER,
     success_url: `${siteOrigin}/?view=requests&checkout=returned`,
     cancel_url: `${siteOrigin}/?view=requests`,
     "line_items[0][price_data][currency]": currency,
@@ -98,9 +114,12 @@ export async function createCheckout({
     "line_items[0][quantity]": "1",
     "metadata[requestId]": requestId,
     "metadata[quoteVersion]": quoteVersion,
+    "metadata[attempt]": String(attempt),
     "payment_intent_data[metadata][requestId]": requestId,
     "payment_intent_data[metadata][quoteVersion]": quoteVersion,
+    "payment_intent_data[metadata][attempt]": String(attempt),
   });
+  if (expiresAt !== undefined) body.set("expires_at", String(expiresAt));
   if (customerEmail !== undefined) {
     body.set("customer_email", customerEmail);
   }
@@ -111,8 +130,11 @@ export async function createCheckout({
       Authorization: `Bearer ${secretKey}`,
       "Content-Type": "application/x-www-form-urlencoded",
       "Idempotency-Key": idempotencyKey,
+      "Stripe-Version": STRIPE_API_VERSION,
     },
     body,
+    redirect: "error",
+    signal: AbortSignal.timeout(15_000),
   });
 
   let payload: unknown;
@@ -129,10 +151,50 @@ export async function createCheckout({
         : `Stripe Checkout request failed (${response.status})`,
     );
   }
-  if (!isRecord(payload) || typeof payload.id !== "string" || typeof payload.url !== "string") {
-    throw new Error("Stripe Checkout returned an invalid session");
+  const session = parseCheckoutSession(payload, live);
+  if (session.amount_total !== amountCents || session.metadata.requestId !== requestId || session.metadata.quoteVersion !== quoteVersion || session.metadata.attempt !== String(attempt)) throw new Error("Stripe Checkout did not match the payment attempt");
+  return session;
+}
+
+function keyLivemode(secretKey: string): boolean {
+  if (/^(sk|rk)_live_/.test(secretKey)) return true;
+  if (/^(sk|rk)_test_/.test(secretKey)) return false;
+  throw new Error("Stripe secret key mode is invalid");
+}
+
+function checkedKeyMode(secretKey: string, expectedLivemode?: boolean): boolean {
+  const live = keyLivemode(secretKey);
+  if (expectedLivemode !== undefined && live !== expectedLivemode) throw new Error("Stripe key does not match the configured payment mode");
+  return live;
+}
+
+export async function retrieveCheckout(secretKey: string, sessionId: string, expectedLivemode?: boolean): Promise<CheckoutSessionReference> {
+  if (!/^cs_[A-Za-z0-9_]+$/.test(sessionId)) throw new Error("Invalid Checkout Session id");
+  const live = checkedKeyMode(secretKey, expectedLivemode);
+  const response = await fetch(`${CHECKOUT_SESSIONS_URL}/${encodeURIComponent(sessionId)}`, {
+    headers: { Authorization: `Bearer ${secretKey}`, "Stripe-Version": STRIPE_API_VERSION }, redirect: "error", signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error(`Stripe Checkout retrieval failed (${response.status})`);
+  const session = parseCheckoutSession(await response.json(), live);
+  if (session.id !== sessionId) throw new Error("Stripe Checkout returned a different session");
+  return session;
+}
+
+export function parseCheckoutSession(value: unknown, expectedLivemode?: boolean): CheckoutSessionReference {
+  if (!isRecord(value) || typeof value.id !== "string" || !/^cs_[A-Za-z0-9_]+$/.test(value.id) || value.mode !== "payment" || !["open", "expired", "complete"].includes(String(value.status)) || !["paid", "unpaid", "no_payment_required"].includes(String(value.payment_status)) || !Number.isSafeInteger(value.amount_total) || Number(value.amount_total) <= 0 || value.currency !== "usd" || typeof value.livemode !== "boolean" || (expectedLivemode !== undefined && value.livemode !== expectedLivemode) || !Number.isSafeInteger(value.expires_at) || Number(value.expires_at) <= 0 || !isRecord(value.metadata)) throw new Error("Invalid Stripe Checkout Session");
+  if (value.payment_intent !== null && (typeof value.payment_intent !== "string" || !/^pi_[A-Za-z0-9_]+$/.test(value.payment_intent))) throw new Error("Invalid Stripe payment intent");
+  if (value.url !== null) {
+    if (typeof value.url !== "string") throw new Error("Invalid Stripe checkout URL");
+    const url = new URL(value.url);
+    if (url.protocol !== "https:" || url.hostname !== "checkout.stripe.com" || url.port || url.username || url.password) throw new Error("Invalid Stripe checkout URL");
   }
-  return { id: payload.id, url: payload.url };
+  if (value.status === "open" && value.url === null) throw new Error("Open Stripe checkout has no URL");
+  const metadata: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(value.metadata)) {
+    if (typeof entry !== "string") throw new Error("Invalid Stripe Checkout metadata");
+    metadata[key] = entry;
+  }
+  return { id: value.id, url: value.url as string | null, mode: "payment", status: value.status as CheckoutSessionReference["status"], payment_status: value.payment_status as CheckoutSessionReference["payment_status"], amount_total: value.amount_total as number, currency: "usd", metadata, livemode: value.livemode, payment_intent: value.payment_intent as string | null, expires_at: value.expires_at as number };
 }
 
 function getStripeErrorMessage(payload: unknown): string | undefined {
@@ -245,41 +307,17 @@ export async function verifyStripeEvent(
 }
 
 function narrowVerifiedEvent(payload: unknown): VerifiedStripeEvent {
-  if (!isRecord(payload) || typeof payload.id !== "string" || typeof payload.type !== "string") {
+  if (!isRecord(payload) || typeof payload.id !== "string" || !payload.id || typeof payload.type !== "string" || !payload.type || typeof payload.livemode !== "boolean") {
     throw new Error("Invalid Stripe event envelope");
   }
   if (!isRecord(payload.data) || !isRecord(payload.data.object)) {
     throw new Error("Invalid Stripe event data");
   }
-  const object = payload.data.object;
-  if (
-    typeof object.id !== "string" ||
-    typeof object.payment_status !== "string" ||
-    !Number.isSafeInteger(object.amount_total) ||
-    typeof object.currency !== "string" ||
-    !isRecord(object.metadata)
-  ) {
-    throw new Error("Invalid Stripe Checkout Session event object");
-  }
-  const metadata: Record<string, string> = {};
-  for (const [key, value] of Object.entries(object.metadata)) {
-    if (typeof value !== "string") {
-      throw new Error("Invalid Stripe Checkout Session metadata");
-    }
-    metadata[key] = value;
-  }
   return {
     id: payload.id,
     type: payload.type,
-    data: {
-      object: {
-        id: object.id,
-        payment_status: object.payment_status,
-        amount_total: object.amount_total as number,
-        currency: object.currency,
-        metadata,
-      },
-    },
+    livemode: payload.livemode,
+    data: { object: payload.data.object },
   };
 }
 

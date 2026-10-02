@@ -2,16 +2,19 @@ import { createHash } from "node:crypto";
 import type { Client } from "@libsql/client";
 import { z } from "zod";
 
-export const applicationTables = [
+const version2Tables = [
   "case_archives", "home_handoffs", "home_photos", "payment_events",
   "professional_access", "professional_access_events", "provider_account_events",
   "provider_accounts", "providers", "request_coordinators", "request_events",
   "request_followup_events", "request_followups", "request_professional_events",
   "request_professional_grants", "service_requests",
 ] as const;
+export const applicationTables = [
+  ...version2Tables.slice(0, 3), "payment_attempts", ...version2Tables.slice(3),
+] as const;
 
 const snapshotSchema = z.object({
-  version: z.literal(2), createdAt: z.string().datetime(),
+  version: z.union([z.literal(2), z.literal(3)]), createdAt: z.string().datetime(),
   tables: z.array(z.object({
     name: z.string(), columns: z.array(z.string()),
     rows: z.array(z.array(z.union([z.string(), z.number().finite(), z.null()]))),
@@ -29,7 +32,7 @@ export function createSnapshot(tables: SnapshotTable[], createdAt = new Date().t
   if (tables.map(table => table.name).join(",") !== applicationTables.join(",")) {
     throw new Error("Backup table inventory mismatch");
   }
-  const payload = { version: 2 as const, createdAt, tables };
+  const payload = { version: 3 as const, createdAt, tables };
   return snapshotSchema.parse({ ...payload, checksum: hash(payload) });
 }
 
@@ -56,18 +59,20 @@ export async function exportSnapshot(client: Client): Promise<Snapshot> {
 export async function restoreSnapshot(client: Client, input: unknown): Promise<Record<string, number>> {
   const { checksum, ...payload } = snapshotSchema.parse(input);
   if (hash(payload) !== checksum) throw new Error("Backup checksum mismatch");
-  if (payload.tables.map(t => t.name).join(",") !== applicationTables.join(",")) throw new Error("Backup table inventory mismatch");
+  const expectedTables = payload.version === 2 ? version2Tables : applicationTables;
+  if (payload.tables.map(t => t.name).join(",") !== expectedTables.join(",")) throw new Error("Backup table inventory mismatch");
   const tx = await client.transaction("write");
   try {
     // Check the entire destination before writing any record.
-    for (const table of payload.tables) {
-      const columns = (await tx.execute(`PRAGMA table_info("${table.name}")`)).rows.map(row => String(row.name));
-      if (columns.join(",") !== table.columns.join(",")) throw new Error("Backup schema differs from destination");
-      const count = await tx.execute(`SELECT COUNT(*) AS total FROM "${table.name}"`);
+    for (const name of applicationTables) {
+      const columns = (await tx.execute(`PRAGMA table_info("${name}")`)).rows.map(row => String(row.name));
+      const table = payload.tables.find(table => table.name === name);
+      if (!columns.length || (table && columns.join(",") !== table.columns.join(","))) throw new Error("Backup schema differs from destination");
+      const count = await tx.execute(`SELECT COUNT(*) AS total FROM "${name}"`);
       if (count.rows[0]?.total !== 0) throw new Error("Restore requires an empty destination");
-      if (table.rows.some(row => row.length !== columns.length)) throw new Error("Backup row shape mismatch");
+      if (table?.rows.some(row => row.length !== columns.length)) throw new Error("Backup row shape mismatch");
     }
-    const counts: Record<string, number> = {};
+    const counts: Record<string, number> = Object.fromEntries(applicationTables.map(name => [name, 0]));
     for (const table of payload.tables) {
       const sql = `INSERT INTO "${table.name}" (${table.columns.map(c => `"${c}"`).join(",")}) VALUES (${table.columns.map(() => "?").join(",")})`;
       for (const row of table.rows) await tx.execute({ sql, args: row });

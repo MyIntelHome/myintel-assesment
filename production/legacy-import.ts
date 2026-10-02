@@ -59,7 +59,7 @@ const initialArchiveSchema = z.object({
 function sha256(value: string) { return createHash("sha256").update(value).digest("hex"); }
 
 /**
- * Convert the exact recovered Sites export into a complete v2 snapshot.
+ * Convert the exact recovered Sites export into a complete current snapshot.
  * The legacy professional rows are intentionally retained only in the private
  * source export: they are known test records and must not create pilot access.
  */

@@ -2,7 +2,7 @@ import {isClinicalRecord,type ProfessionalAccess} from "../src/domain/access";
 import { z } from "zod";
 import { requestSchema, serviceSchema } from "../src/domain/services";
 import { savedCaseSchema } from "../src/lib/case-validation";
-import {createCheckout,verifyStripeEvent} from "./stripe";
+import {checkout as createPaymentCheckout,paymentWebhook,paymentsEnabled,withPayments,PaymentError} from "./payments";
 import {homePhotoRoute,type PhotoBucket} from "./home-photos";
 import {professionalSharedHomeRoute} from "./professional-referrals";
 import {homeActionsText} from "../src/domain/home-actions";
@@ -12,7 +12,7 @@ import {accountIdentity,anonymousIdentity,type IdentityResolver} from "./auth";
 
 export interface Statement {bind(...values:unknown[]):Statement;first<T=Record<string,unknown>>():Promise<T|null>;all<T=Record<string,unknown>>():Promise<{results:T[]}>;run():Promise<{meta:{changes:number}}>}
 export interface Database {prepare(sql:string):Statement;batch(statements:Statement[]):Promise<{meta:{changes:number}}[]>}
-export interface Env {DB:Database;BUCKET?:PhotoBucket;ASSETS:{fetch(request:Request):Promise<Response>};MYINTEL_ADMIN_EMAIL?:string;APP_ORIGIN?:string;STRIPE_SECRET_KEY?:string;STRIPE_WEBHOOK_SECRET?:string}
+export interface Env {DB:Database;BUCKET?:PhotoBucket;ASSETS:{fetch(request:Request):Promise<Response>};MYINTEL_ADMIN_EMAIL?:string;APP_ORIGIN?:string;STRIPE_SECRET_KEY?:string;STRIPE_WEBHOOK_SECRET?:string;PAYMENT_MODE?:"disabled"|"test"|"live";PAYMENT_CHECKOUT_ENABLED?:boolean}
 export function json(data:unknown,status=200){return Response.json(data,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}})}
 async function body(request:Request,max=16000){
   if(!request.headers.get("content-type")?.startsWith("application/json")) throw new ApiError(415,"Send JSON data.");
@@ -27,24 +27,6 @@ async function boundedBytes(request:Request,max:number){
   for(;;){const {value,done}=await reader.read();if(done)break;length+=value.length;if(length>max){await reader.cancel();throw new ApiError(413,"This record is too large.")}chunks.push(value)}
   const bytes=new Uint8Array(length);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}return bytes;
 }
-async function webhook(request:Request,env:Env){
-  if(!env.STRIPE_WEBHOOK_SECRET || !env.DB)throw new ApiError(503,"Payments are not enabled.");
-  const raw=await boundedBytes(request,100_000);let event;
-  try{event=await verifyStripeEvent(raw,request.headers.get("stripe-signature")??"",env.STRIPE_WEBHOOK_SECRET)}catch{throw new ApiError(400,"Invalid payment notification.")}
-  if(!["checkout.session.completed","checkout.session.async_payment_succeeded"].includes(event.type))return json({received:true});
-  const session=event.data.object;if(session.payment_status!=="paid")return json({received:true});
-  const row=await env.DB.prepare("SELECT * FROM service_requests WHERE id=?").bind(session.metadata.requestId??"").first();
-  if(!row || row.payment_session_id!==session.id || String(row.quote_version)!==session.metadata.quoteVersion || row.amount_cents!==session.amount_total || session.currency!=="usd")throw new ApiError(409,"Payment does not match the current proposal.");
-  if(row.status==="paid" || row.status==="completed")return json({received:true});
-  if(row.status!=="accepted")throw new ApiError(409,"This proposal is not awaiting payment.");
-  const now=new Date().toISOString();
-  await env.DB.batch([
-    env.DB.prepare("INSERT INTO payment_events (id,session_id,created_at) VALUES (?,?,?) ON CONFLICT DO NOTHING").bind(event.id,session.id,now),
-    env.DB.prepare("UPDATE service_requests SET status='paid',updated_at=? WHERE id=? AND status='accepted' AND payment_session_id=? AND quote_version=? AND amount_cents=?").bind(now,row.id,session.id,row.quote_version,session.amount_total),
-    env.DB.prepare("INSERT INTO request_events (id,request_id,actor_id,status,created_at) SELECT ?,id,'stripe','paid',? FROM service_requests WHERE id=? AND status='paid' ON CONFLICT(id) DO NOTHING").bind(session.id+":paid",now,row.id),
-  ]);
-  return json({received:true});
-}
 const archiveSchema=z.object({ownerId:z.string(),revision:z.number().int().nonnegative(),archive:z.object({activeId:z.string(),cases:z.array(savedCaseSchema.required({id:true,spaces:true,responses:true,plan:true,reportVersions:true})).max(100)})});
 export function preservedHistory(before: {cases: Array<{id?:string;reportVersions?:unknown[]}>}, after:{cases:Array<{id?:string;reportVersions?:unknown[]}>}) {
   return before.cases.every(old=>{const next=after.cases.find(c=>c.id===old.id);return !!next && (old.reportVersions??[]).every((v,i)=>JSON.stringify(v)===JSON.stringify(next.reportVersions?.[i]));});
@@ -53,13 +35,13 @@ const requestSelect="SELECT r.*, p.name AS provider_name FROM service_requests r
 export async function handleApi(request:Request,env:Env,resolveIdentity:IdentityResolver=anonymousIdentity):Promise<Response>{
   try{
     const url=new URL(request.url),path=url.pathname,method=request.method;
-    if(path==="/api/stripe/webhook" && method==="POST")return await webhook(request,env);
+    if(path==="/api/stripe/webhook" && method==="POST")return json(await paymentWebhook(request,env));
     if(method!=="GET" && method!=="HEAD"){
       const origin=request.headers.get("origin");
       if(!origin || (origin!==url.origin && origin!==env.APP_ORIGIN))return json({error:"This request must come from the MyIntel app."},403);
     }
     const user=accountIdentity(await resolveIdentity(request),env.MYINTEL_ADMIN_EMAIL);
-    if(path==="/api/account" && method==="GET")return json({user,professionalAccess:user && env.DB?await env.DB.prepare("SELECT * FROM professional_access WHERE user_id=?").bind(user.id).first():null,paymentsEnabled:!!env.STRIPE_SECRET_KEY && !!env.STRIPE_WEBHOOK_SECRET});
+    if(path==="/api/account" && method==="GET")return json({user,professionalAccess:user && env.DB?await env.DB.prepare("SELECT * FROM professional_access WHERE user_id=?").bind(user.id).first():null,paymentsEnabled:paymentsEnabled(env),paymentMode:paymentsEnabled(env)?env.PAYMENT_MODE:"disabled"});
     if(!user)return json({error:"Sign in to continue."},401);
     if(!env.DB)throw new ApiError(503,"Your account service is temporarily unavailable. Your draft is still here.");
     const db=env.DB;
@@ -126,7 +108,7 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
       return json({revision:revision+1});
     }
     if(path==="/api/providers" && method==="GET")return json({providers:(await db.prepare("SELECT id,name,service,area,credentials,status FROM providers WHERE status='verified' ORDER BY name").all()).results});
-    if(path==="/api/requests" && method==="GET")return json({requests:(await db.prepare(requestSelect+" WHERE r.user_id=? ORDER BY r.created_at DESC").bind(user.id).all()).results});
+    if(path==="/api/requests" && method==="GET")return json({requests:await withPayments(env,(await db.prepare(requestSelect+" WHERE r.user_id=? ORDER BY r.created_at DESC").bind(user.id).all()).results)});
     if(path==="/api/requests" && method==="POST"){
       const p=requestSchema.safeParse(await body(request));if(!p.success)throw new ApiError(400,p.error.issues[0]?.message??"Check your contact details.");
       const v=p.data,existing=await db.prepare("SELECT * FROM service_requests WHERE id=?").bind(v.idempotencyKey).first();
@@ -200,19 +182,13 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
     }
     const checkout=path.match(/^\/api\/requests\/([\w-]+)\/checkout$/);
     if(checkout && method==="POST"){
-      if(!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET || !env.APP_ORIGIN)throw new ApiError(503,"Payment is not enabled yet. Your accepted proposal is saved; no charge has been made.");
       const p=z.object({quoteVersion:z.number().int().positive()}).parse(await body(request));
-      const row=await db.prepare("SELECT * FROM service_requests WHERE id=? AND user_id=?").bind(checkout[1],user.id).first();
-      if(!row)throw new ApiError(404,"Request not found.");
-      if(row.status!=="accepted" || row.quote_version!==p.quoteVersion || typeof row.amount_cents!=="number")throw new ApiError(409,"Refresh and review your current proposal before paying.");
-      const session=await createCheckout({secretKey:env.STRIPE_SECRET_KEY,requestId:String(row.id),quoteVersion:String(row.quote_version),amountCents:row.amount_cents,currency:"usd",origin:env.APP_ORIGIN});
-      const result=await db.prepare("UPDATE service_requests SET payment_session_id=? WHERE id=? AND user_id=? AND status='accepted' AND quote_version=?").bind(session.id,row.id,user.id,p.quoteVersion).run();
-      if(result.meta.changes!==1)throw new ApiError(409,"The proposal changed. Refresh your requests.");
-      return json({url:session.url});
+      return json(await createPaymentCheckout(env,checkout[1]!,user.id,p.quoteVersion));
     }
+
     if(path.startsWith("/api/admin")){
       if(!user.isAdmin)throw new ApiError(403,"This area is for MyIntel staff.");
-      if(path==="/api/admin/requests" && method==="GET")return json({requests:(await db.prepare("SELECT r.*,p.name AS provider_name,c.staff_name AS coordinator_name,c.staff_id AS coordinator_id,f.due_at AS followup_due_at,f.note AS followup_note,f.revision AS followup_revision FROM service_requests r LEFT JOIN providers p ON p.id=r.provider_id LEFT JOIN request_coordinators c ON c.request_id=r.id LEFT JOIN request_followups f ON f.request_id=r.id ORDER BY CASE WHEN r.status IN ('completed','cancelled') THEN 1 ELSE 0 END,r.created_at ASC LIMIT 200").all()).results,userId:user.id});
+      if(path==="/api/admin/requests" && method==="GET")return json({requests:await withPayments(env,(await db.prepare("SELECT r.*,p.name AS provider_name,c.staff_name AS coordinator_name,c.staff_id AS coordinator_id,f.due_at AS followup_due_at,f.note AS followup_note,f.revision AS followup_revision FROM service_requests r LEFT JOIN providers p ON p.id=r.provider_id LEFT JOIN request_coordinators c ON c.request_id=r.id LEFT JOIN request_followups f ON f.request_id=r.id ORDER BY CASE WHEN r.status IN ('completed','cancelled') THEN 1 ELSE 0 END,r.created_at ASC LIMIT 200").all()).results),userId:user.id});
       const claim=path.match(/^\/api\/admin\/requests\/([\w-]+)\/claim$/);
       if(claim && method==="POST"){
         const current=await db.prepare("SELECT status FROM service_requests WHERE id=?").bind(claim[1]).first<{status:string}>();
@@ -290,7 +266,7 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
           if(!p.providerId || !p.scope || !p.amountCents)throw new ApiError(400,"Select a verified provider and add the scope and price.");
           const provider=await db.prepare("SELECT id FROM providers WHERE id=? AND status='verified' AND service=?").bind(p.providerId,current.service).first();if(!provider)throw new ApiError(400,"Select a verified professional for this service.");
           result=await db.prepare("UPDATE service_requests SET status='quoted',provider_id=?,scope=?,amount_cents=?,quote_version=quote_version+1,payment_session_id=NULL,updated_at=? WHERE id=? AND status=? AND quote_version=?").bind(p.providerId,p.scope,p.amountCents,new Date().toISOString(),edit[1],current.status,p.quoteVersion).run();
-        }else result=await db.prepare("UPDATE service_requests SET status=?,updated_at=? WHERE id=? AND status=? AND quote_version=?").bind(p.status,new Date().toISOString(),edit[1],current.status,p.quoteVersion).run();
+        }else result=await db.prepare("UPDATE service_requests SET status=?,updated_at=? WHERE id=? AND status=? AND quote_version=? AND (status<>'accepted' OR payment_session_id IS NULL)").bind(p.status,new Date().toISOString(),edit[1],current.status,p.quoteVersion).run();
         if(result.meta.changes!==1)throw new ApiError(409,"Another update arrived first. Refresh the queue.");
         await db.prepare("INSERT INTO request_events (id,request_id,actor_id,status,created_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(),edit[1],user.id,p.status,new Date().toISOString()).run();
         if(["completed","cancelled"].includes(p.status)){
@@ -304,7 +280,7 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
     }
     return json({error:"This action was not found."},404);
   }catch(error){
-    if(error instanceof ApiError)return json({error:error.message},error.status);
+    if(error instanceof ApiError || error instanceof PaymentError)return json({error:error.message},error.status);
     if(error instanceof z.ZodError)return json({error:"Check the form fields and try again."},400);
     console.error("MyIntel API request failed",error instanceof Error?error.name:"Unknown error");
     return json({error:"We could not save this right now. Your information is still in the form. Please try again."},503);
