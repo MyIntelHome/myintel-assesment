@@ -13,7 +13,7 @@
   min-height: 100vh;
   background: radial-gradient(circle at 85% -10%, #d8f0ed 0, transparent 32rem), var(--help-page);
   color: var(--help-ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--body);
   font-size: 16px;
   line-height: 1.5;
   padding: 28px 20px 72px;
@@ -62,11 +62,11 @@
 }
 .help-intro h1 {
   color: var(--help-navy);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--display);
   font-size: clamp(2.45rem, 6vw, 4.45rem);
-  font-weight: 500;
-  letter-spacing: -.055em;
-  line-height: .99;
+  font-weight: 800;
+  letter-spacing: -.03em;
+  line-height: 1.15;
   margin: 0;
   max-width: 11ch;
 }
@@ -101,7 +101,7 @@
   justify-content: center;
 }
 .help-signin-card h2,
-.help-success-card h2 { color: var(--help-navy); font-family: Georgia, "Times New Roman", serif; font-size: 28px; font-weight: 500; letter-spacing: -.03em; margin: 0; }
+.help-success-card h2 { color: var(--help-navy); font-family: var(--display); font-size: 28px; font-weight: 800; letter-spacing: -.03em; margin: 0; }
 .help-signin-card p,
 .help-success-card p { color: var(--help-muted); margin: 8px 0 22px; }
 
