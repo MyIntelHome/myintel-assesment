@@ -148,14 +148,14 @@ export function FamilyFlow({
 
   if (phase === "rooms") {
     return (
-      <main className="family-v2">
+      <main className="family-v2 family-v2--spaces">
         <FlowHeader percent={overall.percent} label={`${overall.answered} of ${overall.total} answered`} />
         <section className="family-v2__card">
           <p className="family-v2__eyebrow">Set up your check</p>
-          <h1 ref={headingRef} tabIndex={-1}>Your everyday spaces</h1><RoomJourney spaces={state.spaces} answers={state.familyAnswers}/>
-          <p className="family-v2__lead">Start with the place that matters most. Leave out spaces that are not used; add a second room only if it needs its own check.</p><button className="family-v2__back" onClick={()=>setPhase("routine")}>Edit daily life & used spaces</button>
+          <h1 ref={headingRef} tabIndex={-1}>Your spaces to check</h1>
+          <p className="family-v2__lead">Choose a space to begin. We’ll take it one question at a time.</p><button className="family-v2__back" onClick={()=>setPhase("home")}>Change selected spaces</button>
 
-          <div className="family-v2__room-picker">
+          <details className="family-v2__hint space-extra"><summary>Add another space (optional)</summary><div className="family-v2__room-picker">
             {ROOM_CHOICES.map((type) => (
               <button
                 className="family-v2__add-room"
@@ -170,7 +170,7 @@ export function FamilyFlow({
                 <span aria-hidden="true">+</span> {FRIENDLY[type] ?? SPACE_TYPE_META[type].label}
               </button>
             ))}
-          </div>
+          </div></details>
 
           {state.spaces.length > 0 ? (
             <section className="family-v2__room-section" aria-labelledby="your-rooms-heading">
@@ -198,7 +198,7 @@ export function FamilyFlow({
                         </span>
                         <Icon name="arrow-right" />
                       </button>
-                      {(state.homeProfile?.levels??1)>1 && <label className="room-level">Level for {space.label}<select value={space.level??""} onChange={e=>api.setRoomLevel(space.id,Number(e.target.value))}><option value="">Not assigned</option>{Array.from({length:state.homeProfile!.levels},(_,n)=><option key={n} value={n+1}>Level {n+1}</option>)}</select></label>}
+                      <details className="space-options"><summary>Options for {space.label}</summary>{(state.homeProfile?.levels??1)>1 && <label className="room-level">Level for {space.label}<select value={space.level??""} onChange={e=>api.setRoomLevel(space.id,Number(e.target.value))}><option value="">Not assigned</option>{Array.from({length:state.homeProfile!.levels},(_,n)=><option key={n} value={n+1}>Level {n+1}</option>)}</select></label>}
                       <button
                         className="family-v2__remove"
                         type="button"
@@ -209,8 +209,8 @@ export function FamilyFlow({
                           api.setFamilyPosition({ phase: "rooms", roomIndex: Math.max(0, roomIndex >= index ? roomIndex - 1 : roomIndex), questionIndex: 0 });
                         }}
                       >
-                        <span>Not used</span>
-                      </button>
+                        <span>Leave this space out</span>
+                      </button></details>
                     </li>
                   );
                 })}

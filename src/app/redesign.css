@@ -71,6 +71,27 @@ body {font-size:18px;padding-bottom:0}
  font-family:var(--body);font-size:1.125rem;background:var(--mi-canvas);
 }
 .app-shell .help-service-card {border-radius:24px 24px 24px 8px}
+.space-selection {border:0;padding:0;margin:24px 0}
+.space-selection > div {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.space-selection label {display:flex;align-items:center;gap:14px;padding:18px;border:1px solid var(--mi-line);border-radius:16px;background:#fff;cursor:pointer;min-height:76px}
+.space-selection label:has(input:checked) {background:var(--mi-sky);border-color:var(--mi-blue)}
+.space-selection input {width:24px;height:24px;min-height:24px;flex:0 0 auto;margin:0;accent-color:var(--mi-blue)}
+.space-selection span {display:flex;flex-direction:column;gap:3px}
+.space-selection label strong {font-size:1.125rem;line-height:1.4;color:var(--mi-navy)}
+.space-selection small,.space-selection-note {font-size:1rem;color:var(--mi-muted)}
+.space-selection-count {font-weight:700;color:var(--mi-navy);margin:24px 0 16px}
+.visually-hidden {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+.family-v2--spaces .family-v2__room-list {grid-template-columns:1fr}
+.family-v2--spaces .family-v2__room-main {flex-direction:row;align-items:center;gap:18px;padding:16px 20px}
+.family-v2--spaces .room-art {width:92px;flex:0 0 92px}
+.family-v2--spaces .family-v2__room-status {position:static;width:28px;height:28px;font-size:1rem}
+.family-v2--spaces .family-v2__room-main > span:not(.family-v2__room-status) {flex:1}
+.space-options {width:100%;border-top:1px solid var(--mi-line);background:var(--mi-canvas)}
+.space-options summary {min-height:48px;padding:12px 20px;cursor:pointer;color:var(--mi-muted);font-size:1rem}
+.space-options .family-v2__remove {width:auto;border:0;padding:12px 20px;color:#9e342a}
+.space-options .room-level {display:block;max-width:none;padding:12px 20px}
+.space-extra {margin-top:20px}
+.space-extra .family-v2__room-picker {padding:0 16px 16px}
 .family-v2__room-main > .family-v2__icon {display:none}
 .family-v2__room-status {position:absolute;top:16px;right:16px}
 .family-v2__remove {min-height:48px;border-left:0;border-top:1px solid var(--mi-line);margin-left:auto;background:var(--mi-canvas)}
@@ -103,6 +124,10 @@ body {font-size:18px;padding-bottom:0}
  .help-strip {padding:24px}.app-status {font-size:.875rem}
  .family-v2__tally {grid-template-columns:repeat(2,minmax(0,1fr))}
  .room-question-art {width:80px}
+ .space-selection > div {grid-template-columns:1fr;gap:10px}
+ .space-selection label {min-height:64px;padding:14px 16px}
+ .family-v2--spaces .family-v2__room-main {gap:12px;padding:14px}
+ .family-v2--spaces .room-art {width:60px;flex-basis:60px}
 }
 @media(prefers-reduced-motion:reduce) {*,*::before,*::after {animation:none!important;scroll-behavior:auto!important;transition:none!important}}
 @media print {.room-art,.room-journey {display:none!important}.family-v2__card {box-shadow:none}.app-shell {font-size:11pt}}
