@@ -48,8 +48,8 @@ const SERVICES: Array<{
   {
     value: "professional_assessment",
     number: "01",
-    title: "Professional assessment",
-    description: "Talk with someone who can look at your needs and suggest next steps.",
+    title: "Occupational therapist assessment",
+    description: "Request an OT review of the home, movement and daily activities. Availability and appointment times are confirmed separately.",
   },
   {
     value: "home_modifications",
@@ -66,8 +66,8 @@ const SERVICES: Array<{
   {
     value: "care_navigation",
     number: "04",
-    title: "Care navigation",
-    description: "Find a clear next step when you are coordinating care or support.",
+    title: "Aging-in-place follow-up",
+    description: "Ask MyIntel to arrange a follow-up with Austin about your results, home changes, routines and technology.",
   },
 ];
 

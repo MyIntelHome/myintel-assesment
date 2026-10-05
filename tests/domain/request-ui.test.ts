@@ -10,7 +10,7 @@ const user={id:"example",name:"Example User",email:"example@example.test",isAdmi
 function button(text:string){const b=[...container.querySelectorAll("button")].find(e=>e.textContent?.includes(text));if(!b)throw Error("Missing button: "+text);return b}
 async function click(text:string){await act(async()=>button(text).click())}
 async function fill(id:string,value:string){await act(async()=>{const e=container.querySelector<HTMLInputElement>("#"+id)!;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(e,value);e.dispatchEvent(new Event("input",{bubbles:true}))})}
-async function help(){await act(async()=>root.render(createElement(ProfessionalHelp,{user,onBack:vi.fn(),onRequests:vi.fn()})));await click("Professional assessment");await click("Continue")}
+async function help(){await act(async()=>root.render(createElement(ProfessionalHelp,{user,onBack:vi.fn(),onRequests:vi.fn()})));await click("Occupational therapist assessment");await click("Continue")}
 beforeEach(()=>{Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});container=document.createElement("div");document.body.append(container);root=createRoot(container);fetchMock.mockReset();vi.stubGlobal("fetch",fetchMock)});
 afterEach(()=>{act(()=>root.unmount());container.remove();vi.unstubAllGlobals()});
 it("requires ZIP and contact consent before sending a request",async()=>{

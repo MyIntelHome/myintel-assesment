@@ -62,7 +62,7 @@ describe("what families are asked", () => {
     // "Would a stair lift be worth considering?" is not a family question.
     const codes = familyItemsFor(stairway).map((i) => i.code);
     expect(codes).not.toContain("s7");
-    expect(codes).toHaveLength(stairway.items.filter((i) => i.required).length);
+    expect(codes).toHaveLength(4);
   });
 });
 

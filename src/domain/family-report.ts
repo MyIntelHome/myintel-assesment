@@ -12,7 +12,7 @@
  */
 
 import { FAMILY_GUIDANCE, type Guidance } from "@/seed/family-guidance";
-import { familyItemsFor, familyKey, type FamilyAnswer } from "./family";
+import { familyReportItems, familyKey, type FamilyAnswer } from "./family";
 import type { AssessmentTemplate } from "./types";
 
 export interface ReportSpace {
@@ -77,7 +77,7 @@ export function buildFamilyReport(
     const entries: ReportEntry[] = [];
     let clearCount = 0;
 
-    for (const item of familyItemsFor(space.template)) {
+    for (const item of familyReportItems(space.template,space.id,answers)) {
       totalCount++;
       const answer = answers[familyKey(space.id, item.code)];
       if (!answer) continue;
@@ -103,7 +103,7 @@ export function buildFamilyReport(
     }
 
     entries.sort((a, b) => rank(b) - rank(a));
-    const unansweredCount = familyItemsFor(space.template).filter(i => !answers[familyKey(space.id, i.code)]).length;
+    const unansweredCount = familyReportItems(space.template,space.id,answers).filter(i => !answers[familyKey(space.id, i.code)]).length;
     rooms.push({ spaceId: space.id, spaceLabel: space.label, entries, clearCount, unansweredCount });
   }
 
