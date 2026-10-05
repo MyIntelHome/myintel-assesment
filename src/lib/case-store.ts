@@ -55,6 +55,7 @@ export interface Response {
 
 export interface CaseState {
   id: string;
+  deletedAt?: string | null;
   reportVersions: ReportVersion[];
   familyPosition?: FamilyPosition;
   homeProfile?:HomeProfile;
@@ -187,7 +188,7 @@ export function useCase(options?: {userId:string;audience?:"family"|"clinician"}
         const saved=data.archive?readArchive(JSON.stringify(data.archive)):{cases:[] as CaseState[],activeId:undefined};
         cloudRevision.current=data.revision;
         archiveRef.current=saved.cases;setCases(saved.cases);
-        setState(saved.cases.find(c=>c.id===saved.activeId)??normalise(audience==="clinician"?{audience:"clinician"}:{}));setHydrated(true);
+        setState(saved.cases.find(c=>c.id===saved.activeId && !c.deletedAt)??normalise(audience==="clinician"?{audience:"clinician"}:{}));setHydrated(true);
       }).catch(()=>{if(live){setStorageProblem("We could not load your account. Your saved assessments have not been changed. Try again when your connection is available.");setSaveState("error");setHydrated(true);cloudBlocked.current=true;}});
       return ()=>{live=false};
     }
@@ -198,7 +199,7 @@ export function useCase(options?: {userId:string;audience?:"family"|"clinician"}
       archiveRef.current = saved.cases;
       setCases(archiveRef.current);
       const current=archiveRef.current.find(c=>c.id===saved.activeId) ?? load();
-      setState(isClinicalRecord(current)?normalise({}):current);
+      setState(isClinicalRecord(current) || current.deletedAt?normalise({}):current);
       // Contact details are no longer required or retained by this flow.
       window.localStorage.removeItem(CONTACT_KEY);
     } catch {
@@ -418,8 +419,18 @@ export function useCase(options?: {userId:string;audience?:"family"|"clinician"}
   const openCase = useCallback((id: string) => {
     if (saveState !== "saved" || storageConflict) return;
     const found = archiveRef.current.find(c=>c.id===id);
-    if (found) setState(normalise(found));
+    if (found && !found.deletedAt) setState(normalise(found));
   }, [saveState,storageConflict]);
+  const setCaseDeleted = useCallback((id:string,deleted:boolean) => {
+    if (!hydrated || saveState!=="saved" || storageConflict || storageProblem) return;
+    const found=archiveRef.current.find(c=>c.id===id);
+    if (!found || isClinicalRecord(found) || found.audience!=="family") return;
+    const updated={...found,deletedAt:deleted?new Date().toISOString():null};
+    archiveRef.current=archiveRef.current.map(c=>c.id===id?updated:c);
+    // Use the existing serialized, revision-checked save path. Keep the record
+    // for restoration, photo ownership and any previously consented handoff.
+    setState(s=>s.id===id?(deleted?normalise({}):updated):({...s}));
+  },[hydrated,saveState,storageConflict,storageProblem]);
   const setFamilyPosition = useCallback((familyPosition: FamilyPosition) => {
     setState(s=>({...s,familyPosition}));
   }, []);
@@ -439,6 +450,8 @@ export function useCase(options?: {userId:string;audience?:"family"|"clinician"}
     retrySave:()=>setRetryTick(n=>n+1),
     importLocal,
     openCase,
+    deleteCase:(id:string)=>setCaseDeleted(id,true),
+    restoreCase:(id:string)=>setCaseDeleted(id,false),
     setFamilyPosition,
     setReference,
     setAudience,

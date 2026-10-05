@@ -2,7 +2,7 @@
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";
-import {useCase,type CaseApi} from "@/lib/case-store";
+import {useCase,normalise,type CaseApi} from "@/lib/case-store";
 let api:CaseApi,root:Root;
 const fetchMock=vi.fn();
 function Harness(){api=useCase({userId:"owner-a"});return null}
@@ -58,4 +58,32 @@ it("leaves the current draft intact when all device records belong to profession
  await mount();await save();const id=api.state.id;
  localStorage.setItem("myintel.cases.v1",JSON.stringify({activeId:"clinical",cases:[{id:"clinical",audience:"clinician"}]}));
  act(()=>api.importLocal());expect(api.state.id).toBe(id);
+});
+it("deletes and restores a home check with its original answers, without affecting other cases",async()=>{
+ const home=normalise({id:"home",audience:"family",familyAnswers:{test:"yes"}});
+ const other=normalise({id:"other",audience:"family",reference:"OTHER"});
+ fetchMock.mockReset().mockResolvedValueOnce(reply({archive:{activeId:"home",cases:[home,other]},revision:4})).mockResolvedValue(reply({revision:5}));
+ await mount();await save();
+ act(()=>api.deleteCase("home"));await save();
+ expect(api.state.id).not.toBe("home");
+ expect(api.cases.find(c=>c.id==="home")?.deletedAt).toBeTruthy();
+ expect(api.cases.find(c=>c.id==="other")).toEqual(other);
+ act(()=>api.openCase("home"));expect(api.state.id).not.toBe("home");
+ act(()=>api.restoreCase("home"));await save();
+ act(()=>api.openCase("home"));expect(api.state.familyAnswers).toEqual(home.familyAnswers);
+ expect(api.state.deletedAt).toBeNull();
+});
+it("keeps a failed deletion retryable and does not report it saved",async()=>{
+ await mount();await save();act(()=>api.setAudience("family"));await save();const id=api.state.id;
+ fetchMock.mockRejectedValueOnce(Error("Offline"));act(()=>api.deleteCase(id));await save();
+ expect(api.saveState).toBe("error");expect(api.cases.find(c=>c.id===id)?.deletedAt).toBeFalsy();
+ act(()=>api.retrySave());await save();
+ expect(api.saveState).toBe("saved");expect(api.cases.find(c=>c.id===id)?.deletedAt).toBeTruthy();
+});
+it("refuses to delete clinical records or change cases while saving",async()=>{
+ await mount();await save();const id=api.state.id;
+ act(()=>api.setAudience("family"));act(()=>api.deleteCase(id));await save();
+ expect(api.state.id).toBe(id);expect(api.state.deletedAt).toBeFalsy();
+ act(()=>api.setAudience("clinician"));await save();act(()=>api.deleteCase(id));
+ expect(api.state.id).toBe(id);expect(api.state.deletedAt).toBeFalsy();
 });

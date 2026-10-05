@@ -239,6 +239,16 @@ describe("MyIntel API integration", () => {
   });
 
   describe("case archive ownership, revisions, and signed snapshots", () => {
+    it("persists recoverable deletion and restoration within the owner's home archive", async () => {
+      const home={...caseRecord("draft"),audience:"family",deletedAt:"2026-10-05T19:00:00.000Z"};
+      const archive={activeId:"draft",cases:[home]};
+      expect((await call("/api/cases",{method:"PUT",user:alice,body:{ownerId:alice.id,revision:0,archive}})).response.status).toBe(200);
+      expect((await call("/api/cases",{user:alice})).data.archive.cases[0].deletedAt).toBe(home.deletedAt);
+      expect((await call("/api/cases",{user:bob})).data.archive).toBeNull();
+      const restored={activeId:"draft",cases:[{...home,deletedAt:null}]};
+      expect((await call("/api/cases",{method:"PUT",user:alice,body:{ownerId:alice.id,revision:1,archive:restored}})).response.status).toBe(200);
+      expect((await call("/api/cases",{user:alice})).data.archive.cases[0].deletedAt).toBeNull();
+    });
     it("stores and reads archives only under the authenticated owner", async () => {
       const archive = { activeId: "case-a", cases: [caseRecord("case-a")] };
       const saved = await call("/api/cases", {
