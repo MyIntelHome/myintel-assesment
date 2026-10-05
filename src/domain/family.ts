@@ -48,7 +48,14 @@ export function familyKey(spaceId: string, code: string): string {
  * considering?") and are not put to families.
  */
 export function familyItemsFor(template: AssessmentTemplate): readonly TemplateItem[] {
-  return template.items.filter((i) => i.required);
+  const core:Record<string,readonly string[]>={entry:["e1","e2","e3","e4","e5"],living:["l1","l2","l3","l5"],kitchen:["k1","k2","k4","k5","k7"],stairway:["s1","s2","s4","s6"],bathroom:template.items.some(i=>i.code==="b2")?["b1","b2","b3","b5","b8"]:["b1","b5","b6","b7"],bedroom:["br1","br2","br3","br4"],exterior:["ex1","ex2","ex4","ex6"]};
+  return template.items.filter(i=>i.required && (core[template.spaceType]?.includes(i.code)??true));
+}
+
+/** Keep earlier answered details visible without asking every legacy question again. */
+export function familyReportItems(template:AssessmentTemplate,spaceId:string,answers:Readonly<Record<string,FamilyAnswer>>):readonly TemplateItem[]{
+  const core=new Set(familyItemsFor(template).map(i=>i.code));
+  return template.items.filter(i=>i.required && (core.has(i.code)||!!answers[familyKey(spaceId,i.code)]));
 }
 
 /**

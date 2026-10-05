@@ -72,6 +72,21 @@ body {font-size:18px;padding-bottom:0}
 }
 .app-shell .help-service-card {border-radius:24px 24px 24px 8px}
 .space-selection {border:0;padding:0;margin:24px 0}
+.report-metrics {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:24px 0}
+.report-metrics > div {padding:18px;background:#fff;border:1px solid var(--mi-line);border-radius:16px}
+.report-metrics dt {font-weight:700;color:var(--mi-navy)}
+.report-metrics dd {margin:6px 0;font-size:2.25rem;line-height:1.2;font-weight:800;color:var(--mi-blue)}
+.report-metrics small {font-size:1rem;color:var(--mi-muted)}
+.report-review-scale {margin-top:28px;padding:22px;background:#fff;border:1px solid var(--mi-line);border-radius:16px}
+.report-review-scale ol {list-style:none;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.report-review-scale li {padding:12px;border:1px solid var(--mi-line);border-radius:12px;color:var(--mi-muted);font-size:1rem}
+.report-review-scale li.current {background:var(--mi-sky);border:2px solid var(--mi-blue);font-weight:800;color:var(--mi-navy)}
+.report-first-priorities,.report-professional-review {padding:22px;margin:24px 0;background:var(--mi-canvas);border-radius:16px}
+.report-first-priorities li {padding:12px 0}
+.report-followup-options {display:grid;gap:16px}
+.report-followup-options article {background:#fff;padding:20px;border:1px solid var(--mi-line);border-radius:16px}
+.report-followup-options h4 {font-size:1.25rem;margin:0;color:var(--mi-navy)}
+@media(max-width:480px){.report-metrics,.report-review-scale ol {grid-template-columns:1fr}.report-first-priorities,.report-professional-review,.report-review-scale {padding:16px}}
 .assessment-card {display:flex;flex-direction:column;min-width:0}
 .assessment-card .case-card {width:100%;flex:1;border-bottom-left-radius:0;border-bottom-right-radius:0}
 .assessment-delete {padding:10px 24px 16px;background:#fff;border:1px solid var(--mi-line);border-top:0;border-radius:0 0 24px 8px}

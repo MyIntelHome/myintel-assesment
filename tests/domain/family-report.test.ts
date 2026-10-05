@@ -92,7 +92,7 @@ describe("building the report", () => {
   it("puts reported problems above things the family was unsure of", () => {
     const items = familyItemsFor(bathroom);
     // A low-weight flag against a high-weight uncertainty: the flag still wins.
-    const lowWeightFlag = items.find((i) => FAMILY_GUIDANCE[i.code]?.weight === 1);
+    const lowWeightFlag = bathroom.items.find((i) => FAMILY_GUIDANCE[i.code]?.weight === 1);
     const highWeightUnsure = items.find((i) => FAMILY_GUIDANCE[i.code]?.weight === 3);
     expect(lowWeightFlag, "fixture needs a weight-1 bathroom item").toBeDefined();
     expect(highWeightUnsure, "fixture needs a weight-3 bathroom item").toBeDefined();
@@ -111,7 +111,7 @@ describe("building the report", () => {
       { id: "sp1", label: "Bathroom", template: bathroom },
       { id: "sp2", label: "Stairs", template: stairway },
     ];
-    const low = familyItemsFor(bathroom).find((i) => FAMILY_GUIDANCE[i.code]?.weight === 1)!;
+    const low = bathroom.items.find((i) => FAMILY_GUIDANCE[i.code]?.weight === 1)!;
     const high = familyItemsFor(stairway).find((i) => FAMILY_GUIDANCE[i.code]?.weight === 3)!;
 
     const report = buildFamilyReport(two, {

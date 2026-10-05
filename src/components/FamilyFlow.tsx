@@ -1,4 +1,5 @@
 "use client";
+import {homeSummaryText} from "@/domain/home-report-summary";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -15,7 +16,6 @@ import {
   buildShareMailto,
   looksLikeEmail,
   reportToPlainText,
-  topPriorities,
   type FamilyReport,
 } from "@/domain/family-report";
 import { SPACE_TYPE_META, type ItemCategory, type SpaceType } from "@/domain/types";
@@ -436,8 +436,8 @@ function ReportScreen({
   onRequestHelp?: (service?: string) => void;
   onRooms: () => void;
 }) {
-  const priorities = topPriorities(report);
-  const fullText=[...profileLines(api.state.homeProfile),"",reportToPlainText(report),homeActionsText(report,api.state.homeProfile)].join("\n");
+
+  const fullText=[...profileLines(api.state.homeProfile),"",homeSummaryText(report,api.state.homeProfile),reportToPlainText(report),homeActionsText(report,api.state.homeProfile)].join("\n");
   const [copyError, setCopyError] = useState(false);
 
   const copyReport = async () => {
@@ -469,30 +469,11 @@ function ReportScreen({
         <p className="family-v2__report-headline">{report.headline}</p>
         <p className="family-v2__notice">This home check is not a professional assessment and cannot confirm that a home is safe.</p>
 
-        <dl className="family-v2__tally">
-          <div className="tally-fine"><dt>✓ Looks fine in your answers</dt><dd>{report.answeredCount-report.flaggedCount-report.unsureCount}</dd></div>
-          <div><dt>! Worth a closer look</dt><dd>{report.flaggedCount}</dd></div>
-          <div><dt>? Not sure</dt><dd>{report.unsureCount}</dd></div>
-          <div><dt>Answered</dt><dd>{report.answeredCount}/{report.totalCount}</dd></div>
-        </dl>
+
 
         <HomeInsights api={api} report={report} onRooms={onRooms}/>
         <HomeActionPlan profile={api.state.homeProfile} report={report} onRequestHelp={onRequestHelp}/>
-        {priorities.length > 0 && (
-          <section className="family-v2__report-section" aria-labelledby="start-heading">
-            <h2 id="start-heading">Start here</h2>
-            <p>These reported concerns are listed first because they often have a bigger effect on everyday safety.</p>
-            <ol className="family-v2__priorities">
-              {priorities.map((entry) => (
-                <li key={`${entry.spaceId}-${entry.code}`}>
-                  <span>{entry.spaceLabel}</span>
-                  <h3>{entry.question}</h3>
-                  {entry.guidance && <p>{entry.guidance.helps}</p>}
-                </li>
-              ))}
-            </ol>
-          </section>
-        )}
+
 
         {report.rooms.length > 0 && (
           <section className="family-v2__report-section" aria-labelledby="room-detail-heading">
@@ -525,15 +506,7 @@ function ReportScreen({
           </section>
         )}
 
-        {onRequestHelp && (
-          <section className="family-v2__help">
-            <div>
-              <h2>Would you like help with next steps?</h2>
-              <p>Request a professional review through MyIntel. You can choose to share this home check and add guided photos after your request is saved. Nothing is sent to a professional automatically.</p>
-            </div>
-            <button className="family-v2__button family-v2__button--primary" type="button" onClick={() => onRequestHelp("professional_assessment")}>Request help <Icon name="arrow-right" /></button>
-          </section>
-        )}
+
 
         <section className="family-v2__report-section family-v2__share" aria-labelledby="share-heading">
           <h2 id="share-heading">Keep or share the full findings</h2>
