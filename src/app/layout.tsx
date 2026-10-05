@@ -5,9 +5,10 @@ import "@/components/FamilyFlow.css";
 import "./redesign.css";
 
 export const metadata: Metadata = {
-  title: "MyIntel Assessment Platform",
+  title: "MyIntel | Home Check",
   description: "Guided home checks, clinician assessments and a clear path to professional support.",
   robots: { index: false, follow: false },
+  icons: { icon: [{ url: "/favicon.svg", type: "image/svg+xml" }], apple: "/myintel-symbol.png" },
 };
 
 export default function RootLayout({
