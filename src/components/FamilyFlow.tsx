@@ -1,4 +1,5 @@
 "use client";
+import {AssessmentSources} from "./AssessmentSources";
 import {homeSummaryText} from "@/domain/home-report-summary";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -508,6 +509,7 @@ function ReportScreen({
 
 
 
+        <AssessmentSources compact/>
         <section className="family-v2__report-section family-v2__share" aria-labelledby="share-heading">
           <h2 id="share-heading">Keep or share the full findings</h2>
           <div className="family-v2__share-controls">

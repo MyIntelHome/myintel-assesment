@@ -72,6 +72,17 @@ body {font-size:18px;padding-bottom:0}
 }
 .app-shell .help-service-card {border-radius:24px 24px 24px 8px}
 .space-selection {border:0;padding:0;margin:24px 0}
+.assessment-sources {max-width:820px;margin:0 auto;color:var(--mi-navy);line-height:1.7}
+.assessment-sources h1 {font-size:clamp(2rem,4vw,2.75rem);line-height:1.15}
+.assessment-sources h3 {font-size:1.25rem;line-height:1.4}
+.assessment-sources p {color:var(--mi-muted)}
+.assessment-source-card {padding:24px;margin:24px 0;border:1px solid var(--mi-line);border-radius:20px;background:#fff}
+.assessment-source-label {font-size:.875rem;letter-spacing:.05em;font-weight:800;color:var(--mi-blue)}
+.assessment-source-card ul {padding-left:22px}.assessment-source-card li+li {margin-top:20px}
+.assessment-sources a {color:var(--mi-blue);text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere;font-weight:700}
+.assessment-source-disclaimer {padding:18px;background:var(--mi-sky);border-left:3px solid var(--mi-blue);border-radius:8px}
+.assessment-sources--compact {margin:24px 0;padding:20px;border:1px solid var(--mi-line);border-radius:16px;background:var(--mi-canvas)}
+.assessment-sources summary {min-height:48px;cursor:pointer;font-weight:800}
 .report-metrics {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:24px 0}
 .report-metrics > div {padding:18px;background:#fff;border:1px solid var(--mi-line);border-radius:16px}
 .report-metrics dt {font-weight:700;color:var(--mi-navy)}
