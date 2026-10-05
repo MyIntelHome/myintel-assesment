@@ -26,6 +26,8 @@ import {HomeInsights} from "./HomeInsights";
 import {HomeSectionPause} from "./HomeSectionPause";
 import {homeActionsText} from "@/domain/home-actions";
 import {HomeActionPlan} from "./HomeActionPlan";
+import {RoomArt} from "./RoomArt";
+import {RoomJourney} from "./RoomJourney";
 
 const ROOM_CHOICES: SpaceType[] = [
   "entry",
@@ -150,7 +152,7 @@ export function FamilyFlow({
         <FlowHeader percent={overall.percent} label={`${overall.answered} of ${overall.total} answered`} />
         <section className="family-v2__card">
           <p className="family-v2__eyebrow">Set up your check</p>
-          <h1 ref={headingRef} tabIndex={-1}>Your everyday spaces</h1>
+          <h1 ref={headingRef} tabIndex={-1}>Your everyday spaces</h1><RoomJourney spaces={state.spaces} answers={state.familyAnswers}/>
           <p className="family-v2__lead">Start with the place that matters most. Leave out spaces that are not used; add a second room only if it needs its own check.</p><button className="family-v2__back" onClick={()=>setPhase("routine")}>Edit daily life & used spaces</button>
 
           <div className="family-v2__room-picker">
@@ -186,7 +188,7 @@ export function FamilyFlow({
                       : `${progress.total} questions`;
                   return (
                     <li key={space.id}>
-                      <button className="family-v2__room-main" type="button" onClick={() => openRoom(index)}>
+                      <button className="family-v2__room-main" type="button" onClick={() => openRoom(index)}><RoomArt type={space.type} dimmed={!progress.answered}/>
                         <span className={`family-v2__room-status${progress.complete ? " is-complete" : ""}`} aria-hidden="true">
                           {progress.complete ? <Icon name="check" /> : index + 1}
                         </span>
@@ -264,7 +266,7 @@ export function FamilyFlow({
     return (
       <main className="family-v2 family-v2--centered">
         <FlowHeader percent={overall.percent} label={`${overall.answered} of ${overall.total} answered`} onBack={() => setPhase("rooms")} />
-        <section className="family-v2__card family-v2__milestone">
+        <section className="family-v2__card family-v2__milestone"><RoomJourney spaces={state.spaces} answers={state.familyAnswers}/>
           <div className="family-v2__success" aria-hidden="true"><Icon name="check" /></div>
           <p className="family-v2__eyebrow">Room saved</p>
           <h1 ref={headingRef} tabIndex={-1}>A useful step forward.</h1>
@@ -379,7 +381,7 @@ function QuestionScreen({
           <span>Room {roomIndex + 1} of {totalRooms}</span>
           <span>Question {questionIndex + 1} of {questions.length}</span>
         </div>
-        <p className="family-v2__topic">{groups.find((group) => group.category === question.category)?.label}</p>
+        <div className="room-question-art"><RoomArt type={space.type}/></div><p className="family-v2__topic">{groups.find((group) => group.category === question.category)?.label}</p>
         <h1 ref={headingRef} tabIndex={-1}>{homeQuestionText(question.promptPlain,api.state.homeProfile?.forWhom)}</h1>
 
         <details className="home-guide"><summary>Help me answer this</summary><p>{LOOK_HINT[question.category]}</p><small>Answer from everyday experience. You do not need to demonstrate anything.</small></details>
@@ -390,7 +392,7 @@ function QuestionScreen({
               key={option}
               type="button"
               aria-pressed={answer === option}
-              className={`family-v2__answer${answer === option ? " is-selected" : ""}`}
+              className={`family-v2__answer${option === "unsure" ? " is-unsure" : ""}${answer === option ? " is-selected" : ""}`}
               onClick={() => api.setFamilyAnswer(familyKey(space.id, question.code), option as FamilyAnswer)}
             >
               <span className="family-v2__radio" aria-hidden="true">{answer === option && <Icon name="check" />}</span>
@@ -468,8 +470,9 @@ function ReportScreen({
         <p className="family-v2__notice">This home check is not a professional assessment and cannot confirm that a home is safe.</p>
 
         <dl className="family-v2__tally">
-          <div><dt>Worth a closer look</dt><dd>{report.flaggedCount}</dd></div>
-          <div><dt>Not sure</dt><dd>{report.unsureCount}</dd></div>
+          <div className="tally-fine"><dt>✓ Looks fine in your answers</dt><dd>{report.answeredCount-report.flaggedCount-report.unsureCount}</dd></div>
+          <div><dt>! Worth a closer look</dt><dd>{report.flaggedCount}</dd></div>
+          <div><dt>? Not sure</dt><dd>{report.unsureCount}</dd></div>
           <div><dt>Answered</dt><dd>{report.answeredCount}/{report.totalCount}</dd></div>
         </dl>
 
