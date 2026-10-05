@@ -246,6 +246,7 @@ export function reportToPlainText(report: FamilyReport, contactName?: string): s
     "This is a self-check completed by a member of the household, not a professional assessment. " +
       "An occupational therapist can visit, check these items in person, and put together a plan.",
   );
+  lines.push("", "SOURCES & HOW THIS CHECK WORKS", "MyIntel writes and selects these questions and creates this report from your answers using its own rules. CDC home-safety resources were consulted for general themes; this is not a CDC assessment or validated clinical risk score.", "Original CDC resources are available free: https://www.cdc.gov/steadi/patient-resources/index.html", "CDC, HHS and the U.S. government do not endorse MyIntel, its products or services.");
   return lines.join("\n");
 }
 
