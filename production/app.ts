@@ -3,17 +3,19 @@ import { PublicAuth } from "./auth";
 import { supabaseAuth } from "./auth-provider";
 import { createProductionDatabase } from "./database";
 import { privatePhotos } from "./photos";
+import { parsePaymentConfig, type PaymentConfig } from "./payment-config";
 
-export function productionApi(env: Env, auth: Pick<PublicAuth, "identity" | "route">) {
+export function productionApi(env: Env, auth: Pick<PublicAuth, "identity" | "route">, payments: PaymentConfig = {mode:"disabled"}) {
   return async (request: Request): Promise<Response> => {
     const url = new URL(request.url);
-    if (!env.APP_ORIGIN || url.origin !== env.APP_ORIGIN || (!["GET", "HEAD"].includes(request.method) && request.headers.get("origin") !== env.APP_ORIGIN)) {
+    const signedWebhook = url.pathname === "/api/stripe/webhook" && request.method === "POST";
+    if (!env.APP_ORIGIN || url.origin !== env.APP_ORIGIN || (!signedWebhook && !["GET", "HEAD"].includes(request.method) && request.headers.get("origin") !== env.APP_ORIGIN)) {
       return Response.json({ error: "Open MyIntel on its configured address." }, { status: 403, headers: { "Cache-Control": "no-store" } });
     }
     if (url.pathname.startsWith("/api/auth/")) return auth.route(request);
-    if (url.pathname.startsWith("/api/stripe/") || url.pathname.endsWith("/checkout")) return Response.json({ error: "Payments are not enabled." }, { status: 503 });
-    // Do not propagate payment credentials, Sites headers, or browser role flags.
-    return handleApi(request, { DB: env.DB, BUCKET: env.BUCKET, ASSETS: env.ASSETS, APP_ORIGIN: env.APP_ORIGIN, MYINTEL_ADMIN_EMAIL: env.MYINTEL_ADMIN_EMAIL }, request => auth.identity(request));
+    // Only validated server configuration enables payments. The one webhook
+    // exception authenticates the untouched body with Stripe's signature.
+    return handleApi(request, { DB: env.DB, BUCKET: env.BUCKET, ASSETS: env.ASSETS, APP_ORIGIN: env.APP_ORIGIN, MYINTEL_ADMIN_EMAIL: env.MYINTEL_ADMIN_EMAIL, PAYMENT_MODE:payments.mode, ...(payments.mode!=="disabled"?{STRIPE_SECRET_KEY:payments.stripeSecretKey,STRIPE_WEBHOOK_SECRET:payments.stripeWebhookSecret,PAYMENT_CHECKOUT_ENABLED:payments.checkoutEnabled}:{}) }, request => auth.identity(request));
   };
 }
 
@@ -27,7 +29,7 @@ export async function handleProductionRequest(request: Request): Promise<Respons
       if (parsed.protocol !== "https:" || parsed.origin !== url || parsed.username || parsed.password) throw new Error("Invalid account service URL");
       const db = createProductionDatabase({ url: required("MYINTEL_DATABASE_URL"), authToken: required("MYINTEL_DATABASE_AUTH_TOKEN") });
       const auth = new PublicAuth(db, supabaseAuth(url, required("MYINTEL_SUPABASE_PUBLISHABLE_KEY"), origin), origin, required("MYINTEL_SESSION_KEY"));
-      cached = productionApi({ DB: db, BUCKET: privatePhotos(url, required("MYINTEL_SUPABASE_SERVICE_KEY"), required("MYINTEL_PHOTO_BUCKET")), ASSETS: { fetch: async () => new Response(null, { status: 404 }) }, APP_ORIGIN: origin, MYINTEL_ADMIN_EMAIL: process.env.MYINTEL_ADMIN_EMAIL }, auth);
+      cached = productionApi({ DB: db, BUCKET: privatePhotos(url, required("MYINTEL_SUPABASE_SERVICE_KEY"), required("MYINTEL_PHOTO_BUCKET")), ASSETS: { fetch: async () => new Response(null, { status: 404 }) }, APP_ORIGIN: origin, MYINTEL_ADMIN_EMAIL: process.env.MYINTEL_ADMIN_EMAIL }, auth, parsePaymentConfig(process.env));
     }
     return await cached(request);
   } catch {

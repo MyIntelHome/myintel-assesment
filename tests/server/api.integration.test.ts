@@ -207,7 +207,7 @@ describe("MyIntel API integration", () => {
     it("returns a public account envelope but protects every other account route", async () => {
       const account = await call("/api/account");
       expect(account.response.status).toBe(200);
-      expect(account.data).toEqual({ user: null, paymentsEnabled: false, professionalAccess:null });
+      expect(account.data).toEqual({ user: null, paymentsEnabled: false, paymentMode:"disabled", professionalAccess:null });
 
       const cases = await call("/api/cases");
       expect(cases.response.status).toBe(401);

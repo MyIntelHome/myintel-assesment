@@ -42,8 +42,16 @@ it("maps the exact archive and quarantines legacy test-professional access", asy
   expect(counts.case_archives).toBe(1);
   expect(counts.professional_access).toBe(0);
   expect(counts.professional_access_events).toBe(0);
+  expect(counts.payment_attempts).toBe(0);
+  expect(prepared.version).toBe(3);
   const restored = await exportSnapshot(target);
   expect(restored.tables.find(table => table.name === "case_archives")?.rows[0]).toEqual([targetUserId, payload, 260, "2026-09-16T00:00:00.000Z"]);
+});
+
+it("does not clear a legacy import target with payment attempts", async () => {
+  await target.execute("INSERT INTO payment_attempts (id,request_id,quote_version,attempt,amount_cents,mode,state,expires_at,created_at,updated_at) VALUES ('attempt','request',1,1,4900,'test','creating',1800000000,'now','now')");
+  await expect(clearInitialArchiveForLegacyImport(target, targetUserId)).rejects.toThrow("payment_attempts");
+  expect((await target.execute("SELECT id FROM payment_attempts")).rows).toHaveLength(1);
 });
 
 it("replaces only the untouched starter archive created by the first account visit", async () => {
