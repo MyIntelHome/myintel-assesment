@@ -24,7 +24,25 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <nav
+          className="no-print"
+          aria-label="MyIntel website"
+          style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "8px 24px", padding: "12px 24px", background: "#e6f1fb", borderBottom: "1px solid #d4e2f0", color: "#1e3258", fontSize: "16px" }}
+        >
+          <span style={{ fontWeight: 800 }}>HomeCheck by MyIntel</span>
+          <a
+            href="https://myintelhome.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontWeight: 800, textDecoration: "underline", textUnderlineOffset: "3px", padding: "8px 0" }}
+          >
+            ← Back to MyIntel website <span style={{ fontWeight: 400 }}>(opens a new tab)</span>
+          </a>
+        </nav>
+        {children}
+      </body>
     </html>
   );
 }
+
