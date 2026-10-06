@@ -51,3 +51,7 @@ Connect and test the implemented family-facing authentication on the public stac
 Professional access requires a staff-reviewed application with credential details and an auditable decision. Verification is manual, not an automated licensing-registry check. Approval grants the account's own clinical workspace. A separate reviewed-listing link and customer consent are required for service requests. Clinical reads and writes enforce current approval on the server. Client saves preserve inaccessible clinical records, including earlier signed versions.
 
 Shared organization memberships, delegated family access, automatic credential verification, automated provider matching, appointment availability, request alerts, payment refunds, device monitoring and cross-site data migration remain outside this implemented preview.
+
+## Lead-capture preview update
+
+The [October 6 preview checkpoint](lead-capture-preview-2026-10-06.md) describes explicit selected-plan saving, separate email/contact/sharing permissions, result-free staff notices and first-party aggregate measurement. It supersedes historical “no automatic messages” statements only for the explicitly configured preview. Public summary delivery remains disabled. Staff result access still requires sharing permission, and no new professional or staff access is granted.

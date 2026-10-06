@@ -3,7 +3,7 @@ import { createClient, type Client } from "@libsql/client";
 import { createHash } from "node:crypto";
 import { LibsqlDatabase, createProductionDatabase } from "../../production/database";
 import { applyMigrations, readMigrations } from "../../production/migrations";
-import { exportSnapshot, restoreSnapshot, type Snapshot } from "../../production/snapshot";
+import { exportSnapshot, restoreSnapshot, createSnapshot,legacyApplicationTables,type Snapshot } from "../../production/snapshot";
 import { handleApi, type Env } from "../../worker/api";
 
 let source: Client, target: Client, db: LibsqlDatabase;
@@ -14,6 +14,11 @@ beforeEach(async () => {
   db = new LibsqlDatabase(source);
 });
 afterEach(() => { source.close(); target.close(); });
+it('restores a previous v2 backup into an empty expanded database but never overwrites new lead records',async()=>{
+ const full=await exportSnapshot(source);expect(full.version).toBe(3);expect(full.tables.map(t=>t.name)).toContain('saved_plans');
+ const old=createSnapshot(full.tables.filter(t=>(legacyApplicationTables as readonly string[]).includes(t.name)));expect(old.version).toBe(2);await restoreSnapshot(target,old);
+ await target.execute("INSERT INTO funnel_counts VALUES ('2026-10-06','check_started','',1)");await expect(restoreSnapshot(target,old)).rejects.toThrow('empty destination');
+});
 
 it("refuses missing credentials, local database fallbacks and disabled TLS in production", () => {
   for (const url of [undefined, ":memory:", "file:resident.db", "http://database.test", "libsql://database.test?tls=0", "libsql://user:password@database.test"]) {

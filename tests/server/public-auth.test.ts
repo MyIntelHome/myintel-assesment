@@ -15,6 +15,18 @@ function request(action: string, body: unknown = {}, cookie?: string, extra: Rec
 const cookieOf = (response: Response) => response.headers.get("set-cookie")!.split(";")[0]!;
 const identityRequest = (cookie: string) => new Request(origin + "/api/account", { headers: { cookie } });
 const login = () => auth.route(request("login", { email: verified.user.email, password: "example password" }));
+it('creates an opaque verified session from an email code without exposing provider tokens',async()=>{
+ provider.requestCode=vi.fn(async()=>{});provider.verifyCode=vi.fn(async()=>verified);
+ const sent=await auth.route(request('request-code',{email:verified.user.email}));expect(sent.status).toBe(200);expect(sent.headers.get('set-cookie')).toBeNull();
+ const res=await auth.route(request('verify-code',{email:verified.user.email,code:'123456'}));expect(res.status).toBe(200);expect(res.headers.get('set-cookie')).not.toContain('private-provider');expect(await auth.identity(identityRequest(cookieOf(res)))).toMatchObject({id:'alice',emailVerified:true});
+});
+it('rejects code identity mismatches, wrong-origin verification and production code entry',async()=>{
+ provider.verifyCode=vi.fn(async()=>verified);
+ expect((await auth.route(request('verify-code',{email:'other@example.test',code:'123456'}))).status).toBe(401);
+ expect((await auth.route(request('verify-code',{email:verified.user.email,code:'123456'},undefined,{origin:'https://other.test'}))).status).toBe(403);
+ const api=productionApi({DB:db,ASSETS:{fetch:async()=>new Response('')},APP_ORIGIN:origin,LEADS:{enabled:false,deliveryEnabled:false}},auth);
+ expect((await api(request('request-code',{email:verified.user.email}))).status).toBe(503);
+});
 beforeEach(async () => {
   client = createClient({ url: ":memory:" }); await applyMigrations(client, await readMigrations()); db = new LibsqlDatabase(client);
   provider = { login: vi.fn(async () => verified), signup: vi.fn(async () => {}), recover: vi.fn(async () => {}), confirm: vi.fn(async () => verified), verify: vi.fn(async () => verified), password: vi.fn(async () => {}), logout: vi.fn(async () => {}) };

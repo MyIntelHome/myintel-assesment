@@ -13,10 +13,11 @@ import {homeActionsText} from "../src/domain/home-actions";
 import {buildFamilyReport,reportToPlainText} from "../src/domain/family-report";
 import {familyTemplateFor,profileLines,activeHomeSpaces} from "../src/domain/home-profile";
 import {accountIdentity,anonymousIdentity,type IdentityResolver} from "./auth";
+import {leadRoute,deliverMail,mailStatement,staffMessage,countStatement,type LeadSettings} from './leads';
 
 export interface Statement {bind(...values:unknown[]):Statement;first<T=Record<string,unknown>>():Promise<T|null>;all<T=Record<string,unknown>>():Promise<{results:T[]}>;run():Promise<{meta:{changes:number}}>}
 export interface Database {prepare(sql:string):Statement;batch(statements:Statement[]):Promise<{meta:{changes:number}}[]>}
-export interface Env {DB:Database;BUCKET?:PhotoBucket;ASSETS:{fetch(request:Request):Promise<Response>};MYINTEL_ADMIN_EMAIL?:string;APP_ORIGIN?:string;STRIPE_SECRET_KEY?:string;STRIPE_WEBHOOK_SECRET?:string}
+export interface Env {DB:Database;BUCKET?:PhotoBucket;ASSETS:{fetch(request:Request):Promise<Response>};MYINTEL_ADMIN_EMAIL?:string;APP_ORIGIN?:string;STRIPE_SECRET_KEY?:string;STRIPE_WEBHOOK_SECRET?:string;LEADS?:LeadSettings}
 export function json(data:unknown,status=200){return Response.json(data,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}})}
 async function body(request:Request,max=16000){
   if(!request.headers.get("content-type")?.startsWith("application/json")) throw new ApiError(415,"Send JSON data.");
@@ -63,6 +64,7 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
       if(!origin || (origin!==url.origin && origin!==env.APP_ORIGIN))return json({error:"This request must come from the MyIntel app."},403);
     }
     const user=accountIdentity(await resolveIdentity(request),env.MYINTEL_ADMIN_EMAIL);
+    if(env.LEADS){const lead=await leadRoute(request,env.DB,user,env.LEADS,env.APP_ORIGIN??url.origin);if(lead)return lead;}
     if(path==="/api/account" && method==="GET")return json({user,professionalAccess:user && env.DB?await env.DB.prepare("SELECT * FROM professional_access WHERE user_id=?").bind(user.id).first():null,paymentsEnabled:!!env.STRIPE_SECRET_KEY && !!env.STRIPE_WEBHOOK_SECRET});
     if(!user)return json({error:"Sign in to continue."},401);
     if(!env.DB)throw new ApiError(503,"Your account service is temporarily unavailable. Your draft is still here.");
@@ -163,11 +165,13 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
       }
       await db.batch([
         db.prepare("INSERT INTO service_requests (id,user_id,email,service,name,postal_code,phone,contact_method,relationship,status,consent_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,'submitted',?,?,?) ON CONFLICT(id) DO NOTHING").bind(v.idempotencyKey,user.id,user.email,v.service,v.name,v.postalCode,v.phone,v.contactMethod,v.relationship,now,now,now),
+        ...(env.LEADS?.enabled?[db.prepare("INSERT INTO funnel_counts(day,event,bucket,total) SELECT ?,'help_request_submitted','',1 WHERE changes()=1 ON CONFLICT(day,event,bucket) DO UPDATE SET total=total+1").bind(now.slice(0,10)),mailStatement(db,env.LEADS,{id:`staff-request:${v.idempotencyKey}`,ownerId:user.id,kind:'staff',recipient:env.LEADS.staffEmail||'info@myintelhome.com',subject:'MyIntel: new help request',text:staffMessage({name:v.name,email:user.email,phone:v.phone,postalCode:v.postalCode,contactMethod:v.contactMethod,type:v.service,id:v.idempotencyKey},env.APP_ORIGIN??url.origin)})]:[]),
         db.prepare("INSERT INTO request_events (id,request_id,actor_id,status,created_at) VALUES (?,?,?,'submitted',?) ON CONFLICT(id) DO NOTHING").bind(v.idempotencyKey+":submitted",v.idempotencyKey,user.id,now),
         ...(sharedHome?[db.prepare("INSERT INTO home_handoffs (request_id,payload,consent_at) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM service_requests WHERE id=? AND user_id=?) ON CONFLICT(request_id) DO NOTHING").bind(v.idempotencyKey,sharedHome,now,v.idempotencyKey,user.id)]:[]),
       ]);
       const created=await db.prepare("SELECT * FROM service_requests WHERE id=? AND user_id=?").bind(v.idempotencyKey,user.id).first();
       if(!created)throw new ApiError(409,"Please refresh this request form.");
+      if(env.LEADS?.enabled)await deliverMail(db,env.LEADS,`staff-request:${v.idempotencyKey}`);
       return json({request:{...created,createdAt:created.created_at}},201);
     }
     const handoff=path.match(/^\/api\/requests\/([\w-]+)\/professional-handoff$/);

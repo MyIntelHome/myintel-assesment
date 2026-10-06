@@ -26,6 +26,9 @@ import {HomeSetup} from "./HomeSetup";
 import {HomeInsights} from "./HomeInsights";
 import {HomeSectionPause} from "./HomeSectionPause";
 import {homeActionsText} from "@/domain/home-actions";
+import {funnelOnce} from "@/lib/funnel";
+import {PlanCapture} from "./PlanCapture";
+import type {AccountUser} from "@/domain/services";
 import {HomeActionPlan} from "./HomeActionPlan";
 import {RoomArt} from "./RoomArt";
 import {RoomJourney} from "./RoomJourney";
@@ -91,10 +94,12 @@ function scrollToTop() {
 }
 
 export function FamilyFlow({
+  user,
   api,
   onRequestHelp,
 }: {
   api: CaseApi;
+  user?:AccountUser|null;
   onRequestHelp?: (service?: string) => void;
 }) {
   const activeSpaces=useMemo(()=>activeHomeSpaces(api.state.spaces),[api.state.spaces]);
@@ -123,6 +128,8 @@ export function FamilyFlow({
     ),
     [state.spaces, state.familyAnswers,state.homeProfile],
   );
+
+  useEffect(()=>{if(!state.spaces.length&&(phase==="welcome"||phase==="routine"))funnelOnce(state.id,"check_started");if(phase==="milestone"&&state.spaces[roomIndex])funnelOnce(state.id,"room_finished",state.spaces[roomIndex].id)},[state.id,phase,roomIndex,state.spaces]);
 
   const setPosition = (next: FlowPosition) => {
     api.setFamilyPosition(next);
@@ -296,6 +303,7 @@ export function FamilyFlow({
   return (
     <HomeSectionPause key="report" title="Ready to look at the next steps?" detail="We’ll show what your answers suggest and what still needs a closer look. You can choose one manageable step to start with." button="See my next steps"><ReportScreen
       report={report}
+      user={user}
       api={api}
       shareTo={shareTo}
       setShareTo={setShareTo}
@@ -420,6 +428,7 @@ function QuestionScreen({
 }
 
 function ReportScreen({
+  user,
   api,
   report,
   shareTo,
@@ -431,6 +440,7 @@ function ReportScreen({
   onRooms,
 }: {
   api:CaseApi;
+  user?:AccountUser|null;
   report: FamilyReport;
   shareTo: string;
   setShareTo: (value: string) => void;
@@ -441,6 +451,7 @@ function ReportScreen({
   onRooms: () => void;
 }) {
 
+  useEffect(()=>{funnelOnce(api.state.id,"results_viewed")},[api.state.id]);
   const fullText=[...profileLines(api.state.homeProfile),"",homeSummaryText(report,api.state.homeProfile),reportToPlainText(report),homeActionsText(report,api.state.homeProfile)].join("\n");
   const [copyError, setCopyError] = useState(false);
 
@@ -475,6 +486,7 @@ function ReportScreen({
 
 
 
+        <PlanCapture state={api.state} user={user}/>
         <HomeInsights api={api} report={report} onRooms={onRooms}/>
         <HomeActionPlan profile={api.state.homeProfile} report={report} onRequestHelp={onRequestHelp}/>
 

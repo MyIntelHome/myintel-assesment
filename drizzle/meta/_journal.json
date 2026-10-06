@@ -50,6 +50,13 @@
       "when": 1789268121676,
       "tag": "0006_known_argent",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1791308147328,
+      "tag": "0007_plan_capture",
+      "breakpoints": true
     }
   ]
 }

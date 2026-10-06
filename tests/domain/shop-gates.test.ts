@@ -1,0 +1,9 @@
+import {it,expect} from 'vitest';
+import {shopLink,validShopUrl,timingBucket} from '../../src/domain/lead-config';
+import {EMPTY_PROFILE} from '../../src/domain/home-profile';
+import {homeActions} from '../../src/domain/home-actions';
+import {buildFamilyReport} from '../../src/domain/family-report';
+it('hides all shop links by default and refuses unsafe or credentialed URLs',()=>{expect(shopLink('','technology','motion_lighting_bedroom')).toBeNull();for(const url of ['javascript:alert(1)','http://example.test','https://user:pass@example.test','https://example.test?token=secret'])expect(validShopUrl(url)).toBe('')});
+it('links only modification and technology categories to stable collection codes',()=>{expect(shopLink('https://shop.example.test/','home_modification','grab_bar_toilet')).toBe('https://shop.example.test/collections/grab_bar_toilet');expect(shopLink('https://shop.example.test','technology','motion_lighting_bedroom')).toBe('https://shop.example.test/collections/motion_lighting_bedroom');for(const category of ['daily_life','support_plan','routine'])expect(shopLink('https://shop.example.test',category,'grab_bar_toilet')).toBeNull();expect(shopLink('https://shop.example.test','technology','../private')).toBeNull()});
+it('assigns stable semantic codes independently of changing daily-health list positions',()=>{const report=buildFamilyReport([],{});const a=homeActions(report,{...EMPTY_PROFILE,movement:'difficult',appetite:'less'}),b=homeActions(report,{...EMPTY_PROFILE,appetite:'less'});expect(a.find(x=>x.needCode==='appetite_swallowing_review')?.category).toBe('daily_life');expect(b.find(x=>x.needCode==='appetite_swallowing_review')?.needCode).toBe('appetite_swallowing_review')});
+it('stores coarse elapsed time groups instead of raw timestamps or durations',()=>{expect([599,600,900,901,1800,1801].map(timingBucket)).toEqual(['under_10','10_to_15','10_to_15','15_to_30','15_to_30','over_30'])});
