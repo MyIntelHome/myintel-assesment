@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import { StatusPicker } from "@/components/StatusPicker";
 import { STATUS_META, type AssessmentStatus } from "@/domain/status";
 import { SPACE_TYPE_META, SPACE_TYPES, type SpaceType } from "@/domain/types";
@@ -15,8 +15,10 @@ export function AssessStep({ api, view }: { api: CaseApi; view: CaseView }) {
   const { state } = api;
   const [activeId, setActiveId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [removeId,setRemoveId]=useState<string|null>(null);
 
-  const active = state.spaces.find((s) => s.id === activeId) ?? state.spaces[0] ?? null;
+  const active = state.spaces.find((s) => s.id === state.visit?.activeSpaceId) ?? state.spaces.find((s) => s.id === activeId) ?? state.spaces[0] ?? null;
+  useEffect(()=>{if(state.visit?.focusCode&&active)document.getElementById(`clinical-${active.id}-${state.visit.focusCode}`)?.scrollIntoView?.({block:"center"})},[active?.id,state.visit?.focusCode]);
   const activeCompleteness = view.perSpace.find((p) => p.space.id === active?.id)?.completeness;
 
   return (
@@ -42,6 +44,7 @@ export function AssessStep({ api, view }: { api: CaseApi; view: CaseView }) {
                     const base = SPACE_TYPE_META[type].label;
                     const id = api.addSpace(type, existing === 0 ? base : `${base} ${existing + 1}`);
                     setActiveId(id);
+                    api.patchVisit({activeSpaceId:id,focusCode:undefined});
                     setAddOpen(false);
                   }}
                 >
@@ -64,7 +67,7 @@ export function AssessStep({ api, view }: { api: CaseApi; view: CaseView }) {
                 <button
                   type="button"
                   className={space.id === active?.id ? "sp active" : "sp"}
-                  onClick={() => setActiveId(space.id)}
+                  onClick={() => {setActiveId(space.id);api.patchVisit({activeSpaceId:space.id,focusCode:undefined})}}
                 >
                   <span className="sp-name">{space.label}</span>
                   <span className="sp-meta">
@@ -99,18 +102,17 @@ export function AssessStep({ api, view }: { api: CaseApi; view: CaseView }) {
                 {activeCompleteness?.requiredAssessed ?? 0} of {activeCompleteness?.requiredTotal ?? 0}{" "}
                 assessed
               </span>
+              <label className="space-level">Level<select value={active.level??""} onChange={e=>api.setRoomLevel(active.id,Number(e.target.value))}><option value="">Not recorded</option>{[1,2,3,4].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
               <button
                 type="button"
                 className="btn-sm danger"
-                onClick={() => {
-                  api.removeSpace(active.id);
-                  setActiveId(null);
-                }}
+                onClick={() => setRemoveId(active.id)}
               >
                 Remove
               </button>
             </div>
 
+            {removeId===active.id&&<div className="panel" role="alert"><p>Remove {active.label} and its observations from this draft? Saved report versions remain in history.</p><button className="btn-sm danger" onClick={()=>{api.removeSpace(active.id);api.patchVisit({activeSpaceId:undefined,focusCode:undefined});setActiveId(null);setRemoveId(null)}}>Confirm removal</button><button className="btn-sm" onClick={()=>setRemoveId(null)}>Keep this space</button></div>}
             <ul className="items">
               {templateFor(active.type).items.map((item) => {
                 const response = state.responses[active.id]?.[item.code];
@@ -118,7 +120,7 @@ export function AssessStep({ api, view }: { api: CaseApi; view: CaseView }) {
                 const familyAnswer = state.familyAnswers[familyKey(active.id, item.code)];
                 const familyFlagged = isFlagged(item, familyAnswer);
                 return (
-                  <li key={item.code} className={`item item-${status}`}>
+                  <li key={item.code} id={`clinical-${active.id}-${item.code}`} className={`item item-${status}`}>
                     <div className="item-text">
                       <h3>
                         {item.prompt}
@@ -142,6 +144,8 @@ export function AssessStep({ api, view }: { api: CaseApi; view: CaseView }) {
                       itemLabel={item.prompt}
                       onChange={(s) => api.setStatus(active.id, item.code, s)}
                     />
+                    <button type="button" className="btn-sm visit-defer" aria-pressed={state.visit?.deferred.includes(`${active.id}::${item.code}`)??false} onClick={()=>{const key=`${active.id}::${item.code}`,keys=state.visit?.deferred??[];api.patchVisit({deferred:keys.includes(key)?keys.filter(k=>k!==key):[...keys,key]})}}>{state.visit?.deferred.includes(`${active.id}::${item.code}`)?"Return reminder recorded":"Return to this"}</button>
+                    {(status==="concern"||status==="critical")&&<label className="visit-observation">Quick observation<textarea value={state.findings[`${active.id}::${item.code}`]?.notes??""} onChange={e=>api.patchFinding(`${active.id}::${item.code}`,{notes:e.target.value})} placeholder="What you observed; avoid identifying information"/></label>}
                     {STATUS_META[status].requiresReason && (
                       <input
                         className="reason"

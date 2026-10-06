@@ -22,6 +22,7 @@ const plan = z.object({id:text,title:text,rationale:text,category:z.enum(RECOMME
   responsibleParty:z.enum(["",...RESPONSIBLE_PARTIES]),status:z.enum(RECOMMENDATION_STATUSES),
   targetDate:text,followUpDate:text,linkedFindings:z.array(text)});
 const clinical = z.object({reference:text,intake,spaces:z.array(space),
+  homeProfile:profileSchema.optional(),visit:z.object({activeSpaceId:text.optional(),focusCode:text.optional(),contextReviewed:text.max(200000).optional(),deferred:z.array(text.max(200)).max(300)}).optional(),
   responses:z.record(text,z.record(text,z.object({status:z.enum(ASSESSMENT_STATUSES),reason:text.optional()}))),
   findings:z.record(text,detail),plan:z.array(plan),signoff});
 const completeness = z.object({requiredTotal:z.number(),requiredAssessed:z.number(),optionalTotal:z.number(),
@@ -42,5 +43,5 @@ export const savedCaseSchema = clinical.extend({
   familyAnswers:z.record(text,z.enum(FAMILY_ANSWERS)),updatedAt:text.nullable(),
   deletedAt:text.datetime().nullable().optional(),
   homeProfile:profileSchema.optional(),
-  familyPosition:z.object({phase:z.enum(["welcome","routine","home","rooms","room","milestone","contact","report"]),roomIndex:z.number().int().nonnegative(),questionIndex:z.number().int().nonnegative().optional()}),
+  familyPosition:z.object({phase:z.enum(["welcome","routine","home","rooms","room","milestone","contact","report"]),roomIndex:z.number().int().nonnegative(),questionIndex:z.number().int().nonnegative().optional(),questionCode:text.max(100).optional(),contextQuestionId:text.max(100).optional()}),
 }).partial();

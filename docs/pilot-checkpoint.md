@@ -1,5 +1,7 @@
 # Pilot readiness checkpoint
 
+Current dynamic-flow implementation and compatibility notes: [October 6 checkpoint](dynamic-assessment-checkpoint-2026-10-06.md). Older deployment statements below are historical; verify the public release against its GitHub/Vercel commit.
+
 ## Latest verification — September 25, 2026
 
 Routine access follow-up: the deployed pilot showed `austingough02@gmail.com` signed in, and its staff page returned "MyIntel staff access required" with no queue data. The professional portal showed that customer an access application, not the clinical workspace. The home-photo integration test now exercises the public verified-session API: another customer receives 404 when reading an existing photo despite spoofed owner headers; owner and staff reads pass, and owner deletion makes later reads return 404. The full suite remains 286/286 across 33 files and typecheck passes. The deployed old-link HTTP response and a remote wrong-owner photo read remain unverified because the test browser blocks direct photo-URL navigation.

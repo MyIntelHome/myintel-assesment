@@ -13,6 +13,7 @@ import {
 import type { CaseApi } from "@/lib/case-store";
 import type { CaseView } from "@/lib/selectors";
 import { reportReadiness } from "@/domain/report-version";
+import {profileLines} from "@/domain/home-profile";
 
 const label = (v: string) => v.replace(/_/g, " ").replace(/^\w/, (m) => m.toUpperCase());
 
@@ -28,7 +29,7 @@ const money = (min: string, max: string, notEstimated: boolean) => {
 export function ReportStep({ api, view: currentView }: { api: CaseApi; view: CaseView }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const version = selectedId ? api.state.reportVersions.find(v=>v.id===selectedId) : api.state.signoff.signedAt ? api.state.reportVersions.at(-1) : undefined;
-  const state = version ? {...api.state,...version.caseData} : api.state;
+  const state = version ? {...api.state,...version.caseData,homeProfile:version.caseData.homeProfile,visit:version.caseData.visit} : api.state;
   const view = version?.view ?? currentView;
   const { signoff, intake } = state;
   const [clientName, setClientName] = useState("");
@@ -256,6 +257,7 @@ export function ReportStep({ api, view: currentView }: { api: CaseApi; view: Cas
         )}
 
         {/* Limitations are generated, never hand-written, so they cannot be omitted. */}
+        {state.homeProfile&&<section className="panel"><h2>Reported home and daily-life context</h2><ul>{profileLines(state.homeProfile).map((line,i)=><li key={i}>{line}</li>)}</ul><p>Reported context is separate from the professional observations above.</p></section>}
         {(view.limitations.length > 0 || view.completeness.requiredAssessed < view.completeness.requiredTotal) && (
           <section className="limitations">
             <h3>Limitations</h3>

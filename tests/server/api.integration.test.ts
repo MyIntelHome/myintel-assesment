@@ -1,3 +1,8 @@
+import {normalise} from "../../src/lib/case-store";
+import {EMPTY_SIGNOFF} from "../../src/domain/case";
+import {visitContextSignature} from "../../src/domain/visit-review";
+import {createReportVersion} from "../../src/domain/report-version";
+import {buildCaseView} from "../../src/lib/selectors";
 import {handleSitesApi as handleApi} from "../../worker/sites-api";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -59,65 +64,9 @@ function caseRecord(id: string, reportVersions: unknown[] = []) {
 }
 
 function signedSnapshot(id = "report-v1", attestationText = "I attest to this report") {
-  const completeness = {
-    requiredTotal: 0,
-    requiredAssessed: 0,
-    optionalTotal: 0,
-    optionalAssessed: 0,
-    percent: 0,
-    isComplete: false,
-    unableToAssessCount: 0,
-    outstanding: [],
-  };
-  return {
-    id,
-    revision: 1,
-    supersedesId: null,
-    attestationVersion: "v1",
-    attestationText,
-    templateVersions: {},
-    caseData: {
-      reference: "CASE-1",
-      intake: {
-        ageBand: "",
-        housingType: "",
-        floors: "",
-        livesAlone: "",
-        mobilityAids: "",
-        fallsLast12Months: "",
-        concerns: [],
-        concernNotes: "",
-      },
-      spaces: [],
-      responses: {},
-      findings: {},
-      plan: [],
-      signoff: {
-        assessorName: "Test Assessor",
-        credentials: "OT",
-        licenseNumber: "TEST-1",
-        licenseState: "MA",
-        licenseExpiry: "2030-01-01",
-        organisation: "Test Practice",
-        signedAt: "2026-09-08T10:00:00.000Z",
-      },
-    },
-    view: {
-      perSpace: [],
-      completeness,
-      risk: {
-        state: "incomplete",
-        counts: { critical: 0, concern: 0, total: 0 },
-        canStateNoRisks: false,
-        assessmentIncomplete: true,
-        unableToAssessCount: 0,
-        statement: "Assessment incomplete",
-      },
-      findings: [],
-      limitations: [],
-      notApplicable: [],
-    },
-  };
+ const state=normalise({id:"case-a",audience:"clinician",spaces:[{id:"bed",type:"bedroom",label:"Bedroom"}],responses:{bed:{br1:{status:"pass"}}},visit:{deferred:[]},signoff:{...EMPTY_SIGNOFF,assessorName:"Test Assessor",credentials:"OT",partialAssessmentReason:"Limited visit; remaining items need follow-up."}});
+ state.visit!.contextReviewed=visitContextSignature(state);
+ return {...createReportVersion(state,buildCaseView(state),"2026-10-06T12:00:00.000Z",id),attestationText};
 }
 
 function insertProvider(
