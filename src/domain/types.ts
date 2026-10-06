@@ -90,6 +90,8 @@ export interface TemplateItem {
 }
 
 export interface AssessmentTemplate {
+  /** Custom self-check agenda only; professional template coverage is unchanged. */
+  readonly familyQuestionCodes?:readonly string[];
   readonly spaceType: SpaceType;
   /** Bumped whenever items change. A signed report records the version it used. */
   readonly version: number;

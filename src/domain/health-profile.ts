@@ -1,4 +1,12 @@
 import type {HomeProfile} from './home-profile';
+import {activeContextAnswers} from './dynamic-context';
+function currentHealth(p:HomeProfile):HomeProfile {
+ if(!p.dynamic)return p;
+ const current={...p},active=activeContextAnswers(p);
+ for(const key of ['movement','movementTask','fallConcern','meals','foodAccess','appetite','hydration'] as const)if(!(key in active))delete current[key];
+ return current;
+}
+
 
 /** Optional reported context, not a validated screening instrument or diagnosis. */
 export const healthPrompts = [
@@ -12,6 +20,7 @@ export const healthPrompts = [
 ] as const;
 
 export function healthProfileLines(p:HomeProfile):string[]{
+ p=currentHealth(p);
  return healthPrompts.flatMap(q=>{
   if(q.key==='movementTask' && (!p.movement || ['comfortable','prefer_not'].includes(p.movement)))return [];
   const value=p[q.key];
@@ -23,6 +32,7 @@ export function healthProfileLines(p:HomeProfile):string[]{
 
 export function healthNextSteps(p?:HomeProfile):string[]{
  if(!p)return [];
+ p=currentHealth(p);
  const steps:string[]=[];
  if((p.movement && ['difficult','help','unsure'].includes(p.movement)) || (p.fallConcern && !['none','prefer_not'].includes(p.fallConcern)))steps.push('Discuss usual movement, falls and walking-aid fit with a healthcare professional. Do not try challenging movements alone or change equipment based on this check.');
  if((p.foodAccess && !['manageable','prefer_not'].includes(p.foodAccess)) || (p.meals && ['sometimes_skipped','often_skipped'].includes(p.meals)))steps.push('Discuss help with groceries or preparing meals. Check local meal support availability and costs before relying on a service.');

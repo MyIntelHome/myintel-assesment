@@ -2,6 +2,11 @@ import {handleSitesApi as handleApi} from "../../worker/sites-api";
 import {afterEach,beforeEach,expect,it} from "vitest";
 import {type Env} from "../../worker/api";
 import {SqliteTestDatabase} from "./sqlite-test-db";
+import {normalise} from "../../src/lib/case-store";
+import {EMPTY_SIGNOFF} from "../../src/domain/case";
+import {visitContextSignature} from "../../src/domain/visit-review";
+import {createReportVersion} from "../../src/domain/report-version";
+import {buildCaseView} from "../../src/lib/selectors";
 let db:SqliteTestDatabase,env:Env;
 const origin="https://myintel.test";
 const application={name:"Example OT",practice:"Example Practice",credential:"OT 123",region:"MA"};
@@ -12,6 +17,16 @@ async function call(path:string,user="client",method="GET",data?:unknown){
 }
 async function approve(){await call("/api/professional-access","client","POST",application);return call("/api/admin/professional-access","admin","PATCH",{userId:"client",revision:1,status:"approved",note:"Verified example credential independently."})}
 const record=(id:string,audience="family")=>({id,audience,spaces:[],responses:{},plan:[],reportVersions:[]});
+function signedCase(){const c=normalise({id:"clinical",audience:"clinician",spaces:[{id:"bed",type:"bedroom",label:"Bedroom"}],responses:{bed:{br1:{status:"pass"}}},visit:{deferred:[]},signoff:{...EMPTY_SIGNOFF,assessorName:"Assessor",credentials:"OT",partialAssessmentReason:"Limited visit; follow-up needed for remaining checks."}});c.visit!.contextReviewed=visitContextSignature(c);const v=createReportVersion(c,buildCaseView(c),"2026-10-06T12:00:00.000Z","report");return {...c,signoff:v.caseData.signoff,reportVersions:[v]}}
+it("recomputes sign-off on the server and rejects forged coverage or missing context review",async()=>{
+ await approve();const valid=signedCase();
+ const write=(c:typeof valid)=>call("/api/cases?audience=clinician","client","PUT",{ownerId:"client",revision:0,archive:{activeId:c.id,cases:[c]}});
+ const missing=structuredClone(valid);delete missing.visit;delete missing.reportVersions[0]!.caseData.visit;expect((await write(missing)).status).toBe(400);
+ const forged=structuredClone(valid);forged.reportVersions[0]!.view={...forged.reportVersions[0]!.view,completeness:{...forged.reportVersions[0]!.view.completeness,percent:100}};expect((await write(forged)).status).toBe(400);
+ const empty=structuredClone(valid);empty.reportVersions[0]!.caseData.responses={};expect((await write(empty)).status).toBe(400);
+ expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM case_archives").get()!.n).toBe(0);
+ const result=await write(valid);expect(result.status,result.data.error).toBe(200);expect((await call("/api/cases?audience=clinician")).data.archive.cases[0].reportVersions[0].caseData.visit.contextReviewed).toBe(valid.visit!.contextReviewed);
+});
 it("blocks clients and staff from clinical reads/writes without professional approval",async()=>{
  for(const user of ["client","admin"]){expect((await call("/api/cases?audience=clinician",user)).status).toBe(403);expect((await call("/api/cases?audience=clinician",user,"PUT",{})).status).toBe(403)}
  expect((await call("/api/admin/professional-access")).status).toBe(403);

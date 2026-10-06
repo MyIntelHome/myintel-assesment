@@ -1,14 +1,17 @@
 import {healthProfileLines} from "./health-profile";
+import {dynamicContextSchema,dynamicContextLines,activeContextAnswers} from "./dynamic-context";
 import {createUuid} from "@/lib/ids";
 import {z} from "zod";
 import {templateFor} from "@/seed/templates";
 import type {Space} from "@/lib/case-store";
+import {familyItemsFor,familyKey,type FamilyAnswer} from "./family";
 export const HOME_TYPES={house:"House",townhome:"Townhome",apartment:"Apartment / condo",other:"Another type of home"} as const;
 export const ROUTINES={night:"Getting up at night",cooking:"Cooking and preparing meals",bathing:"Bathing and dressing",outside:"Going out and coming home"} as const;
 export const GOALS={independence:"Keep doing things independently",confidence:"Feel more confident moving around",planning:"Plan ahead",support:"Find support for someone I care about"} as const;
 export const USED_AREAS={bedroom:"Where I sleep",bathroom:"Bathroom with a bath or shower",half_bath:"Toilet and sink only",living:"Where I sit or spend time",kitchen:"Where I prepare food",entry:"The entrance I use",stairway:"Steps or stairs I use",exterior:"An outside area I use"} as const;
 export const HELP_STYLE={diy:"Simple changes I can arrange myself",professional:"Help planning or installing changes",explore:"Talk through my options first"} as const;
 export const profileSchema=z.object({
+  dynamic:dynamicContextSchema.optional(),
   movement:z.enum(["comfortable","difficult","help","unsure","prefer_not"]).optional(),
   movementTask:z.enum(["indoors","outside","transfers","stairs","several","prefer_not"]).optional(),
   fallConcern:z.enum(["none","fall","unsteady","worried","several","prefer_not"]).optional(),
@@ -32,13 +35,27 @@ export function homeQuestionText(prompt:string,forWhom:HomeProfile["forWhom"]|un
   return forWhom==="self"?prompt.replace(/\btheir\b/g,"your").replace(/\bthey\b/g,"you"):prompt;
 }
 export const EMPTY_PROFILE:HomeProfile={forWhom:"",livingWith:"",mobility:"",routines:[],goal:"",homeType:"",bedrooms:1,fullBaths:1,halfBaths:0,levels:1,stairs:"",outside:false,confirmed:false};
-export function familyTemplateFor(space:Pick<Space,"type"|"familyKind">){
+export function familyTemplateFor(space:Pick<Space,"type"|"familyKind"> & Partial<Pick<Space,"id">>,profile?:HomeProfile,answers:Readonly<Record<string,FamilyAnswer>>={}){
   const template=templateFor(space.type);
-  return space.familyKind==="half_bath"?{...template,items:template.items.filter(i=>!["b2","b3","b4","b8"].includes(i.code))}:template;
+  const scoped=space.familyKind==="half_bath"?{...template,items:template.items.filter(i=>!["b2","b3","b4","b8"].includes(i.code))}:template;
+  if(!profile?.dynamic)return scoped;
+  const codes=new Set(familyItemsFor(scoped).map(i=>i.code)),a=activeContextAnswers(profile);
+  const flagged=(code:string)=>{const item=scoped.items.find(i=>i.code===code),v=answers[familyKey(space.id??"",code)];return v==="unsure"||!!item&&v===item.concernWhen};
+  // A confirmed level entrance has no steps or ramp to rate. Earlier answers remain reportable.
+  if(space.type==="entry"&&space.id===profile.dynamic.places.find(s=>s.type==="entry")?.id&&profile.dynamic.layout.confirmed&&profile.dynamic.layout.entranceSteps==="none"){codes.delete("e4");codes.delete("e5")}
+  if(space.type==="bathroom"&&space.familyKind!=="half_bath"&&(flagged("b2")||["help","avoided","equipment"].includes(String(a["task:bathing"]))))codes.add("b4");
+  if(space.type==="bedroom"&&(flagged("br1")||a["part:transfers"]==="bed"||a["part:transfers"]==="both"))codes.add("br5");
+  if(space.type==="bedroom"&&a["part:dressing"]==="bending")codes.add("br7");
+  if(space.type==="kitchen"&&(flagged("k2")||a["part:cooking"]==="carrying"))codes.add("k3");
+  if(space.type==="kitchen"&&a["task:cooking"])codes.add("k6");
+  if(space.type==="stairway"&&flagged("s1"))codes.add("s5");
+  if(space.type==="stairway"&&flagged("s2"))codes.add("s3");
+  return {...scoped,familyQuestionCodes:[...codes]};
 }
 /** Generate suggestions only. Never infer answers or remove existing work. */
 export function suggestedRooms(profile:HomeProfile):Space[]{
   const p=profileSchema.parse(profile),rooms:Space[]=[];
+  if(p.dynamic)return p.dynamic.places.map(({level,...s})=>({...s,...(level?{level}:{} )}));
   const add=(type:Space["type"],label:string,familyKind?:Space["familyKind"])=>rooms.push({id:`home-${type}-${familyKind??"full"}-${rooms.length}`,type,label,familyKind});
   if(p.usedAreas!==undefined){
     for(const area of p.usedAreas){const type=area==="half_bath"?"bathroom":area;add(type,USED_AREAS[area].replace(" I "," you "),area==="half_bath"?"half_bath":undefined)}
@@ -67,8 +84,9 @@ export function selectUsedRooms(existing:Space[],proposed:Space[]):Space[]{
 }
 export function profileLines(p:HomeProfile|undefined):string[]{
   if(!p)return [];
-  return [p.usedAreas!==undefined?`${p.homeType?HOME_TYPES[p.homeType]:"Home check"} · Selected everyday spaces only; other areas are not assessed.`:p.homeType?`${HOME_TYPES[p.homeType]} · ${p.bedrooms} ${p.bedrooms===1?"bedroom":"bedrooms"} · ${p.fullBaths} full + ${p.halfBaths} half baths · ${p.levels} ${p.levels===1?"level":"levels"}`:"Home layout not provided",
-    ...healthProfileLines(p),
+  if(p.dynamic)return ["MyIntel tailored check · Reported home and daily-life context",p.homeType?`Type of home: ${HOME_TYPES[p.homeType]}`:"",...dynamicContextLines(p),p.livingWith?`Living situation: ${{alone:"lives alone",others:"lives with others",varies:"varies",prefer_not:"not disclosed"}[p.livingWith]}`:"",p.helpStyle?`Preferred next step: ${HELP_STYLE[p.helpStyle]}`:"",p.technology?`Technology preference: ${{interested:"open to options",help:"would need setup and ongoing help",no:"not interested right now"}[p.technology]}`:""].filter(Boolean);
+  return [p.dynamic?"MyIntel tailored check · Reported home and daily-life context":p.usedAreas!==undefined?`${p.homeType?HOME_TYPES[p.homeType]:"Home check"} · Selected everyday spaces only; other areas are not assessed.`:p.homeType?`${HOME_TYPES[p.homeType]} · ${p.bedrooms} ${p.bedrooms===1?"bedroom":"bedrooms"} · ${p.fullBaths} full + ${p.halfBaths} half baths · ${p.levels} ${p.levels===1?"level":"levels"}`:"Home layout not provided",
+    ...dynamicContextLines(p),...healthProfileLines(p),
     p.helpStyle?`Preferred next step: ${HELP_STYLE[p.helpStyle]}`:"",
     p.technology?`Technology preference: ${{interested:"open to options",help:"would need setup and ongoing help",no:"not interested right now"}[p.technology]}`:"",
     p.helpReach?`Can reach help from usual spaces: ${{yes:"yes",no:"no",unsure:"not sure"}[p.helpReach]}`:"",
@@ -76,4 +94,7 @@ export function profileLines(p:HomeProfile|undefined):string[]{
     p.livingWith?`Living situation: ${{alone:"lives alone",others:"lives with others",varies:"varies",prefer_not:"not disclosed"}[p.livingWith]}`:"",
     p.mobility?`Getting around: ${{none:"no aid reported",cane:"cane",walker:"walker",wheelchair:"wheelchair",varies:"varies",prefer_not:"not disclosed"}[p.mobility]}`:"",
     p.routines.length?`Daily routines: ${p.routines.map(r=>ROUTINES[r]).join(", ")}`:"",p.goal?`What matters: ${GOALS[p.goal]}`:""].filter(Boolean);
+}
+export function selectContextRooms(existing:Space[],proposed:Space[]):Space[]{
+ return [...proposed.map(p=>({...existing.find(s=>s.id===p.id),...p,excludedFromHome:false})),...existing.filter(s=>!proposed.some(p=>p.id===s.id)).map(s=>({...s,excludedFromHome:true}))];
 }

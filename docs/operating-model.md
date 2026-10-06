@@ -1,5 +1,7 @@
 # MyIntel private review operating model
 
+Current dynamic-flow implementation and compatibility notes: [October 6 checkpoint](dynamic-assessment-checkpoint-2026-10-06.md). Older deployment statements below are historical; verify the public release against its GitHub/Vercel commit.
+
 Updated September 17, 2026. This describes implementation, not a legal determination.
 
 September 18 status correction: the administrator account was confirmed, and the six-case legacy archive was imported and verified on the production-compatible pilot backend. The pending-confirmation/import statements below are historical. Supabase Auth/Storage and Turso serve the Vercel pilot; Sites still uses its separate Worker/D1/R2 stack. See [the current launch audit](launch-verification-2026-09-18.md) for remaining live tests and human gates. Public cutover has not occurred.

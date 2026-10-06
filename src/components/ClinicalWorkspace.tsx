@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import {VisitReview} from "./VisitReview";
+import {ProfessionalContext} from "./ProfessionalContext";
 import { AssessStep } from "@/components/AssessStep";
 import { FindingsStep } from "@/components/FindingsStep";
 import { IntakeStep } from "@/components/IntakeStep";
@@ -14,6 +16,7 @@ const STEPS = [
   { id: "assess", label: "Assessment" },
   { id: "findings", label: "Findings" },
   { id: "plan", label: "Action plan" },
+  { id: "visit", label: "Before leaving" },
   { id: "report", label: "Report" },
 ] as const;
 
@@ -22,6 +25,7 @@ type StepId = (typeof STEPS)[number]["id"];
 export function ClinicalWorkspace({api}:{api:CaseApi}) {
   const [step, setStep] = useState<StepId>(api.state.signoff.signedAt?"report":"intake");
   const view = useMemo(() => buildCaseView(api.state), [api.state]);
+  useEffect(()=>{if(!api.state.visit&&!api.state.signoff.signedAt)api.patchVisit({deferred:[]})},[api.state.id,api.state.visit,api.state.signoff.signedAt]);
 
   const identifying = referenceLooksIdentifying(api.state.reference);
   const signed = Boolean(api.state.signoff.signedAt);
@@ -97,10 +101,11 @@ export function ClinicalWorkspace({api}:{api:CaseApi}) {
       <main className="page">
         {api.storageConflict && <p className="warn" role="alert">Another tab changed the saved cases. Saving is paused to avoid overwriting that work. Copy any unsaved notes, then reload this page.</p>}
         <fieldset disabled={signed && step !== "report"} className="workspace-fields">
-        {step === "intake" && <IntakeStep api={api} />}
+        {step === "intake" && <><IntakeStep api={api} /><ProfessionalContext api={api}/></>}
         {step === "assess" && <AssessStep api={api} view={view} />}
         {step === "findings" && <FindingsStep api={api} view={view} />}
         {step === "plan" && <PlanStep api={api} view={view} />}
+        {step === "visit" && <VisitReview api={api} view={view} onGo={task=>{if(task.spaceId)api.patchVisit({activeSpaceId:task.spaceId,focusCode:task.code});setStep(task.stage)}}/>}
         {step === "report" && <ReportStep key={api.state.id} api={api} view={view} />}
         </fieldset>
       </main>

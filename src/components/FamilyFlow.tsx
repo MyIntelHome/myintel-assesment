@@ -66,7 +66,7 @@ type Phase = "welcome" | "routine" | "home" | "rooms" | "room" | "milestone" | "
 type FlowPosition = {
   phase: Phase;
   roomIndex: number;
-  questionIndex?: number;
+  questionIndex?: number; questionCode?:string;
 };
 
 type IconName = "arrow-left" | "arrow-right" | "check" | "copy" | "download" | "mail" | "trash";
@@ -110,18 +110,18 @@ export function FamilyFlow({
 
   const overall = useMemo(
     () => familyProgress(
-      state.spaces.map((space) => ({ spaceId: space.id, template: familyTemplateFor(space) })),
+      state.spaces.map((space) => ({ spaceId: space.id, template: familyTemplateFor(space,state.homeProfile,state.familyAnswers) })),
       state.familyAnswers,
     ),
-    [state.spaces, state.familyAnswers],
+    [state.spaces, state.familyAnswers,state.homeProfile],
   );
 
   const report = useMemo(
     () => buildFamilyReport(
-      state.spaces.map((space) => ({ id: space.id, label: space.level ? `${space.label} · Level ${space.level}` : space.label, template: familyTemplateFor(space) })),
+      state.spaces.map((space) => ({ id: space.id, label: space.level ? `${space.label} · Level ${space.level}` : space.label, template: familyTemplateFor(space,state.homeProfile,state.familyAnswers) })),
       state.familyAnswers,
     ),
-    [state.spaces, state.familyAnswers],
+    [state.spaces, state.familyAnswers,state.homeProfile],
   );
 
   const setPosition = (next: FlowPosition) => {
@@ -136,16 +136,18 @@ export function FamilyFlow({
   const openRoom = (index: number) => {
     const space = state.spaces[index];
     if (!space) return;
-    const items = groupItemsForFamily(familyTemplateFor(space)).flatMap((group) => group.items);
+    const items = groupItemsForFamily(familyTemplateFor(space,state.homeProfile,state.familyAnswers)).flatMap((group) => group.items);
     const firstUnanswered = items.findIndex((item) => !state.familyAnswers[familyKey(space.id, item.code)]);
-    setPosition({ phase: "room", roomIndex: index, questionIndex: firstUnanswered < 0 ? 0 : firstUnanswered });
+    setPosition({ phase: "room", roomIndex: index, questionCode:items[firstUnanswered < 0 ? 0 : firstUnanswered]?.code, questionIndex: firstUnanswered < 0 ? 0 : firstUnanswered });
   };
 
   useEffect(() => {
     headingRef.current?.focus({ preventScroll: true });
   }, [phase, roomIndex, questionIndex]);
 
-  if (phase === "welcome" || phase === "routine" || phase === "home") return <HomeSectionPause key={phase==="home"?"home":"routine"} title={phase==="home"?"Where does a normal day happen?":"Let’s start with everyday life."} detail={phase==="home"?"Next, choose only the spaces that matter. Spare rooms can stay out of this check.":"A few optional questions will help this check fit the person. We’ll take them one at a time."} button={phase==="home"?"Choose my spaces":"Begin"}><HomeSetup api={api} step={phase==="home"?"home":"routine"}/></HomeSectionPause>;
+  if(phase==="home")return <HomeSetup api={api} step="home"/>;
+  if(phase==="routine")return <HomeSetup api={api} step="routine"/>;
+  if(phase==="welcome")return <HomeSectionPause title="Let’s start with everyday life." detail="A few optional questions will help this check fit the person. We’ll take them one at a time." button="Begin"><HomeSetup api={api} step="routine"/></HomeSectionPause>;
 
   if (phase === "rooms") {
     return (
@@ -181,7 +183,7 @@ export function FamilyFlow({
               </div>
               <ul className="family-v2__room-list">
                 {state.spaces.map((space, index) => {
-                  const progress = roomProgress(space.id, familyTemplateFor(space), state.familyAnswers);
+                  const progress = roomProgress(space.id, familyTemplateFor(space,state.homeProfile,state.familyAnswers), state.familyAnswers);
                   const stateLabel = progress.complete
                     ? "Complete"
                     : progress.answered
@@ -217,7 +219,7 @@ export function FamilyFlow({
                 })}
               </ul>
               <button className="family-v2__button family-v2__button--primary" type="button" onClick={() => {
-                const next = state.spaces.findIndex((space) => !roomProgress(space.id, familyTemplateFor(space), state.familyAnswers).complete);
+                const next = state.spaces.findIndex((space) => !roomProgress(space.id, familyTemplateFor(space,state.homeProfile,state.familyAnswers), state.familyAnswers).complete);
                 openRoom(next < 0 ? 0 : next);
               }}>
                 {overall.answered ? "Continue home check" : "Start with the first room"} <Icon name="arrow-right" />
@@ -267,7 +269,7 @@ export function FamilyFlow({
     return (
       <main className="family-v2 family-v2--centered">
         <FlowHeader percent={overall.percent} label={`${overall.answered} of ${overall.total} answered`} onBack={() => setPhase("rooms")} />
-        <section className="family-v2__card family-v2__milestone"><RoomJourney spaces={state.spaces} answers={state.familyAnswers}/>
+        <section className="family-v2__card family-v2__milestone"><RoomJourney spaces={state.spaces} answers={state.familyAnswers} profile={state.homeProfile}/>
           <div className="family-v2__success" aria-hidden="true"><Icon name="check" /></div>
           <p className="family-v2__eyebrow">Room saved</p>
           <h1 ref={headingRef} tabIndex={-1}>A useful step forward.</h1>
@@ -339,11 +341,12 @@ function QuestionScreen({
   headingRef: React.RefObject<HTMLHeadingElement | null>;
   onPosition: (position: FlowPosition) => void;
 }) {
-  const groups = useMemo(() => groupItemsForFamily(familyTemplateFor(space)), [space.type,space.familyKind]);
+  const groups = useMemo(() => groupItemsForFamily(familyTemplateFor(space,api.state.homeProfile,api.state.familyAnswers)), [space,api.state.homeProfile,api.state.familyAnswers]);
   const questions = useMemo(() => groups.flatMap((group) => group.items), [groups]);
-  const questionIndex = Math.min(savedQuestionIndex, Math.max(0, questions.length - 1));
+  const stableIndex=questions.findIndex(q=>q.code===api.state.familyPosition?.questionCode);
+  const questionIndex = stableIndex>=0?stableIndex:Math.min(savedQuestionIndex, Math.max(0, questions.length - 1));
   const question = questions[questionIndex];
-  const progress = roomProgress(space.id, familyTemplateFor(space), api.state.familyAnswers);
+  const progress = roomProgress(space.id, familyTemplateFor(space,api.state.homeProfile,api.state.familyAnswers), api.state.familyAnswers);
   const answer = question ? api.state.familyAnswers[familyKey(space.id, question.code)] : undefined;
 
   if (!question) {
@@ -359,14 +362,14 @@ function QuestionScreen({
 
   const moveForward = () => {
     if (questionIndex < questions.length - 1) {
-      onPosition({ phase: "room", roomIndex, questionIndex: questionIndex + 1 });
+      onPosition({ phase: "room", roomIndex, questionIndex: questionIndex + 1,questionCode:questions[questionIndex+1]?.code });
     } else {
       onPosition({ phase: "milestone", roomIndex, questionIndex });
     }
   };
 
   const moveBack = () => {
-    if (questionIndex > 0) onPosition({ phase: "room", roomIndex, questionIndex: questionIndex - 1 });
+    if (questionIndex > 0) onPosition({ phase: "room", roomIndex, questionIndex: questionIndex - 1,questionCode:questions[questionIndex-1]?.code });
     else onPosition({ phase: "rooms", roomIndex, questionIndex: 0 });
   };
 
@@ -394,7 +397,7 @@ function QuestionScreen({
               type="button"
               aria-pressed={answer === option}
               className={`family-v2__answer${option === "unsure" ? " is-unsure" : ""}${answer === option ? " is-selected" : ""}`}
-              onClick={() => api.setFamilyAnswer(familyKey(space.id, question.code), option as FamilyAnswer)}
+              onClick={() => {api.setFamilyPosition({phase:"room",roomIndex,questionIndex,questionCode:question.code});api.setFamilyAnswer(familyKey(space.id, question.code), option as FamilyAnswer)}}
             >
               <span className="family-v2__radio" aria-hidden="true">{answer === option && <Icon name="check" />}</span>
               {FAMILY_ANSWER_LABEL[option]}

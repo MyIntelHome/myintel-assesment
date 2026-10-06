@@ -8,7 +8,8 @@ import { summariseRisk, type RiskSummary } from "@/domain/risk";
 import { findingKey, type FindingDetail } from "@/domain/case";
 import type { AssessmentStatus } from "@/domain/status";
 import { templateFor } from "@/seed/templates";
-import { responseMap, type CaseState, type Space } from "./case-store";
+import type {CaseState,Space} from "./case-store";
+import {responseMap} from "./case-responses";
 
 export interface OpenFinding {
   readonly key: string;

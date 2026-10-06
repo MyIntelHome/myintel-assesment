@@ -2,6 +2,10 @@ import {isClinicalRecord,type ProfessionalAccess} from "../src/domain/access";
 import { z } from "zod";
 import { requestSchema, serviceSchema } from "../src/domain/services";
 import { savedCaseSchema } from "../src/lib/case-validation";
+import type {CaseState} from "../src/lib/case-store";
+import {stableStringify,visitContextSignature} from "../src/domain/visit-review";
+import {buildCaseView} from "../src/lib/selectors";
+import {reportReadiness} from "../src/domain/report-version";
 import {createCheckout,verifyStripeEvent} from "./stripe";
 import {homePhotoRoute,type PhotoBucket} from "./home-photos";
 import {professionalSharedHomeRoute} from "./professional-referrals";
@@ -115,6 +119,17 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
       if(archive.cases.some(c=>scope==="family"?isClinicalRecord(c):c.audience==="family"))throw new ApiError(403,"This assessment belongs in the other workspace.");
       if(scope==="clinician")archive.cases.forEach(c=>{c.audience="clinician"});
       const previous=old?JSON.parse(old.payload):{cases:[]};
+      if(scope==="clinician")for(const c of archive.cases){
+        const known=new Set((previous.cases.find((p:{id:string})=>p.id===c.id)?.reportVersions??[]).map((v:{id:string})=>v.id));
+        for(const version of c.reportVersions??[]){if(known.has(version.id))continue;
+          const candidate=({...c,...version.caseData} as unknown as CaseState);
+          if(!candidate.visit||candidate.visit.contextReviewed!==visitContextSignature(candidate))throw new ApiError(400,"Review the current context and visit scope before signing.");
+          const readiness=reportReadiness(candidate,buildCaseView(candidate));
+          if(!version.caseData.signoff.signedAt||!readiness.canSign)throw new ApiError(400,"This report cannot be signed yet. "+readiness.blockers.join(" "));
+          const computed=buildCaseView(candidate);
+          if(stableStringify(computed)!==stableStringify(version.view))throw new ApiError(400,"Report observations changed. Rebuild and review the report before signing.");
+        }
+      }
       const hidden=previous.cases.filter((c:Parameters<typeof isClinicalRecord>[0])=>isClinicalRecord(c)!==(scope==="clinician"));
       if(hidden.some((c:{id:string})=>archive.cases.some(next=>next.id===c.id)))throw new ApiError(403,"This record belongs in the other workspace.");
       archive.cases.push(...hidden);
@@ -143,7 +158,7 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
         if(!checked.success || checked.data.audience!=="family" || !checked.data.spaces?.length)throw new ApiError(400,"Save your home check before sharing it. You can also send a request without the check.");
         const home=checked.data,spaces=activeHomeSpaces(home.spaces!);
         if(!spaces.length)throw new ApiError(400,"Choose at least one used space before sharing this home check.");
-        const report=buildFamilyReport(spaces.map(s=>({id:s.id,label:s.level?`${s.label} · Level ${s.level}`:s.label,template:familyTemplateFor(s)})),home.familyAnswers??{});
+        const report=buildFamilyReport(spaces.map(s=>({id:s.id,label:s.level?`${s.label} · Level ${s.level}`:s.label,template:familyTemplateFor(s,home.homeProfile,home.familyAnswers)})),home.familyAnswers??{});
         sharedHome=JSON.stringify({rooms:spaces.map(s=>s.label),summary:[...profileLines(home.homeProfile),"",reportToPlainText(report),homeActionsText(report,home.homeProfile)].join("\n"),savedAt:now});
       }
       await db.batch([
