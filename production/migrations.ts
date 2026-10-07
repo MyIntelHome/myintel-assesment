@@ -11,6 +11,7 @@ export const migrationFiles = [
   "0005_fair_proemial_gods.sql",
   "0006_known_argent.sql",
   "0007_plan_capture.sql",
+  "0008_professional_billing.sql",
 ] as const;
 export interface Migration { name: string; sql: string }
 

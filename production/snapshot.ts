@@ -9,10 +9,11 @@ export const legacyApplicationTables = [
   "request_followup_events", "request_followups", "request_professional_events",
   "request_professional_grants", "service_requests",
 ] as const;
-export const applicationTables=[...legacyApplicationTables,'saved_plans','saved_plan_events','lead_mail','funnel_counts'].sort();
+export const previousApplicationTables=[...legacyApplicationTables,'saved_plans','saved_plan_events','lead_mail','funnel_counts'].sort();
+export const applicationTables=[...previousApplicationTables,'professional_billing','professional_credits','professional_allocations','professional_checkouts'].sort();
 
 const snapshotSchema = z.object({
-  version: z.union([z.literal(2),z.literal(3)]), createdAt: z.string().datetime(),
+  version: z.union([z.literal(2),z.literal(3),z.literal(4)]), createdAt: z.string().datetime(),
   tables: z.array(z.object({
     name: z.string(), columns: z.array(z.string()),
     rows: z.array(z.array(z.union([z.string(), z.number().finite(), z.null()]))),
@@ -28,10 +29,10 @@ function hash(value: Omit<Snapshot, "checksum">) {
 
 export function createSnapshot(tables: SnapshotTable[], createdAt = new Date().toISOString()): Snapshot {
   const inventory=tables.map(table=>table.name).join(',');
-  if (inventory !== applicationTables.join(",") && inventory!==legacyApplicationTables.join(',')) {
+  if (inventory !== applicationTables.join(",") && inventory!==previousApplicationTables.join(',') && inventory!==legacyApplicationTables.join(',')) {
     throw new Error("Backup table inventory mismatch");
   }
-  const payload = { version: inventory===applicationTables.join(',')?3 as const:2 as const, createdAt, tables };
+  const payload = { version: inventory===applicationTables.join(',')?4 as const:inventory===previousApplicationTables.join(',')?3 as const:2 as const, createdAt, tables };
   return snapshotSchema.parse({ ...payload, checksum: hash(payload) });
 }
 
@@ -58,7 +59,7 @@ export async function exportSnapshot(client: Client): Promise<Snapshot> {
 export async function restoreSnapshot(client: Client, input: unknown): Promise<Record<string, number>> {
   const { checksum, ...payload } = snapshotSchema.parse(input);
   if (hash(payload) !== checksum) throw new Error("Backup checksum mismatch");
-  if (payload.tables.map(t => t.name).join(",") !== (payload.version===2?legacyApplicationTables:applicationTables).join(",")) throw new Error("Backup table inventory mismatch");
+  if (payload.tables.map(t => t.name).join(",") !== (payload.version===2?legacyApplicationTables:payload.version===3?previousApplicationTables:applicationTables).join(",")) throw new Error("Backup table inventory mismatch");
   const tx = await client.transaction("write");
   try {
     for(const name of applicationTables){const count=await tx.execute(`SELECT COUNT(*) AS total FROM "${name}"`);if(count.rows[0]?.total!==0)throw new Error('Restore requires an empty destination');}
