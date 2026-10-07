@@ -1,0 +1,2 @@
+-- Metadata-only reconciliation of the payment and professional billing lineages.
+-- All application DDL is supplied by their unchanged historical migrations.

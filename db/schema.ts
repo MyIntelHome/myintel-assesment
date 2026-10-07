@@ -1,4 +1,21 @@
-import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, uniqueIndex, check } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+export const paymentAttempts = sqliteTable("payment_attempts", {
+  id: text("id").primaryKey(), requestId: text("request_id").notNull(),
+  quoteVersion: integer("quote_version").notNull(), attempt: integer("attempt").notNull(),
+  amountCents: integer("amount_cents").notNull(), mode: text("mode").notNull(), state: text("state").notNull(),
+  sessionId: text("session_id").unique(), paymentIntentId: text("payment_intent_id").unique(),
+  amountRefundedCents: integer("amount_refunded_cents").notNull().default(0),
+  expiresAt: integer("expires_at").notNull(), createdAt: text("created_at").notNull(), updatedAt: text("updated_at").notNull(),
+}, t => [
+  uniqueIndex("payment_attempt_number_unique").on(t.requestId, t.quoteVersion, t.mode, t.attempt),
+  uniqueIndex("payment_attempt_active_unique").on(t.requestId, t.quoteVersion, t.mode).where(sql`${t.state} <> 'expired'`),
+  check("payment_attempt_positive", sql`${t.attempt} > 0`),
+  check("payment_amount_positive", sql`${t.amountCents} > 0`),
+  check("payment_mode_valid", sql`${t.mode} IN ('test', 'live')`),
+  check("payment_state_valid", sql`${t.state} IN ('creating', 'open', 'expired', 'paid')`),
+  check("payment_refund_valid", sql`${t.amountRefundedCents} >= 0 AND ${t.amountRefundedCents} <= ${t.amountCents}`),
+]);
 export const professionalBilling=sqliteTable('professional_billing',{userId:text('user_id').primaryKey(),customerId:text('customer_id'),subscriptionId:text('subscription_id'),subscriptionStatus:text('subscription_status').notNull().default('none'),periodEnd:integer('period_end').notNull().default(0),blocked:integer('blocked').notNull().default(0)},t=>[uniqueIndex('professional_customer').on(t.customerId),uniqueIndex('professional_subscription').on(t.subscriptionId)]);
 export const professionalCredits=sqliteTable('professional_credits',{id:text('id').primaryKey(),userId:text('user_id').notNull(),kind:text('kind').notNull(),quantity:integer('quantity').notNull(),expiresAt:integer('expires_at'),revoked:integer('revoked').notNull().default(0),createdAt:text('created_at').notNull()},t=>[index('professional_credit_owner').on(t.userId)]);
 export const professionalAllocations=sqliteTable('professional_allocations',{userId:text('user_id').notNull(),caseId:text('case_id').notNull(),creditId:text('credit_id').notNull(),state:text('state').notNull()},t=>[uniqueIndex('professional_case_allowance').on(t.userId,t.caseId)]);

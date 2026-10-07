@@ -43,6 +43,7 @@ export class SqliteTestDatabase implements Database {
     this.sqlite.exec(readFileSync(new URL("../../drizzle/0002_stormy_carnage.sql",import.meta.url),"utf8"));
     this.sqlite.exec(readFileSync(new URL("../../drizzle/0003_nebulous_viper.sql",import.meta.url),"utf8"));
     this.sqlite.exec(readFileSync(new URL("../../drizzle/0006_known_argent.sql",import.meta.url),"utf8"));
+    this.sqlite.exec(readFileSync(new URL("../../drizzle/0007_payment_attempts.sql",import.meta.url),"utf8").replaceAll("--> statement-breakpoint", ""));
     this.sqlite.exec(readFileSync(new URL("../../drizzle/0007_plan_capture.sql",import.meta.url),"utf8"));
     this.sqlite.exec(readFileSync(new URL("../../drizzle/0008_professional_billing.sql",import.meta.url),"utf8").replaceAll("--> statement-breakpoint", ""));
   }
