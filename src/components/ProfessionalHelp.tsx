@@ -454,11 +454,11 @@ export default function ProfessionalHelp({
               {errors.consent && <p id="help-consent-error" className="help-field-error help-consent-error" role="alert">{errors.consent}</p>}
             </fieldset>
 
-            {!user&&<div className="help-field"><label htmlFor="help-email">Email for your request<input id="help-email" required type="email" maxLength={254} autoComplete="email" value={email} onChange={e=>{setEmail(e.target.value);setVerify(false)}}/></label><p>Your request saves after you verify this email. No password needed.</p>{errors.email&&<p role="alert">{errors.email}</p>}</div>}
+            {!user&&<div className="help-field"><label htmlFor="help-email">Email for your request<input id="help-email" required type="email" maxLength={254} autoComplete="email" value={email} onChange={e=>{setEmail(e.target.value);setVerify(false)}}/></label><p>{codeEnabled ? "Your request saves after you verify this email. No password needed." : "Sign in with this email before sending. Your details stay here while you sign in."}</p>{errors.email&&<p role="alert">{errors.email}</p>}</div>}
             {verify&&!user&&(codeEnabled?<EmailVerification key={email} email={email} onVerified={()=>{void verifiedAccount(email).then(u=>{setUser(u);setVerify(false);setServerError("")}).catch(e=>setServerError(e.message))}}/>:<p>Keep your details here while you <a href={signInHref("/?view=help")} target="_blank" rel="noopener">sign in in another tab</a>. <button type="button" onClick={()=>void verifiedAccount(email).then(u=>{setUser(u);setVerify(false)}).catch(e=>setServerError(e.message))}>I have signed in</button></p>)}
             <div className="help-actions help-actions-form">
               <button type="submit" className="help-button help-button-primary" disabled={submitting}>
-                {submitting ? "Sending request..." : user ? "Send my request" : "Verify email to send"}
+                {submitting ? "Sending request..." : user ? "Send my request" : codeEnabled ? "Verify email to send" : "Continue to sign in"}
               </button>
               <p className="help-action-note">You will review the scope and price before you commit.</p>
             </div>
