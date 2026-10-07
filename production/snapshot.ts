@@ -47,8 +47,12 @@ export function createSnapshot(tables: SnapshotTable[], createdAt = new Date().t
 export async function exportSnapshot(client: Client): Promise<Snapshot> {
   const tx = await client.transaction("read");
   try {
+    const present = new Set((await tx.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")).rows.map(row => String(row.name)));
+    const names = applicationTables.filter(name => present.has(name));
+    const inventory = ([5,4,3,2] as const).flatMap(version => inventories(version)).find(candidate => candidate.join(',') === names.join(','));
+    if (!inventory) throw new Error("Backup table inventory mismatch");
     const tables: Snapshot["tables"] = [];
-    for (const name of applicationTables) {
+    for (const name of inventory) {
       const result = await tx.execute(`SELECT * FROM "${name}" ORDER BY 1`);
       tables.push({ name, columns: result.columns, rows: result.rows.map(row => result.columns.map(column => {
         const value = row[column];

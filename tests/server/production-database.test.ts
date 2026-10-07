@@ -54,7 +54,7 @@ it('adds billing to the older payment preview without rewriting its ledger or jo
   await applyMigrations(old,migrations.slice(0,8));await seedPayment(old);
   const journal=(await old.execute('SELECT * FROM myintel_migrations ORDER BY name')).rows;
   const ledger=(await old.execute('SELECT * FROM payment_attempts')).rows;
-  const before=await paymentBackup(old);expect(before.version).toBe(3);expect(before.tables).toHaveLength(17);
+  const before=await exportSnapshot(old);expect(before.version).toBe(3);expect(before.tables).toHaveLength(17);
   expect(await applyMigrations(old,migrations)).toEqual(['0007_plan_capture.sql','0008_professional_billing.sql','0009_unified_preview_lineage.sql']);
   expect((await old.execute('SELECT * FROM payment_attempts')).rows).toEqual(ledger);
   expect((await old.execute('SELECT * FROM myintel_migrations ORDER BY name')).rows.filter(row=>journal.some(entry=>entry.name===row.name))).toEqual(journal);
@@ -70,11 +70,20 @@ it('preserves a verified plan-only or billing lineage while adding the missing p
   const old=createClient({url:':memory:'});try{
    const lineage=migrations.filter(m=>m.name!=='0007_payment_attempts.sql'&&m.name!=='0009_unified_preview_lineage.sql'&&(billing||m.name!=='0008_professional_billing.sql'));
    await applyMigrations(old,lineage);
+   const before=await exportSnapshot(old);expect(before.version).toBe(billing?4:3);expect(before.tables).toHaveLength(billing?24:20);
    const journal=(await old.execute('SELECT * FROM myintel_migrations ORDER BY name')).rows;
    expect(await applyMigrations(old,migrations)).toEqual(billing?['0007_payment_attempts.sql','0009_unified_preview_lineage.sql']:['0007_payment_attempts.sql','0008_professional_billing.sql','0009_unified_preview_lineage.sql']);
    expect((await old.execute('SELECT * FROM myintel_migrations ORDER BY name')).rows.filter(row=>journal.some(entry=>entry.name===row.name))).toEqual(journal);
   }finally{old.close()}
  }
+});
+it('exports the pre-upgrade base schema and refuses a partially missing application inventory',async()=>{
+ const old=createClient({url:':memory:'});try{
+  await applyMigrations(old,(await readMigrations()).slice(0,7));
+  const backup=await exportSnapshot(old);expect(backup.version).toBe(2);expect(backup.tables).toHaveLength(16);
+  await old.execute('DROP TABLE home_photos');
+  await expect(exportSnapshot(old)).rejects.toThrow('inventory mismatch');
+ }finally{old.close()}
 });
 it('appends only the metadata marker to a previously unified database without changing its schema',async()=>{
  const old=createClient({url:':memory:'});try{
