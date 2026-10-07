@@ -20,6 +20,18 @@ Account: Myintelhome 1, acct_1P1FPzF2xaGiK3vT, live mode. These catalog entries 
 
 Do not use live price IDs with test keys. Connect a separate sandbox and create matching test products/prices for hosted testing. Stripe SDK 22.6.0 uses API 2026-08-26.dahlia. Checkout uses server-selected prices, dynamically eligible payment methods and stable idempotency keys. Only a verified signed webhook plus canonical Stripe resource retrieval grants paid credits; the browser return URL never grants access. Checkout retries resume the same open subscription session. Unknown sessions for a known professional customer return a retryable error while local registration completes.
 
+### Test connection verified October 7
+
+The user opened the account's test environment. The separately connected Stripe link named Sandbox (`link_6ac696b5f454819183a39525d4ab37cd`) now confirms the same account with livemode=false. Its catalog was empty before these test prices were created:
+
+| Offer | Test price |
+|---|---|
+| $19 single | price_1UO0X9F2xaGiK3vT2y16rRNe |
+| $49 monthly | price_1UO0XFF2xaGiK3vT1YZpYkoa |
+| $10 subscriber extra | price_1UO0XKF2xaGiK3vT3z56PycZ |
+
+These use the same product IDs as the live catalog in separate test-mode namespaces. No test customer, subscription or charge was created during this catalog setup. A restricted test key named homecheck_professional_preview is prepared in the Dashboard but has not been created; action-time approval is pending. Runtime credentials, webhook and migrated hosted preview remain pending.
+
 ## Activation and rollback
 
 All billing flags default off. This implementation has not activated billing or checkout on the public domain.
@@ -35,6 +47,6 @@ Backups use version 4 and include all 24 application tables, excluding authentic
 
 ## Evidence
 
-October 7 local verification: all 384 tests across 45 files pass. Type checking and the production build passed during this implementation batch. No remote billing migration, hosted Stripe fulfillment test or public billing activation has been performed. Refreshing the Stripe connector after reauthorization still exposes only the live account; sandbox access remains unresolved.
+October 7 local verification: all 384 tests across 45 files pass. Type checking and the production build passed during this implementation batch. No remote billing migration, hosted Stripe fulfillment test or public billing activation has been performed. Test-mode connector access is now verified; the earlier live-only connection blocker is resolved.
 
 Server tests cover owner isolation, professional revocation, a single demo reservation, blank initialization, completion idempotency, failed-save rollback, hidden family records, existing reports, payment replay, subscription renewal/expiry, mismatched price/currency/customer, unpaid checkout, failed subscription recovery and refunds/disputes. Professional UI and full regression checks are recorded in the final checkpoint. Hosted payment and usability checks remain pending.
