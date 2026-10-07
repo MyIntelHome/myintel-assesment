@@ -1,4 +1,10 @@
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+export const savedPlans=sqliteTable('saved_plans',{
+ id:text('id').primaryKey(),userId:text('user_id').notNull(),caseId:text('case_id').notNull(),name:text('name').notNull(),email:text('email').notNull(),postalCode:text('postal_code').notNull(),phone:text('phone').notNull(),contactConsent:integer('contact_consent').notNull(),shareConsent:integer('share_consent').notNull(),emailConsent:integer('email_consent').notNull(),snapshot:text('snapshot').notNull(),createdAt:text('created_at').notNull(),coordinatorId:text('coordinator_id'),coordinatorName:text('coordinator_name'),closedAt:text('closed_at'),
+},t=>[index('saved_plans_owner').on(t.userId,t.createdAt)]);
+export const savedPlanEvents=sqliteTable('saved_plan_events',{id:text('id').primaryKey(),planId:text('plan_id').notNull(),actorId:text('actor_id').notNull(),action:text('action').notNull(),createdAt:text('created_at').notNull()});
+export const leadMail=sqliteTable('lead_mail',{id:text('id').primaryKey(),ownerId:text('owner_id').notNull(),kind:text('kind').notNull(),recipient:text('recipient').notNull(),subject:text('subject').notNull(),text:text('text').notNull(),status:text('status').notNull().default('pending'),leaseUntil:text('lease_until'),createdAt:text('created_at').notNull(),acceptedAt:text('accepted_at')});
+export const funnelCounts=sqliteTable('funnel_counts',{day:text('day').notNull(),event:text('event').notNull(),bucket:text('bucket').notNull().default(''),total:integer('total').notNull()},t=>[uniqueIndex('funnel_counts_key').on(t.day,t.event,t.bucket)]);
 
 export const publicSessions=sqliteTable("public_sessions",{
   idHash:text("id_hash").primaryKey(),userId:text("user_id").notNull(),encryptedTokens:text("encrypted_tokens").notNull(),purpose:text("purpose").notNull(),expiresAt:integer("expires_at").notNull(),

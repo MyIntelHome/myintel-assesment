@@ -3,6 +3,8 @@ import { createClient, type Session, type User } from "@supabase/supabase-js";
 export interface AuthTokens { accessToken: string; refreshToken: string }
 export interface AuthResult { tokens: AuthTokens; user: { id: string; email: string; verified: boolean } }
 export interface AuthProvider {
+  requestCode?(email:string):Promise<void>;
+  verifyCode?(email:string,code:string):Promise<AuthResult>;
   login(email: string, password: string): Promise<AuthResult>;
   signup(email: string, password: string): Promise<void>;
   recover(email: string): Promise<void>;
@@ -28,6 +30,8 @@ export function supabaseAuth(url: string, key: string, origin: string): AuthProv
     throw new Error("Account provider unavailable");
   }
   return {
+    async requestCode(email){const {error}=await client().auth.signInWithOtp({email,options:{emailRedirectTo:origin,shouldCreateUser:true}});check(error);},
+    async verifyCode(email,token){const {data,error}=await client().auth.verifyOtp({email,token,type:'email'});check(error);if(!data.session||!data.user)throw new AuthRejected();return result(data.session,data.user);},
     async login(email, password) {
       const { data, error } = await client().auth.signInWithPassword({ email, password }); check(error);
       if (!data.session || !data.user) throw new AuthRejected();

@@ -5,6 +5,9 @@ import {createUuid} from "@/lib/ids";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import "./help.css";
+import {EmailVerification} from "./EmailVerification";
+import {newImportId,saveSelectedDraft,verifiedAccount} from "@/lib/lead-client";
+import type {CaseState} from "@/lib/case-store";
 import {HomeReviewPhotos} from "./HomeReviewPhotos";
 
 export type HelpService =
@@ -27,6 +30,7 @@ export type ProfessionalHelpProps = {
   user: User | null;
   initialService?: string;
   homeCaseId?:string;
+  homeDraft?:CaseState;
   onBack: () => void;
   onRequests: () => void;
 };
@@ -37,7 +41,7 @@ type RequestResult = {
   createdAt: string;
 };
 
-type FieldErrors = Partial<Record<"service" | "name" | "postalCode" | "phone" | "contactMethod" | "relationship" | "consent", string>>;
+type FieldErrors = Partial<Record<"service" | "name" | "postalCode" | "phone" | "contactMethod" | "relationship" | "consent" | "email", string>>;
 
 const SERVICES: Array<{
   value: HelpService;
@@ -90,12 +94,18 @@ function getErrorMessage(value: unknown, fallback: string): string {
 }
 
 export default function ProfessionalHelp({
-  user,
+  user: initialUser,
+  homeDraft,
   initialService,
   homeCaseId,
   onBack,
   onRequests,
 }: ProfessionalHelpProps) {
+  const [user,setUser]=useState(initialUser);
+  const [email,setEmail]=useState(initialUser?.email??""),[verify,setVerify]=useState(false);
+  const [codeEnabled,setCodeEnabled]=useState(false);
+  const importedId=useRef(newImportId());
+  useEffect(()=>{fetch("/api/lead-config").then(r=>r.ok?r.json():Promise.resolve({enabled:false,deliveryEnabled:false,shopUrl:""})).then(d=>setCodeEnabled(!!d.enabled)).catch(()=>{})},[]);
   const [step, setStep] = useState<FlowStep>("service");
   const [service, setService] = useState<HelpService | "">(getInitialService(initialService));
   const [name, setName] = useState(user?.name ?? "");
@@ -117,46 +127,6 @@ export default function ProfessionalHelp({
   }, [serverError]);
   useEffect(() => {document.getElementById("help-title")?.focus();}, [step]);
 
-  if (!user) {
-    return (
-      <main className="help-flow">
-        <div className="help-shell">
-          <header className="help-header">
-            <button type="button" className="help-back" onClick={onBack}>
-              <span aria-hidden="true">←</span> Back
-            </button>
-            <span className="help-step-count">Getting started</span>
-          </header>
-
-          <section className="help-intro" aria-labelledby="help-title">
-            <p className="help-kicker">Professional help</p>
-            <h1 id="help-title">Find the right help for your home</h1>
-            <p className="help-lede">
-              Request a conversation about the kind of support you need at home. We will ask a few
-              simple questions so we can understand where to start.
-            </p>
-            <p className="help-commitment">Request first. Review the scope and price before you commit.</p>
-          </section>
-
-          <section className="help-signin-card" aria-labelledby="help-signin-title">
-            <div className="help-card-mark" aria-hidden="true">↗</div>
-            <div>
-              <h2 id="help-signin-title">Sign in to request help</h2>
-              <p>Your request and any updates will be saved to your account.</p>
-              <a
-                className="help-button help-button-primary"
-                href={signInHref("/?view=help")}
-                target="_top"
-              >
-                {signInLabel}
-              </a>
-            </div>
-          </section>
-        </div>
-      </main>
-    );
-  }
-
   const serviceTitle = SERVICES.find((item) => item.value === service)?.title ?? "your request";
 
   function validateDetails(): FieldErrors {
@@ -174,6 +144,7 @@ export default function ProfessionalHelp({
       nextErrors.phone = "Check the phone number and try again.";
     }
     if (!relationship) nextErrors.relationship = "Choose who the request is for.";
+    if(!user&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))nextErrors.email="Enter your email address.";
     if (!consent) nextErrors.consent = "Please agree before sending your request.";
     return nextErrors;
   }
@@ -199,7 +170,7 @@ export default function ProfessionalHelp({
     setErrors(nextErrors);
     setServerError("");
 
-    if (shareAssessment && !homeCaseId) {
+    if (shareAssessment && !homeCaseId && !homeDraft) {
       setServerError("Wait for your home check to finish saving before sharing it.");
       return;
     }
@@ -210,12 +181,17 @@ export default function ProfessionalHelp({
       return;
     }
 
+    if(!user){setVerify(true);return;}
+
     if (!idempotencyKeyRef.current) {
       idempotencyKeyRef.current = createUuid();
     }
 
     setSubmitting(true);
     try {
+      const verified=await verifiedAccount(email || user.email);
+      if(verified.id!==user.id)throw Error("Your signed-in account changed. Verify your email again before sending.");
+      const caseId=shareAssessment && homeDraft?await saveSelectedDraft(homeDraft,verified.email,undefined,importedId.current):homeCaseId;
       const response = await fetch("/api/requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -228,7 +204,7 @@ export default function ProfessionalHelp({
           contactMethod,
           relationship,
           consent: true,
-          ...(shareAssessment && homeCaseId?{caseId:homeCaseId,shareAssessment:true}:{}),
+          ...(shareAssessment && caseId?{caseId,shareAssessment:true}:{}),
         }),
       });
 
@@ -371,12 +347,12 @@ export default function ProfessionalHelp({
                   {errors.name && <p id="help-name-error" className="help-field-error" role="alert">{errors.name}</p>}
                 </div>
 
-                <div className="help-field help-field-wide">
+                {user && <div className="help-field help-field-wide">
                   <label htmlFor="help-email">Verified email</label>
-                  <div id="help-email" className="help-readonly-value" aria-label={`Verified email ${user.email}`}>
-                    <span>{user.email}</span><span className="help-verified">Verified</span>
+                  <div id="help-email" className="help-readonly-value" aria-label={`Verified email ${user?.email??"Verify your email before sending"}`}>
+                    <span>{user?.email??"Verify your email before sending"}</span><span className="help-verified">Verified</span>
                   </div>
-                </div>
+                </div>}
 
                 <div className="help-field">
                   <label htmlFor="help-postalCode">ZIP code <span aria-hidden="true">*</span></label>
@@ -428,7 +404,7 @@ export default function ProfessionalHelp({
                       checked={contactMethod === "email"}
                       onChange={() => setContactMethod("email")}
                     />
-                    <span><strong>Email</strong><small>{user.email}</small></span>
+                    <span><strong>Email</strong><small>{user?.email??"Verify your email before sending"}</small></span>
                   </label>
                   <label className={`help-radio-card${contactMethod === "phone" ? " is-selected" : ""}`}>
                     <input
@@ -461,7 +437,7 @@ export default function ProfessionalHelp({
                 {errors.phone && <p id="help-phone-error" className="help-field-error" role="alert">{errors.phone}</p>}
               </div>
 
-              {homeCaseId && <label className="help-consent"><input type="checkbox" checked={shareAssessment} onChange={e=>setShareAssessment(e.target.checked)}/><span>Include my saved home check, home layout and daily-life answers (including any mobility, falls, eating and drinking answers) with this request. I agree to share them with MyIntel to coordinate professional review. I can add optional photos after sending.</span></label>}
+              {(homeCaseId||homeDraft) && <label className="help-consent"><input type="checkbox" checked={shareAssessment} onChange={e=>setShareAssessment(e.target.checked)}/><span>Include my home check, home layout and daily-life answers (including any mobility, falls, eating and drinking answers) with this request. I agree to share them with MyIntel to coordinate professional review. I can add optional photos after sending.</span></label>}
               <label className={`help-consent${errors.consent ? " has-error" : ""}`}>
                 <input
                   id="help-consent"
@@ -478,9 +454,11 @@ export default function ProfessionalHelp({
               {errors.consent && <p id="help-consent-error" className="help-field-error help-consent-error" role="alert">{errors.consent}</p>}
             </fieldset>
 
+            {!user&&<div className="help-field"><label htmlFor="help-email">Email for your request<input id="help-email" required type="email" maxLength={254} autoComplete="email" value={email} onChange={e=>{setEmail(e.target.value);setVerify(false)}}/></label><p>Your request saves after you verify this email. No password needed.</p>{errors.email&&<p role="alert">{errors.email}</p>}</div>}
+            {verify&&!user&&(codeEnabled?<EmailVerification key={email} email={email} onVerified={()=>{void verifiedAccount(email).then(u=>{setUser(u);setVerify(false);setServerError("")}).catch(e=>setServerError(e.message))}}/>:<p>Keep your details here while you <a href={signInHref("/?view=help")} target="_blank" rel="noopener">sign in in another tab</a>. <button type="button" onClick={()=>void verifiedAccount(email).then(u=>{setUser(u);setVerify(false)}).catch(e=>setServerError(e.message))}>I have signed in</button></p>)}
             <div className="help-actions help-actions-form">
               <button type="submit" className="help-button help-button-primary" disabled={submitting}>
-                {submitting ? "Sending request…" : "Send my request"}
+                {submitting ? "Sending request..." : user ? "Send my request" : "Verify email to send"}
               </button>
               <p className="help-action-note">You will review the scope and price before you commit.</p>
             </div>
@@ -498,7 +476,7 @@ export default function ProfessionalHelp({
             </dl>
             {shareAssessment && <HomeReviewPhotos requestId={request.id}/>}
             <div className="help-success-actions">
-              <button type="button" className="help-button help-button-primary" onClick={onRequests}>View my requests</button>
+              <button type="button" className="help-button help-button-primary" onClick={()=>{window.location.href="/?view=requests"}}>View my requests</button>
               <button type="button" className="help-button help-button-secondary" onClick={onBack}>Return home</button>
             </div>
           </section>

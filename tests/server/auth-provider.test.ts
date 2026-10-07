@@ -52,6 +52,10 @@ it("sends email actions to the fixed application origin and confirms a token has
   await f.provider.confirm("one-time-hash", "recovery");
   expect(JSON.parse(String(f.requests[2]?.init?.body))).toMatchObject({ token_hash: "one-time-hash", type: "recovery" });
 });
+it('requests passwordless verification and verifies an email code with a fresh provider client',async()=>{
+ const f=fixture([{body:{}},{body:session}]);await f.provider.requestCode!(user.email);expect(JSON.parse(String(f.requests[0]?.init?.body))).toMatchObject({email:user.email,create_user:true});expect(new URL(f.requests[0]!.url).searchParams.get('redirect_to')).toBe('https://myintel.example');
+ const result=await f.provider.verifyCode!(user.email,'123456');expect(JSON.parse(String(f.requests[1]?.init?.body))).toMatchObject({email:user.email,token:'123456',type:'email'});expect(result.user.verified).toBe(true);
+});
 it("separates invalid credentials from provider failures", async () => {
   const denied = fixture([{ status: 400, body: { msg: "invalid" } }]);
   await expect(denied.provider.login(user.email, "wrong")).rejects.toBeInstanceOf(AuthRejected);

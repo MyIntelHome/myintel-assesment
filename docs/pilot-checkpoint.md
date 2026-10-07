@@ -1,5 +1,7 @@
 # Pilot readiness checkpoint
 
+New lead-capture work is isolated and not publicly released: [October 6 lead preview checkpoint](lead-capture-preview-2026-10-06.md). Public summary email delivery remains disabled pending review.
+
 Current dynamic-flow implementation and compatibility notes: [October 6 checkpoint](dynamic-assessment-checkpoint-2026-10-06.md). Older deployment statements below are historical; verify the public release against its GitHub/Vercel commit.
 
 ## Latest verification — September 25, 2026

@@ -92,6 +92,19 @@ export class PublicAuth {
       if (reader) for (;;) { const { value, done } = await reader.read(); if (done) break; size += value.length; if (size > 16_000) { await reader.cancel(); return response({ error: "This form is too large." }, 413); } chunks.push(value); }
       const body: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
       const action = new URL(request.url).pathname.split("/").at(-1);
+      if(action==='request-code'||action==='verify-code'){
+        const v=z.object({email:z.string().trim().email().max(254),...(action==='verify-code'?{code:z.string().regex(/^\d{6,10}$/)}:{})}).strict().parse(body);
+        await this.limit(action,v.email.toLowerCase());
+        if(action==='request-code'){
+          if(!this.provider.requestCode)return response({error:'Email codes are not configured.'},503);
+          try{await this.provider.requestCode(v.email)}catch(e){if(!(e instanceof AuthRejected))throw e;}
+          return response({message:'Check your email for a one-time code. Keep this page open.'});
+        }
+        if(!this.provider.verifyCode)return response({error:'Email codes are not configured.'},503);
+        const result=await this.provider.verifyCode(v.email,String(v.code));
+        if(result.user.email.toLowerCase()!==v.email.toLowerCase())throw new AuthRejected();
+        return await this.start(result,'account',request,startedAt);
+      }
       if (action === "login" || action === "signup") {
         // Existing passwords may be shorter than the new-account minimum.
         const schema = action === "login" ? credentials.extend({ password: z.string().min(1).max(128) }) : credentials;
