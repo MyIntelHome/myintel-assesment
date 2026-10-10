@@ -55,3 +55,6 @@ Shared organization memberships, delegated family access, automatic credential v
 ## Lead-capture preview update
 
 The [October 6 preview checkpoint](lead-capture-preview-2026-10-06.md) describes explicit selected-plan saving, separate email/contact/sharing permissions, result-free staff notices and first-party aggregate measurement. It supersedes historical “no automatic messages” statements only for the explicitly configured preview. Public summary delivery remains disabled. Staff result access still requires sharing permission, and no new professional or staff access is granted.
+## Professional assessment billing update
+
+The [October 7 billing checkpoint](professional-billing-2026-10-07.md) defines the approved professional model: one demo, then $19 per prepaid assessment or $49/month for five credits, with explicit $10 subscriber extras. Payment does not grant professional approval. Customer self-checks remain free. The implementation is not yet activated publicly; hosted payment checks and commercial terms remain pending.

@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { createClient, type Client } from "@libsql/client";
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { LibsqlDatabase, createProductionDatabase } from "../../production/database";
 import { applyMigrations, readMigrations } from "../../production/migrations";
-import { exportSnapshot, restoreSnapshot, createSnapshot,legacyApplicationTables,type Snapshot } from "../../production/snapshot";
+import { exportSnapshot, restoreSnapshot, createSnapshot,legacyApplicationTables,previousApplicationTables,paymentApplicationTables,billingApplicationTables,type Snapshot } from "../../production/snapshot";
 import { handleApi, type Env } from "../../worker/api";
 
 let source: Client, target: Client, db: LibsqlDatabase;
@@ -14,10 +15,107 @@ beforeEach(async () => {
   db = new LibsqlDatabase(source);
 });
 afterEach(() => { source.close(); target.close(); });
+it('rolls back professional credit writes and nested batches within a real libSQL write transaction',async()=>{
+ await expect(db.writeTransaction(async tx=>{await tx.batch([tx.prepare("INSERT INTO professional_billing(user_id) VALUES (?)").bind('synthetic-billing')]);throw Error('simulated save failure')})).rejects.toThrow('simulated save failure');
+ expect(await db.prepare('SELECT * FROM professional_billing').all()).toEqual({results:[]});
+ await db.writeTransaction(async tx=>{await tx.batch([tx.prepare("INSERT INTO professional_billing(user_id) VALUES (?)").bind('synthetic-billing')]);});
+ expect((await db.prepare('SELECT * FROM professional_billing').all()).results).toHaveLength(1);
+});
 it('restores a previous v2 backup into an empty expanded database but never overwrites new lead records',async()=>{
- const full=await exportSnapshot(source);expect(full.version).toBe(3);expect(full.tables.map(t=>t.name)).toContain('saved_plans');
+ const full=await exportSnapshot(source);expect(full.version).toBe(5);expect(full.tables).toHaveLength(25);expect(full.tables.map(t=>t.name)).toContain('professional_credits');
  const old=createSnapshot(full.tables.filter(t=>(legacyApplicationTables as readonly string[]).includes(t.name)));expect(old.version).toBe(2);await restoreSnapshot(target,old);
  await target.execute("INSERT INTO funnel_counts VALUES ('2026-10-06','check_started','',1)");await expect(restoreSnapshot(target,old)).rejects.toThrow('empty destination');
+});
+it('restores v3 backups only into empty billing tables',async()=>{
+ const full=await exportSnapshot(source),old=createSnapshot(full.tables.filter(t=>previousApplicationTables.includes(t.name)));
+ expect(old.version).toBe(3);await restoreSnapshot(target,old);
+ await target.execute("INSERT INTO professional_billing(user_id) VALUES ('synthetic')");await expect(restoreSnapshot(target,old)).rejects.toThrow('empty destination');
+});
+
+async function seedPayment(client:Client) {
+ await client.execute("INSERT INTO payment_attempts (id,request_id,quote_version,attempt,amount_cents,mode,state,session_id,payment_intent_id,amount_refunded_cents,expires_at,created_at,updated_at) VALUES ('attempt-preserved','request',2,1,1900,'test','paid','cs_preserved','pi_preserved',100,2000000000,'created','updated')");
+}
+async function paymentBackup(client:Client) {
+ const tables=[];
+ for(const name of paymentApplicationTables){
+  const result=await client.execute(`SELECT * FROM "${name}" ORDER BY 1`);
+  tables.push({name,columns:result.columns,rows:result.rows.map(row=>result.columns.map(column=>row[column] as string|number|null))});
+ }
+ return createSnapshot(tables,'2026-10-07T12:00:00.000Z');
+}
+it('preserves the verified historical payment migration checksum',async()=>{
+ const sql=await readFile(new URL('../../drizzle/0007_payment_attempts.sql',import.meta.url),'utf8');
+ expect(createHash('sha256').update(sql.replaceAll('\r\n','\n')).digest('hex')).toBe('d82013fce568898d93c6b1cd92486cda76bf7be18cbb14ff5a28afafe361f139');
+});
+it('adds billing to the older payment preview without rewriting its ledger or journal and backs up all 25 tables',async()=>{
+ const old=createClient({url:':memory:'});
+ try{
+  const migrations=await readMigrations();
+  await applyMigrations(old,migrations.slice(0,8));await seedPayment(old);
+  const journal=(await old.execute('SELECT * FROM myintel_migrations ORDER BY name')).rows;
+  const ledger=(await old.execute('SELECT * FROM payment_attempts')).rows;
+  const before=await exportSnapshot(old);expect(before.version).toBe(3);expect(before.tables).toHaveLength(17);
+  expect(await applyMigrations(old,migrations)).toEqual(['0007_plan_capture.sql','0008_professional_billing.sql','0009_unified_preview_lineage.sql']);
+  expect((await old.execute('SELECT * FROM payment_attempts')).rows).toEqual(ledger);
+  expect((await old.execute('SELECT * FROM myintel_migrations ORDER BY name')).rows.filter(row=>journal.some(entry=>entry.name===row.name))).toEqual(journal);
+  const backup=await exportSnapshot(old);expect(backup.version).toBe(5);expect(backup.tables).toHaveLength(25);
+  expect(backup.tables.filter(table=>paymentApplicationTables.includes(table.name))).toEqual(before.tables);
+  await restoreSnapshot(target,backup);expect((await exportSnapshot(target)).tables).toEqual(backup.tables);
+  expect(await applyMigrations(old,migrations)).toEqual([]);
+ }finally{old.close()}
+});
+it('preserves a verified plan-only or billing lineage while adding the missing payment migration',async()=>{
+ const migrations=await readMigrations();
+ for(const billing of [false,true]){
+  const old=createClient({url:':memory:'});try{
+   const lineage=migrations.filter(m=>m.name!=='0007_payment_attempts.sql'&&m.name!=='0009_unified_preview_lineage.sql'&&(billing||m.name!=='0008_professional_billing.sql'));
+   await applyMigrations(old,lineage);
+   const before=await exportSnapshot(old);expect(before.version).toBe(billing?4:3);expect(before.tables).toHaveLength(billing?24:20);
+   const journal=(await old.execute('SELECT * FROM myintel_migrations ORDER BY name')).rows;
+   expect(await applyMigrations(old,migrations)).toEqual(billing?['0007_payment_attempts.sql','0009_unified_preview_lineage.sql']:['0007_payment_attempts.sql','0008_professional_billing.sql','0009_unified_preview_lineage.sql']);
+   expect((await old.execute('SELECT * FROM myintel_migrations ORDER BY name')).rows.filter(row=>journal.some(entry=>entry.name===row.name))).toEqual(journal);
+  }finally{old.close()}
+ }
+});
+it('exports the pre-upgrade base schema and refuses a partially missing application inventory',async()=>{
+ const old=createClient({url:':memory:'});try{
+  await applyMigrations(old,(await readMigrations()).slice(0,7));
+  const backup=await exportSnapshot(old);expect(backup.version).toBe(2);expect(backup.tables).toHaveLength(16);
+  await old.execute('DROP TABLE home_photos');
+  await expect(exportSnapshot(old)).rejects.toThrow('inventory mismatch');
+ }finally{old.close()}
+});
+it('appends only the metadata marker to a previously unified database without changing its schema',async()=>{
+ const old=createClient({url:':memory:'});try{
+  const migrations=await readMigrations();await applyMigrations(old,migrations.slice(0,-1));
+  const schema=(await old.execute("SELECT type,name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name")).rows;
+  const journal=(await old.execute('SELECT * FROM myintel_migrations ORDER BY name')).rows;
+  expect(await applyMigrations(old,migrations)).toEqual(['0009_unified_preview_lineage.sql']);
+  expect((await old.execute("SELECT type,name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name")).rows).toEqual(schema);
+  expect((await old.execute('SELECT * FROM myintel_migrations ORDER BY name')).rows.slice(0,-1)).toEqual(journal);
+ }finally{old.close()}
+});
+it('restores the original 17-table payment v3 checksum and retains its paid and refunded ledger data',async()=>{
+ await seedPayment(source);const backup=await paymentBackup(source);
+ const {checksum,...payload}=backup;expect(checksum).toBe(createHash('sha256').update(JSON.stringify(payload)).digest('hex'));
+ const counts=await restoreSnapshot(target,backup);expect(counts.payment_attempts).toBe(1);
+ expect((await paymentBackup(target)).tables).toEqual(backup.tables);
+ await expect(restoreSnapshot(target,backup)).rejects.toThrow('empty destination');
+});
+it('restores historical 24-table billing v4 backups while requiring the payment ledger to be empty',async()=>{
+ const full=await exportSnapshot(source),old=createSnapshot(full.tables.filter(t=>billingApplicationTables.includes(t.name)));
+ expect(old.version).toBe(4);await restoreSnapshot(target,old);
+ await seedPayment(target);await expect(restoreSnapshot(target,old)).rejects.toThrow('empty destination');
+});
+it('rejects missing base migration entries and unknown journal names without applying pending migrations',async()=>{
+ const old=createClient({url:':memory:'});try{
+  const migrations=await readMigrations();await applyMigrations(old,migrations.slice(0,8));
+  await old.execute("DELETE FROM myintel_migrations WHERE name='0002_stormy_carnage.sql'");
+  await expect(applyMigrations(old,migrations)).rejects.toThrow('recognized release prefix');
+  expect((await old.execute("SELECT name FROM sqlite_master WHERE name='professional_billing'")).rows).toEqual([]);
+  await old.execute("INSERT INTO myintel_migrations VALUES ('unknown.sql','unchanged','original')");
+  await expect(applyMigrations(old,migrations)).rejects.toThrow('unknown');
+ }finally{old.close()}
 });
 
 it("refuses missing credentials, local database fallbacks and disabled TLS in production", () => {

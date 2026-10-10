@@ -26,11 +26,11 @@ it.each(["pending","rejected","revoked"] as const)("does not load clinical recor
  expect(container.textContent).not.toContain("New clinical assessment");expect(fetchMock).not.toHaveBeenCalled();
 });
 it("uses a dedicated professional dashboard and scoped archive requests",async()=>{
- fetchMock.mockImplementation((path:string,options?:{method:string})=>Promise.resolve(reply(options?.method==="PUT"?{revision:1}:{archive:null,revision:0})));
+ fetchMock.mockImplementation((path:string,options?:{method:string})=>Promise.resolve(reply(path==="/api/professional/billing"?{enabled:false,checkoutEnabled:false,demoAvailable:false,remaining:0,subscriptionActive:false,renewalAt:null,allocations:[]}:options?.method==="PUT"?{revision:1}:{archive:null,revision:0})));
  await render(createElement(ProfessionalPortal,{user,access}));
  expect(container.textContent).toContain("Your assessment desk.");expect(container.textContent).toContain("Draft assessments");
  expect(container.textContent).not.toContain("Start a home check");expect(container.querySelector('nav[aria-label="Professional navigation"]')).not.toBeNull();
- expect(fetchMock.mock.calls.every(c=>c[0]==="/api/cases?audience=clinician")).toBe(true);
+ expect(fetchMock.mock.calls.every(c=>c[0]==="/api/cases?audience=clinician" || c[0]==="/api/professional/billing")).toBe(true);
  const start=[...container.querySelectorAll("button")].find(b=>b.textContent==="New clinical assessment")!;
  await act(async()=>start.click());
  expect(container.textContent).toContain("Clinical assessments");
@@ -46,4 +46,14 @@ it("keeps professional entry gated when unsigned in",async()=>{
  await render(createElement(ProfessionalPortal,{user:null,access:null}));
  expect(container.querySelector('a[href^="/signin-with-chatgpt"]')?.textContent).toBe("Continue with ChatGPT");
  expect(fetchMock).not.toHaveBeenCalled();expect(container.textContent).not.toContain("New clinical assessment");
+});
+it("creates one clinical draft when New assessment is clicked twice before the save",async()=>{
+ fetchMock.mockImplementation((path:string,options?:{method:string})=>Promise.resolve(reply(path==="/api/professional/billing"?{enabled:false,checkoutEnabled:false,demoAvailable:false,remaining:0,subscriptionActive:false,renewalAt:null,allocations:[]}:options?.method==="PUT"?{revision:1}:{archive:null,revision:0})));
+ await render(createElement(ProfessionalPortal,{user,access}));
+ const random=vi.spyOn(Math,"random");
+ const start=[...container.querySelectorAll("button")].find(b=>b.textContent==="New clinical assessment")!;
+ await act(async()=>{start.click();start.click()});
+ expect(random).toHaveBeenCalledTimes(1);
+ await act(async()=>vi.advanceTimersByTimeAsync(650));
+ random.mockRestore();
 });
