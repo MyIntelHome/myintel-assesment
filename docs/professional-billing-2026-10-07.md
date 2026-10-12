@@ -47,6 +47,22 @@ The exporter detects recognized historical inventories before migration and reje
 
 ## Evidence
 
+### Hosted sandbox verification, October 9–12
+
+The professional billing preview is configured on the existing Vercel project at `myintel-assesment-git-feature-prof-3af9e9-austin-8620s-projects.vercel.app`. Billing and checkout are enabled only on this branch; live mode remains false. The approved independent Supabase preview server key is configured. The test webhook is enabled. A user-approved Vercel authentication exception applies only to this preview alias; global deployment protection remains enabled. Anonymous billing access returns 401 and unsigned webhook requests are rejected. The public domain has not had billing activated or its database migrated.
+
+The approved synthetic professional account reserved one demo draft, saved it and reloaded it. A second substantive case was blocked until payment. The demo has not yet been finalized or signed, so its completion gate is still unverified on the hosted app.
+
+The user manually submitted each checkout using Stripe's public test card. Canonical Stripe session retrieval confirms all three payments completed and were paid in USD with `livemode=false`:
+
+| Sandbox purchase | Verified app result |
+|---|---|
+| $19 single credit, October 9 | Exactly one credit granted; an additional synthetic draft reserved it. Both drafts survived reload and the available balance returned to zero. |
+| $49 monthly, October 12 | Monthly plan active, exactly five credits, period end November 12, 2026. Reload retained five and a second subscription button was disabled. |
+| $10 subscriber extra, October 12 | Exactly one additional credit; total six retained after reload. |
+
+The test customer portal shows the $49 paid invoice, November 12 renewal date and cancellation control. Cancellation has not yet been submitted. No real charge occurred. These checks establish the listed hosted purchase flows; they do not establish renewal, failed-payment recovery, cancellation completion, refund/dispute holds, all webhook delivery outcomes or report-finalization behavior. Those checks and the commercial/tax approval gates remain open.
+
 October 7 local verification: all 391 tests across 45 files pass after migration compatibility work. Type checking and the production build also passed for this batch. A subsequent pre-migration exporter fix passed all 22 database tests and type checking; it adds one test to the 391-test baseline. The exact isolated database myintel-payment-preview-0928 migrated from snapshot v3/17 application tables to v5/25. All historical application table records were preserved exactly and a scratch restore rehearsal passed. CurrentUser DPAPI-encrypted backups were saved before and after migration; private backup branch myintel-payment-backup-1007 is retained. No production database migration, hosted Stripe fulfillment test or public billing activation has been performed. Test-mode connector access is now verified; the earlier live-only connection blocker is resolved.
 
 Server tests cover owner isolation, professional revocation, a single demo reservation, blank initialization, completion idempotency, failed-save rollback, hidden family records, existing reports, payment replay, subscription renewal/expiry, mismatched price/currency/customer, unpaid checkout, failed subscription recovery and refunds/disputes. Professional UI and full regression checks are recorded in the final checkpoint. Hosted payment and usability checks remain pending.
