@@ -47,3 +47,15 @@ The existing helper appends /collections/<needCode> to the full SHOP_URL base. h
 
 See privacy-lead-capture-draft-2026-10-12.md. Proposed periods are 12 months since last activity for plans and 24 months after closure for help requests, with earlier deletion on request. These are proposed, not implemented or published promises.
 
+
+## Preview configuration verified after owner approval
+
+Reused the existing Supabase professional-billing preview server and publishable configuration on this branch only, without modifying previous branch scopes. Database target is myintel-payment-preview-0928, with an approved one-day read/write token and a separate session key. Its journal already contains the matching 0007_plan_capture.sql checksum; no preview migration was rerun. Production records were not used for the tests.
+
+The verified-domain sender is MyIntel HomeCheck <plans@myintelhome.com>. Preview recipient allowlist and staff destination are both austin@myintelhome.com. RESEND_API_KEY and all required account/database settings are saved on feature/lead-production-2026-10-12 only. No payment credentials were copied. Preview capture and delivery flags are true. SHOP_URL is unset.
+
+Canonical preview: https://myintel-assesment-git-feature-lead-2f177e-austin-8620s-projects.vercel.app. Source be3f5c0 was redeployed with the final settings as myintel-assesment-n9rlxy20l-austin-8620s-projects.vercel.app, status Ready. The anonymous account bootstrap recovered successfully after redeployment; the sign-in form is open for Austin. Vercel protects unauthenticated external preview requests, so a shell request cannot establish preview delivery readiness.
+
+Supabase saved signup and magic-link templates were read back with their existing links plus {{ .Token }}. Recovery matched its pre-change private backup exactly. Existing SMTP smtp.resend.com on port 465 was not changed. Site URL stays https://homecheck.myintelhome.com. Two exact preview callback URLs were appended, retaining all ten existing allowlist entries.
+
+Fresh production /api/lead-config remains {"enabled":false,"deliveryEnabled":false,"shopUrl":""}. No mail has been sent by this lead batch yet. Three hosted email tests and owner inbox confirmation remain pending before production activation. Privacy wording and retention are still review-only.
