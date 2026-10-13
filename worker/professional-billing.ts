@@ -1,4 +1,5 @@
 import type {Database} from './api';
+import {stableStringify} from '../src/domain/visit-review';
 export class BillingError extends Error {constructor(public status:number,message:string){super(message)}}
 export interface BillingSettings {enabled:boolean;checkoutEnabled:boolean;live:boolean;singlePrice?:string;monthlyPrice?:string;extraPrice?:string;secretKey?:string;webhookSecret?:string}
 export const billingSettings=(env:Record<string,string|undefined>):BillingSettings=>({enabled:env.MYINTEL_PROFESSIONAL_BILLING==='true',checkoutEnabled:env.MYINTEL_PROFESSIONAL_CHECKOUT==='true',live:env.MYINTEL_PROFESSIONAL_STRIPE_LIVE==='true',secretKey:env.MYINTEL_PROFESSIONAL_STRIPE_KEY,webhookSecret:env.MYINTEL_PROFESSIONAL_WEBHOOK_SECRET,singlePrice:env.MYINTEL_PROFESSIONAL_SINGLE_PRICE,monthlyPrice:env.MYINTEL_PROFESSIONAL_MONTHLY_PRICE,extraPrice:env.MYINTEL_PROFESSIONAL_EXTRA_PRICE});
@@ -22,6 +23,7 @@ export async function billingStatus(db:Database,userId:string,settings:BillingSe
 }
 type ClinicalCase={id:string;reference?:string;spaces?:unknown[];responses?:object;intake?:object;plan?:unknown[];reportVersions?:unknown[]};
 const populated=(v:unknown):boolean=>Array.isArray(v)?v.some(populated):v!==null&&typeof v==='object'?Object.values(v).some(populated):v!==undefined&&v!==null&&v!==''&&v!==false;
+const billingContent=(c:ClinicalCase)=>Object.fromEntries(Object.entries(c).filter(([key])=>key!=='updatedAt'));
 export function substantiveCase(c:ClinicalCase){return !!c.reference?.trim()||!!c.spaces?.length||populated(c.responses)||populated(c.intake)||!!c.plan?.length||!!c.reportVersions?.length}
 /** Run inside the same write transaction as the clinical archive save. */
 export async function allocateAssessments(db:Database,userId:string,cases:ClinicalCase[],previous:ClinicalCase[]){
@@ -38,7 +40,13 @@ export async function allocateAssessments(db:Database,userId:string,cases:Clinic
    await db.prepare("INSERT INTO professional_allocations(user_id,case_id,credit_id,state) VALUES (?,?,?,'completed') ON CONFLICT DO NOTHING").bind(userId,c.id,id).run();continue;
   }
   if(allocation?.state==='completed')continue;
-  if(allocation&&(allocation.revoked||(account?.blocked&&allocation.kind!=='demo')))throw new BillingError(402,'This payment needs review. Your draft and completed reports are retained.');
+  if(allocation&&(allocation.revoked||(account?.blocked&&allocation.kind!=='demo'))){
+   // The archive contains every case, even when only the selected case changes.
+   // Preserve a held draft unchanged so it cannot lock unrelated saved reports.
+   const old=previous.find(p=>p.id===c.id);
+   if(old&&stableStringify(billingContent(old))===stableStringify(billingContent(c)))continue;
+   throw new BillingError(402,'This payment needs review. Your draft and completed reports are retained.');
+  }
   if(!allocation){
    const credit=await db.prepare(`SELECT c.id,c.kind FROM professional_credits c WHERE c.user_id=? AND c.revoked=0 AND (c.expires_at IS NULL OR c.expires_at>?) AND c.quantity>(SELECT COUNT(*) FROM professional_allocations a WHERE a.credit_id=c.id) AND (?=0 OR c.kind='demo') AND (c.kind!='subscription' OR ?=1) ORDER BY CASE c.kind WHEN 'demo' THEN 0 WHEN 'subscription' THEN 1 ELSE 2 END,c.created_at,c.id LIMIT 1`).bind(userId,now,account?.blocked??0,active?1:0).first<{id:string;kind:string}>();
    if(!credit)throw new BillingError(402,'Your free assessment or purchased allowance is in use. Continue that draft, buy an assessment for $19, or subscribe for $49/month before starting another.');

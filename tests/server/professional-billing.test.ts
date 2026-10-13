@@ -173,7 +173,14 @@ describe('verified professional payments',()=>{
   await register();await webhook();expect((await save([signed(),draft('paid-draft')])).status).toBe(200);
   expect((await webhook(type)).status).toBe(200);const status=await billingStatus(db,user.id,settings);expect(status.reviewRequired).toBe(true);expect(status.remaining).toBe(0);
   expect((await read()).data.archive.cases[0].reportVersions).toHaveLength(1);
-  expect((await save([signed(),draft('paid-draft')],1)).status).toBe(402);
+  expect((await save([signed(),{...draft('paid-draft'),reference:'Changed held draft'}],1)).status).toBe(402);
+  // Selection/timestamp updates and completed-report amendments must not be
+  // blocked by another held draft included unchanged in the same archive.
+  const retained={...draft('paid-draft'),updatedAt:new Date().toISOString()};
+  expect((await save([signed(),retained],1)).status).toBe(200);
+  const completed={...signed(),reference:'Completed report working amendment'};
+  expect((await save([completed,retained],2)).status).toBe(200);
+  expect((await read()).data.archive.cases[0].reportVersions).toHaveLength(1);
  });
  it('blocks unapproved purchase and extra-price checkout without an active subscription',async()=>{
   const checkout=()=>new Request(origin+'/api/professional/billing/checkout',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({kind:'extra',idempotencyKey:crypto.randomUUID()})});
