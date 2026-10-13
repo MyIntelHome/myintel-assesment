@@ -7,12 +7,20 @@ import {buildFamilyReport,reportToPlainText} from '../src/domain/family-report';
 import {homeSummaryText} from '../src/domain/home-report-summary';
 import {homeActionsText} from '../src/domain/home-actions';
 import {FUNNEL_EVENTS,TIMING_BUCKETS,validShopUrl} from '../src/domain/lead-config';
-export interface LeadSettings { enabled:boolean; deliveryEnabled:boolean; shopUrl?:string; staffEmail?:string; sender?:string; apiKey?:string; allowedEmails?:string[] }
-export const leadSettings=(env:Record<string,string|undefined>):LeadSettings=>({
- enabled:env.VERCEL_ENV==='preview'&&env.MYINTEL_LEAD_PREVIEW==='true',
- deliveryEnabled:env.VERCEL_ENV==='preview'&&env.MYINTEL_LEAD_PREVIEW==='true'&&env.MYINTEL_EMAIL_PREVIEW==='true',
- shopUrl:validShopUrl(env.SHOP_URL),staffEmail:env.MYINTEL_STAFF_NOTIFICATION_EMAIL||'info@myintelhome.com',sender:env.MYINTEL_EMAIL_FROM,apiKey:env.RESEND_API_KEY,allowedEmails:(env.MYINTEL_PREVIEW_EMAIL_ALLOWLIST??'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean),
-});
+export interface LeadSettings { enabled:boolean; deliveryEnabled:boolean; shopUrl?:string; staffEmail?:string; sender?:string; apiKey?:string; allowedEmails?:string[]; origin?:string }
+export const leadSettings=(env:Record<string,string|undefined>):LeadSettings=>{
+ const production=env.VERCEL_ENV==='production';
+ const enabled=production?env.MYINTEL_LEAD_CAPTURE==='true':env.VERCEL_ENV==='preview'&&env.MYINTEL_LEAD_PREVIEW==='true';
+ return {enabled,deliveryEnabled:enabled&&(production?env.MYINTEL_EMAIL_DELIVERY==='true':env.MYINTEL_EMAIL_PREVIEW==='true'),
+ shopUrl:validShopUrl(env.SHOP_URL),staffEmail:env.MYINTEL_STAFF_NOTIFICATION_EMAIL||'austin@myintelhome.com',sender:env.MYINTEL_EMAIL_FROM,apiKey:env.RESEND_API_KEY,origin:env.APP_ORIGIN,
+ allowedEmails:production?undefined:(env.MYINTEL_PREVIEW_EMAIL_ALLOWLIST??'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean)};
+};
+const recipientAllowed=(settings:LeadSettings,email:string)=>settings.allowedEmails===undefined||settings.allowedEmails.includes(email.toLowerCase());
+export function customerPlanMessage(name:string,origin:string){
+ const firstName=(name.trim().split(/\s+/)[0]??'there').replaceAll('—',' ')||'there';
+ const url=new URL('/auth/login',origin);url.searchParams.set('return_to','/?view=assessments');
+ return `Hello ${firstName},\n\nYour home check plan is saved.\n\nView your plan: ${url.href}\nSign in to your account to view it.\n\nMyIntel is available if you would like help. Call (720) 989-1123.`;
+}
 const reply=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 async function input(request:Request,max:number):Promise<{value?:unknown;error?:Response}>{
  if(!request.headers.get('content-type')?.startsWith('application/json'))return {error:reply({error:'Use this form to continue.'},415)};
@@ -35,9 +43,9 @@ export function staffMessage(input:{name:string;email:string;phone:string;postal
 export function mailStatement(db:Database,settings:LeadSettings,input:{id:string;ownerId:string;kind:string;recipient:string;subject:string;text:string}){
  const source=input.kind==='plan'||input.id.startsWith('staff-plan:')?'saved_plans':'service_requests';
  const sourceId=input.id.slice(input.id.indexOf(':')+1);
- return db.prepare(`INSERT INTO lead_mail(id,owner_id,kind,recipient,subject,text,status,created_at) SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM ${source} WHERE id=? AND user_id=?) ON CONFLICT(id) DO NOTHING`).bind(input.id,input.ownerId,input.kind,input.recipient,input.subject,input.text,settings.deliveryEnabled&&settings.allowedEmails?.includes(input.recipient.toLowerCase())?'pending':'disabled',new Date().toISOString(),sourceId,input.ownerId);
+ return db.prepare(`INSERT INTO lead_mail(id,owner_id,kind,recipient,subject,text,status,created_at) SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM ${source} WHERE id=? AND user_id=?) ON CONFLICT(id) DO NOTHING`).bind(input.id,input.ownerId,input.kind,input.recipient,input.subject,input.text,settings.deliveryEnabled&&recipientAllowed(settings,input.recipient)?'pending':'disabled',new Date().toISOString(),sourceId,input.ownerId);
 }
-export function emailHtml(text:string){const escaped=text.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');return `<html><body style="font-family:Arial,sans-serif;font-size:18px;line-height:1.6;color:#18394a"><h1>Your MyIntel HomeCheck plan</h1><div style="white-space:pre-wrap">${escaped}</div></body></html>`}
+export function emailHtml(text:string){const escape=(s:string)=>s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');const escaped=escape(text);const planLink=text.match(/^View your plan: (https:\/\/[^\s]+)$/m)?.[1];const button=planLink?`<p><a href="${escape(planLink)}" style="display:inline-block;background:#176b62;color:white;padding:14px 24px;border-radius:8px;text-decoration:none">View my plan</a></p>`:'';return `<html><body style="font-family:Arial,sans-serif;font-size:18px;line-height:1.6;color:#18394a"><h1>${planLink?'Your MyIntel HomeCheck plan':'MyIntel notification'}</h1><div style="white-space:pre-wrap">${escaped}</div>${button}</body></html>`}
 /** A durable lease prevents concurrent sends. Provider acceptance is not inbox delivery. */
 export async function deliverMail(db:Database,settings:LeadSettings,id:string,send:typeof fetch=fetch){
  if(!settings.deliveryEnabled||!settings.apiKey||!settings.sender)return 'disabled';
@@ -46,9 +54,16 @@ export async function deliverMail(db:Database,settings:LeadSettings,id:string,se
  const claimed=await db.prepare("UPDATE lead_mail SET lease_until=? WHERE id=? AND status='pending' AND created_at>? AND (lease_until IS NULL OR lease_until<?)").bind(new Date(now.getTime()+60000).toISOString(),id,cutoff,now.toISOString()).run();
  if(!claimed.meta.changes)return (await db.prepare('SELECT status FROM lead_mail WHERE id=?').bind(id).first<{status:string}>())?.status??'pending';
  const row=await db.prepare('SELECT * FROM lead_mail WHERE id=?').bind(id).first<{recipient:string;subject:string;text:string;kind:string}>();if(!row)return 'pending';
- if(!settings.allowedEmails?.includes(row.recipient.toLowerCase()))return 'disabled';
+ if(!recipientAllowed(settings,row.recipient))return 'disabled';
+ let text=row.text;
+ if(row.kind==='plan'){
+  // Rebuild even older queued summaries so no health answers reach Resend.
+  const plan=await db.prepare('SELECT name FROM saved_plans WHERE id=? AND email=?').bind(id.slice(id.indexOf(':')+1),row.recipient).first<{name:string}>();
+  if(!plan||!settings.origin?.startsWith('https://'))return 'disabled';
+  text=customerPlanMessage(plan.name,settings.origin);
+ }
  try{
-  const r=await send('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${settings.apiKey}`,'Content-Type':'application/json','Idempotency-Key':`homecheck/${id}`},body:JSON.stringify({from:settings.sender,to:[row.recipient],subject:row.subject,text:row.text,html:emailHtml(row.text)}),signal:AbortSignal.timeout(15000)});
+  const r=await send('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${settings.apiKey}`,'Content-Type':'application/json','Idempotency-Key':`homecheck/${id}`},body:JSON.stringify({from:settings.sender,to:[row.recipient],subject:row.subject,text,html:emailHtml(text)}),signal:AbortSignal.timeout(15000)});
   if(!r.ok)return 'pending';const data=await r.json();if(typeof data.id!=='string')return 'pending';
   await db.batch([db.prepare("UPDATE lead_mail SET status='accepted',accepted_at=?,text='' WHERE id=? AND status='pending'").bind(new Date().toISOString(),id),...(row.kind==='plan'?[db.prepare("INSERT INTO funnel_counts(day,event,bucket,total) SELECT ?,'plan_emailed','',1 WHERE changes()=1 ON CONFLICT(day,event,bucket) DO UPDATE SET total=total+1").bind(new Date().toISOString().slice(0,10))]:[])]);
   return 'accepted';
@@ -77,12 +92,12 @@ export async function leadRoute(request:Request,db:Database,user:AccountUser|nul
    const archive=await db.prepare('SELECT payload FROM case_archives WHERE user_id=?').bind(user.id).first<{payload:string}>();
    const home=archive?JSON.parse(archive.payload).cases.find((c:{id:string})=>c.id===v.caseId):null;let summary;
    try{summary=planSummary(home)}catch{return reply({error:'Save your home check to your account before saving this plan.'},400)}
-   const text=`Hello ${v.name},\n\nHere is the plan you asked MyIntel to email. It includes your home and daily-life answers. Only you decide who to share it with.\n\n${summary}\n\nThis is a self-guided home check, not a professional assessment. It cannot confirm a home is safe.\nOpen your account: ${origin}/?view=assessments`;
+   const text=customerPlanMessage(v.name,origin);
    await db.batch([
     db.prepare('INSERT INTO saved_plans(id,user_id,case_id,name,email,postal_code,phone,contact_consent,share_consent,email_consent,snapshot,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING').bind(v.idempotencyKey,user.id,v.caseId,v.name,user.email,v.postalCode,v.phone,+v.contactConsent,+v.shareConsent,+v.emailConsent,summary,new Date().toISOString()),
     db.prepare("INSERT INTO saved_plan_events(id,plan_id,actor_id,action,created_at) SELECT ?,?,?,'saved',? WHERE changes()=1").bind(crypto.randomUUID(),v.idempotencyKey,user.id,new Date().toISOString()),
     ...(v.emailConsent?[mailStatement(db,settings,{id:`plan:${v.idempotencyKey}`,ownerId:user.id,kind:'plan',recipient:user.email,subject:'Your MyIntel HomeCheck plan',text})]:[]),
-    ...(v.contactConsent?[mailStatement(db,settings,{id:`staff-plan:${v.idempotencyKey}`,ownerId:user.id,kind:'staff',recipient:settings.staffEmail||'info@myintelhome.com',subject:'MyIntel: plan saved with contact permission',text:staffMessage({name:v.name,email:user.email,phone:v.phone,postalCode:v.postalCode,contactMethod:'email',type:'Plan saved',id:v.idempotencyKey},origin)})]:[]),
+    ...(v.contactConsent?[mailStatement(db,settings,{id:`staff-plan:${v.idempotencyKey}`,ownerId:user.id,kind:'staff',recipient:settings.staffEmail||'austin@myintelhome.com',subject:'MyIntel: plan saved with contact permission',text:staffMessage({name:v.name,email:user.email,phone:v.phone,postalCode:v.postalCode,contactMethod:'email',type:'Plan saved',id:v.idempotencyKey},origin)})]:[]),
    ]);row={user_id:user.id,email_consent:+v.emailConsent};
   }
   const owner=await db.prepare('SELECT user_id,email_consent FROM saved_plans WHERE id=?').bind(v.idempotencyKey).first<{user_id:string;email_consent:number}>();

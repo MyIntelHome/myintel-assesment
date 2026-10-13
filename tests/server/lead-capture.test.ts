@@ -1,16 +1,37 @@
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import {SqliteTestDatabase} from './sqlite-test-db';
 import {handleApi,type Env} from '../../worker/api';
-import {leadSettings,deliverMail,emailHtml,planSummary} from '../../worker/leads';
+import {leadSettings,deliverMail,emailHtml,planSummary,customerPlanMessage} from '../../worker/leads';
 import {EMPTY_CASE} from '../../src/lib/case-store';
 let db:SqliteTestDatabase,env:Env;
 const home={...EMPTY_CASE,id:'selected-check',audience:'family',spaces:[{id:'room',type:'bathroom',label:'Synthetic bathroom'}],familyAnswers:{'room::b5':'no'}};
-const config={enabled:true,deliveryEnabled:false,allowedEmails:['alice@example.test','info@myintelhome.com']};
+const config={enabled:true,deliveryEnabled:false,origin:'https://pilot.test',allowedEmails:['alice@example.test','austin@myintelhome.com']};
 function call(path:string,user='alice',method='GET',body?:unknown){return handleApi(new Request('https://pilot.test'+path,{method,headers:{origin:'https://pilot.test','content-type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)}),env,async()=>user?{id:user,email:user+'@example.test',emailVerified:true}:null)}
 function values(contact=false,share=false){return {idempotencyKey:crypto.randomUUID(),caseId:home.id,name:'Example',postalCode:'',phone:'',emailConsent:true,contactConsent:contact,shareConsent:share}}
 beforeEach(async()=>{db=new SqliteTestDatabase();env={DB:db,ASSETS:{fetch:async()=>new Response('')},APP_ORIGIN:'https://pilot.test',MYINTEL_ADMIN_EMAIL:'staff@example.test',LEADS:config};await db.prepare('INSERT INTO case_archives VALUES (?,?,1,?)').bind('alice',JSON.stringify({activeId:home.id,cases:[home]}),'now').run()});
 afterEach(()=>{db.sqlite.close();vi.restoreAllMocks()});
 it('keeps production delivery disabled even if preview flags and keys are supplied',()=>{expect(leadSettings({VERCEL_ENV:'production',MYINTEL_LEAD_PREVIEW:'true',MYINTEL_EMAIL_PREVIEW:'true',RESEND_API_KEY:'example'})).toMatchObject({enabled:false,deliveryEnabled:false})});
+it('requires independent production capture and delivery flags and keeps preview recipients fail closed',()=>{
+ expect(leadSettings({VERCEL_ENV:'production',MYINTEL_LEAD_CAPTURE:'true'})).toMatchObject({enabled:true,deliveryEnabled:false,staffEmail:'austin@myintelhome.com'});
+ expect(leadSettings({VERCEL_ENV:'production',MYINTEL_LEAD_CAPTURE:'true',MYINTEL_EMAIL_DELIVERY:'true'})).toMatchObject({enabled:true,deliveryEnabled:true,allowedEmails:undefined});
+ expect(leadSettings({VERCEL_ENV:'preview',MYINTEL_LEAD_CAPTURE:'true',MYINTEL_EMAIL_DELIVERY:'true'})).toMatchObject({enabled:false,deliveryEnabled:false,allowedEmails:[]});
+});
+it('emails only a first-name greeting and authenticated plan link, never saved answers',async()=>{
+ const v={...values(),name:'Austin Example'};await call('/api/plans','alice','POST',v);
+ const row=await db.prepare("SELECT text FROM lead_mail WHERE kind='plan'").first<{text:string}>();
+ expect(row?.text).toBe(customerPlanMessage(v.name,'https://pilot.test'));
+ expect(row?.text).toContain('Hello Austin,');expect(row?.text).not.toContain('Example');
+ expect(row?.text).toContain('Your home check plan is saved.');expect(row?.text).toContain('(720) 989-1123');
+ expect(row?.text).not.toMatch(/Synthetic bathroom|mobility|meal|appetite|fall|daily-life/i);
+ expect(emailHtml(row!.text)).toContain('>View my plan</a>');expect(row?.text).toContain('/auth/login?return_to=');
+});
+it('rebuilds older queued customer summary mail without transmitting its health details',async()=>{
+ env.LEADS={...config,deliveryEnabled:true,apiKey:'example',sender:'plans@example.test'};
+ vi.stubGlobal('fetch',vi.fn(async()=>new Response('{}',{status:503})));const v=values();await call('/api/plans','alice','POST',v);
+ await db.prepare("UPDATE lead_mail SET text='Legacy mobility, meal, appetite, fall and room answers',lease_until=NULL").run();
+ const send=vi.fn(async(_url:RequestInfo|URL,_options?:RequestInit)=>Response.json({id:'safe-message'}));expect(await deliverMail(db,env.LEADS,`plan:${v.idempotencyKey}`,send)).toBe('accepted');
+ const sent=JSON.parse(String(send.mock.calls[0]![1]?.body));expect(sent.text).toBe(customerPlanMessage('Example','https://pilot.test'));expect(sent.html).not.toContain('Legacy mobility');vi.unstubAllGlobals();
+});
 it('requires verified ownership and rejects another account case or clinical case',async()=>{
  expect((await call('/api/plans','','POST',values())).status).toBe(401);expect((await call('/api/plans','bob','POST',values())).status).toBe(400);
  await db.prepare('UPDATE case_archives SET payload=? WHERE user_id=?').bind(JSON.stringify({cases:[{...home,audience:'clinician'}]}),'alice').run();expect((await call('/api/plans','alice','POST',values())).status).toBe(400);
