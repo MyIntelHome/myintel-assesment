@@ -59,3 +59,17 @@ Canonical preview: https://myintel-assesment-git-feature-lead-2f177e-austin-8620
 Supabase saved signup and magic-link templates were read back with their existing links plus {{ .Token }}. Recovery matched its pre-change private backup exactly. Existing SMTP smtp.resend.com on port 465 was not changed. Site URL stays https://homecheck.myintelhome.com. Two exact preview callback URLs were appended, retaining all ten existing allowlist entries.
 
 Fresh production /api/lead-config remains {"enabled":false,"deliveryEnabled":false,"shopUrl":""}. No mail has been sent by this lead batch yet. Three hosted email tests and owner inbox confirmation remain pending before production activation. Privacy wording and retention are still review-only.
+
+## Hosted preview email tests
+
+October 12, 2026, America/Denver: Austin signed in as austin@myintelhome.com. Created a separate synthetic home check with one entrance, no room answers and optional health/context answers left unknown. Existing assessments were not used for email testing.
+
+Customer plan: saved with both contact and sharing unchecked. Application reported provider acceptance. Resend email 01a133ce-bc57-79c8-a701-b1573135bfa4 was delivered at 11:49 p.m. Its rendered body contains only Hello Austin, saved-plan notice, HTTPS sign-in link, help invitation and (720) 989-1123. No answers or room details were present.
+
+Staff saved-plan notification: separate receipt saved with contact checked and sharing unchecked, without a customer email request. Resend 01a133d0-09c4-7a46-8b9d-e6a71a3c5ade was delivered at 11:50 p.m. Content contains name, verified email, optional phone/ZIP placeholders, contact preference, item type and Operations link, without results.
+
+Staff help request: synthetic TEST ONLY Austin lead delivery, ZIP 80020, email contact consent, no sharing consent. Request fe5e672c-4d3c-49e5-a78a-4862df453dd7 saved successfully. Resend 01a133d0-a0e7-768b-8ce9-7845b51159bc was delivered at 11:51 p.m., with contact/request metadata only.
+
+Operations shows the first receipt with no permission to contact and results private; second receipt contact allowed and results private. Outbox shows accepted for all three jobs. Anonymous plan-emailed and results-viewed counts appeared. Preview is Austin-only. Provider delivery is not the owner's inbox confirmation, which remains pending.
+
+Production sender routing is prepared: MYINTEL_EMAIL_FROM=MyIntel HomeCheck <plans@myintelhome.com>, MYINTEL_STAFF_NOTIFICATION_EMAIL=austin@myintelhome.com, approved sending-only RESEND_API_KEY. Production flags remain off. Payments and SHOP_URL remain disabled. Privacy draft remains unpublished.
