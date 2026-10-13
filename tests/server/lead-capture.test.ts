@@ -3,18 +3,26 @@ import {SqliteTestDatabase} from './sqlite-test-db';
 import {handleApi,type Env} from '../../worker/api';
 import {leadSettings,deliverMail,emailHtml,planSummary,customerPlanMessage} from '../../worker/leads';
 import {EMPTY_CASE} from '../../src/lib/case-store';
+import {handleProductionRequest} from '../../production/app';
 let db:SqliteTestDatabase,env:Env;
 const home={...EMPTY_CASE,id:'selected-check',audience:'family',spaces:[{id:'room',type:'bathroom',label:'Synthetic bathroom'}],familyAnswers:{'room::b5':'no'}};
 const config={enabled:true,deliveryEnabled:false,origin:'https://pilot.test',allowedEmails:['alice@example.test','austin@myintelhome.com']};
 function call(path:string,user='alice',method='GET',body?:unknown){return handleApi(new Request('https://pilot.test'+path,{method,headers:{origin:'https://pilot.test','content-type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)}),env,async()=>user?{id:user,email:user+'@example.test',emailVerified:true}:null)}
 function values(contact=false,share=false){return {idempotencyKey:crypto.randomUUID(),caseId:home.id,name:'Example',postalCode:'',phone:'',emailConsent:true,contactConsent:contact,shareConsent:share}}
 beforeEach(async()=>{db=new SqliteTestDatabase();env={DB:db,ASSETS:{fetch:async()=>new Response('')},APP_ORIGIN:'https://pilot.test',MYINTEL_ADMIN_EMAIL:'staff@example.test',LEADS:config};await db.prepare('INSERT INTO case_archives VALUES (?,?,1,?)').bind('alice',JSON.stringify({activeId:home.id,cases:[home]}),'now').run()});
-afterEach(()=>{db.sqlite.close();vi.restoreAllMocks()});
+afterEach(()=>{db.sqlite.close();vi.restoreAllMocks();vi.unstubAllEnvs()});
 it('keeps production delivery disabled even if preview flags and keys are supplied',()=>{expect(leadSettings({VERCEL_ENV:'production',MYINTEL_LEAD_PREVIEW:'true',MYINTEL_EMAIL_PREVIEW:'true',RESEND_API_KEY:'example'})).toMatchObject({enabled:false,deliveryEnabled:false})});
 it('requires independent production capture and delivery flags and keeps preview recipients fail closed',()=>{
  expect(leadSettings({VERCEL_ENV:'production',MYINTEL_LEAD_CAPTURE:'true'})).toMatchObject({enabled:true,deliveryEnabled:false,staffEmail:'austin@myintelhome.com'});
  expect(leadSettings({VERCEL_ENV:'production',MYINTEL_LEAD_CAPTURE:'true',MYINTEL_EMAIL_DELIVERY:'true'})).toMatchObject({enabled:true,deliveryEnabled:true,allowedEmails:undefined});
  expect(leadSettings({VERCEL_ENV:'preview',MYINTEL_LEAD_CAPTURE:'true',MYINTEL_EMAIL_DELIVERY:'true'})).toMatchObject({enabled:false,deliveryEnabled:false,allowedEmails:[]});
+});
+it('reports production delivery readiness without requiring the preview-only recipient list',async()=>{
+ vi.stubEnv('VERCEL_ENV','production');vi.stubEnv('MYINTEL_LEAD_CAPTURE','true');vi.stubEnv('MYINTEL_EMAIL_DELIVERY','true');vi.stubEnv('RESEND_API_KEY','example');vi.stubEnv('MYINTEL_EMAIL_FROM','plans@myintelhome.com');vi.stubEnv('MYINTEL_PREVIEW_EMAIL_ALLOWLIST','');
+ const r=await handleProductionRequest(new Request('https://pilot.test/api/lead-config'));
+ expect(await r.json()).toMatchObject({enabled:true,deliveryEnabled:true});
+ vi.stubEnv('VERCEL_ENV','preview');vi.stubEnv('MYINTEL_LEAD_PREVIEW','true');vi.stubEnv('MYINTEL_EMAIL_PREVIEW','true');
+ expect(await (await handleProductionRequest(new Request('https://pilot.test/api/lead-config'))).json()).toMatchObject({enabled:true,deliveryEnabled:false});
 });
 it('emails only a first-name greeting and authenticated plan link, never saved answers',async()=>{
  const v={...values(),name:'Austin Example'};await call('/api/plans','alice','POST',v);

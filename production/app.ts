@@ -25,7 +25,7 @@ let cached: ReturnType<typeof productionApi> | undefined;
 export async function handleProductionRequest(request: Request): Promise<Response> {
   try {
     if(new URL(request.url).pathname==='/api/lead-config'&&request.method==='GET'){
-      const settings=leadSettings(process.env);return Response.json({enabled:settings.enabled,deliveryEnabled:settings.deliveryEnabled&&!!settings.apiKey&&!!settings.sender&&!!settings.allowedEmails?.length,shopUrl:settings.shopUrl},{headers:{'Cache-Control':'no-store'}});
+      const settings=leadSettings(process.env);return Response.json({enabled:settings.enabled,deliveryEnabled:settings.deliveryEnabled&&!!settings.apiKey&&!!settings.sender&&(settings.allowedEmails===undefined||settings.allowedEmails.length>0),shopUrl:settings.shopUrl},{headers:{'Cache-Control':'no-store'}});
     }
     if (!cached) {
       const required = (name: string) => { const value = process.env[name]; if (!value) throw new Error("Production service configuration is missing"); return value; };
