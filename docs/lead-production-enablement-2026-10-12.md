@@ -73,3 +73,15 @@ Staff help request: synthetic TEST ONLY Austin lead delivery, ZIP 80020, email c
 Operations shows the first receipt with no permission to contact and results private; second receipt contact allowed and results private. Outbox shows accepted for all three jobs. Anonymous plan-emailed and results-viewed counts appeared. Preview is Austin-only. Provider delivery is not the owner's inbox confirmation, which remains pending.
 
 Production sender routing is prepared: MYINTEL_EMAIL_FROM=MyIntel HomeCheck <plans@myintelhome.com>, MYINTEL_STAFF_NOTIFICATION_EMAIL=austin@myintelhome.com, approved sending-only RESEND_API_KEY. Production flags remain off. Payments and SHOP_URL remain disabled. Privacy draft remains unpublished.
+
+## Production enabled
+
+2026-10-13 00:09 America/Denver: Austin confirmed actual inbox receipt of all three preview messages. PR #7 merged at 6e37cce5823e71d3277453a85a55c9f80f9169c8. Vercel production deployment myintel-assesment-h5nbprzu4-austin-8620s-projects.vercel.app reached Ready and serves the existing homecheck.myintelhome.com domain.
+
+Enabled Production MYINTEL_LEAD_CAPTURE=true and MYINTEL_EMAIL_DELIVERY=true, with the previously tested sending-only Resend key, plans@myintelhome.com sender and configurable staff destination austin@myintelhome.com. Anonymous funnel counts follow the capture flag. Fresh public /api/lead-config returned enabled=true, deliveryEnabled=true, shopUrl="". No DNS changes were made. Payments remain disabled; SHOP_URL remains blank; privacy wording and proposed retention remain unpublished.
+
+Public checks with forged visitor identity headers returned user=null and paymentsEnabled=false. /api/cases, /api/admin/plans and /api/admin/funnel each returned 401. The public homepage loaded correctly. All three mail paths were exercised on the isolated preview and confirmed in Austin's inbox; no synthetic production leads were created. Local verification remains 351 tests plus build; GitHub verify and Vercel checks passed before merge.
+
+Rollback: disable both production lead flags and redeploy. Preserve the additive schema and new records; do not drop lead tables, replay disabled mail or restore an old database over new writes. Existing passwords, recovery SMTP and public domain were preserved.
+
+Outstanding owner decisions: approve privacy wording and retention/deletion procedure before publishing; clinical review, supervised usability sessions, vendor/privacy arrangements and real professional availability remain unverified human pilot requirements. This release enables consented leads, not clinical validation or live billing.
