@@ -9,10 +9,17 @@ export const legacyApplicationTables = [
   "request_followup_events", "request_followups", "request_professional_events",
   "request_professional_grants", "service_requests",
 ] as const;
-export const applicationTables=[...legacyApplicationTables,'saved_plans','saved_plan_events','lead_mail','funnel_counts'].sort();
+export const previousApplicationTables=[...legacyApplicationTables,'saved_plans','saved_plan_events','lead_mail','funnel_counts'].sort();
+export const paymentApplicationTables=[...legacyApplicationTables,'payment_attempts'].sort();
+export const billingApplicationTables=[...previousApplicationTables,'professional_billing','professional_credits','professional_allocations','professional_checkouts'].sort();
+export const applicationTables=[...billingApplicationTables,'payment_attempts'].sort();
+
+function inventories(version: Snapshot['version']): readonly (readonly string[])[] {
+  return version===2?[legacyApplicationTables]:version===3?[paymentApplicationTables,previousApplicationTables]:version===4?[billingApplicationTables]:[applicationTables];
+}
 
 const snapshotSchema = z.object({
-  version: z.union([z.literal(2),z.literal(3)]), createdAt: z.string().datetime(),
+  version: z.union([z.literal(2),z.literal(3),z.literal(4),z.literal(5)]), createdAt: z.string().datetime(),
   tables: z.array(z.object({
     name: z.string(), columns: z.array(z.string()),
     rows: z.array(z.array(z.union([z.string(), z.number().finite(), z.null()]))),
@@ -28,10 +35,11 @@ function hash(value: Omit<Snapshot, "checksum">) {
 
 export function createSnapshot(tables: SnapshotTable[], createdAt = new Date().toISOString()): Snapshot {
   const inventory=tables.map(table=>table.name).join(',');
-  if (inventory !== applicationTables.join(",") && inventory!==legacyApplicationTables.join(',')) {
+  const version=([5,4,3,2] as const).find(version=>inventories(version).some(names=>inventory===names.join(',')));
+  if (!version) {
     throw new Error("Backup table inventory mismatch");
   }
-  const payload = { version: inventory===applicationTables.join(',')?3 as const:2 as const, createdAt, tables };
+  const payload = { version, createdAt, tables };
   return snapshotSchema.parse({ ...payload, checksum: hash(payload) });
 }
 
@@ -39,8 +47,12 @@ export function createSnapshot(tables: SnapshotTable[], createdAt = new Date().t
 export async function exportSnapshot(client: Client): Promise<Snapshot> {
   const tx = await client.transaction("read");
   try {
+    const present = new Set((await tx.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")).rows.map(row => String(row.name)));
+    const names = applicationTables.filter(name => present.has(name));
+    const inventory = ([5,4,3,2] as const).flatMap(version => inventories(version)).find(candidate => candidate.join(',') === names.join(','));
+    if (!inventory) throw new Error("Backup table inventory mismatch");
     const tables: Snapshot["tables"] = [];
-    for (const name of applicationTables) {
+    for (const name of inventory) {
       const result = await tx.execute(`SELECT * FROM "${name}" ORDER BY 1`);
       tables.push({ name, columns: result.columns, rows: result.rows.map(row => result.columns.map(column => {
         const value = row[column];
@@ -58,7 +70,7 @@ export async function exportSnapshot(client: Client): Promise<Snapshot> {
 export async function restoreSnapshot(client: Client, input: unknown): Promise<Record<string, number>> {
   const { checksum, ...payload } = snapshotSchema.parse(input);
   if (hash(payload) !== checksum) throw new Error("Backup checksum mismatch");
-  if (payload.tables.map(t => t.name).join(",") !== (payload.version===2?legacyApplicationTables:applicationTables).join(",")) throw new Error("Backup table inventory mismatch");
+  if (!inventories(payload.version).some(names=>payload.tables.map(t=>t.name).join(',')===names.join(','))) throw new Error("Backup table inventory mismatch");
   const tx = await client.transaction("write");
   try {
     for(const name of applicationTables){const count=await tx.execute(`SELECT COUNT(*) AS total FROM "${name}"`);if(count.rows[0]?.total!==0)throw new Error('Restore requires an empty destination');}

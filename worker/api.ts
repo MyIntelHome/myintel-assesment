@@ -1,4 +1,5 @@
 import {isClinicalRecord,type ProfessionalAccess} from "../src/domain/access";
+import {allocateAssessments,BillingError} from './professional-billing';
 import { z } from "zod";
 import { requestSchema, serviceSchema } from "../src/domain/services";
 import { savedCaseSchema } from "../src/lib/case-validation";
@@ -16,8 +17,8 @@ import {accountIdentity,anonymousIdentity,type IdentityResolver} from "./auth";
 import {leadRoute,deliverMail,mailStatement,staffMessage,countStatement,type LeadSettings} from './leads';
 
 export interface Statement {bind(...values:unknown[]):Statement;first<T=Record<string,unknown>>():Promise<T|null>;all<T=Record<string,unknown>>():Promise<{results:T[]}>;run():Promise<{meta:{changes:number}}>}
-export interface Database {prepare(sql:string):Statement;batch(statements:Statement[]):Promise<{meta:{changes:number}}[]>}
-export interface Env {DB:Database;BUCKET?:PhotoBucket;ASSETS:{fetch(request:Request):Promise<Response>};MYINTEL_ADMIN_EMAIL?:string;APP_ORIGIN?:string;STRIPE_SECRET_KEY?:string;STRIPE_WEBHOOK_SECRET?:string;LEADS?:LeadSettings}
+export interface Database {prepare(sql:string):Statement;batch(statements:Statement[]):Promise<{meta:{changes:number}}[]>;writeTransaction?<T>(work:(db:Database)=>Promise<T>):Promise<T>}
+export interface Env {DB:Database;BUCKET?:PhotoBucket;ASSETS:{fetch(request:Request):Promise<Response>};MYINTEL_ADMIN_EMAIL?:string;APP_ORIGIN?:string;STRIPE_SECRET_KEY?:string;STRIPE_WEBHOOK_SECRET?:string;LEADS?:LeadSettings;PROFESSIONAL_BILLING?:boolean;BILLING_TRANSACTION?:boolean}
 export function json(data:unknown,status=200){return Response.json(data,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}})}
 async function body(request:Request,max=16000){
   if(!request.headers.get("content-type")?.startsWith("application/json")) throw new ApiError(415,"Send JSON data.");
@@ -64,6 +65,10 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
       if(!origin || (origin!==url.origin && origin!==env.APP_ORIGIN))return json({error:"This request must come from the MyIntel app."},403);
     }
     const user=accountIdentity(await resolveIdentity(request),env.MYINTEL_ADMIN_EMAIL);
+    if(user&&path==='/api/cases'&&method==='PUT'&&url.searchParams.get('audience')==='clinician'&&env.PROFESSIONAL_BILLING&&!env.BILLING_TRANSACTION){
+      if(!env.DB.writeTransaction)return json({error:'Professional billing requires transactional storage.'},503);
+      try{return await env.DB.writeTransaction(async db=>{const response=await handleApi(request,{...env,DB:db,BILLING_TRANSACTION:true},async()=>({id:user.id,email:user.email,emailVerified:true}));if(!response.ok)throw {billingResponse:response};return response;})}catch(error){if(error&&typeof error==='object'&&'billingResponse' in error)return (error as {billingResponse:Response}).billingResponse;throw error;}
+    }
     if(env.LEADS){const lead=await leadRoute(request,env.DB,user,env.LEADS,env.APP_ORIGIN??url.origin);if(lead)return lead;}
     if(path==="/api/account" && method==="GET")return json({user,professionalAccess:user && env.DB?await env.DB.prepare("SELECT * FROM professional_access WHERE user_id=?").bind(user.id).first():null,paymentsEnabled:!!env.STRIPE_SECRET_KEY && !!env.STRIPE_WEBHOOK_SECRET});
     if(!user)return json({error:"Sign in to continue."},401);
@@ -137,6 +142,7 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
       archive.cases.push(...hidden);
       if(archive.cases.length>100)throw new ApiError(400,"This account has reached its assessment limit.");
       if(old && !preservedHistory(previous,archive))throw new ApiError(409,"Earlier cases and signed reports must be preserved. Create an amendment to make changes.");
+      if(scope==='clinician'&&env.PROFESSIONAL_BILLING)await allocateAssessments(db,user.id,archive.cases.filter(c=>c.audience==='clinician'),previous.cases.filter((c:Parameters<typeof isClinicalRecord>[0])=>isClinicalRecord(c)));
       const now=new Date().toISOString(),payload=JSON.stringify(archive);
       const result=old?await db.prepare("UPDATE case_archives SET payload=?, revision=revision+1, updated_at=? WHERE user_id=? AND revision=?").bind(payload,now,user.id,revision).run():await db.prepare("INSERT INTO case_archives (user_id,payload,revision,updated_at) VALUES (?,?,1,?) ON CONFLICT(user_id) DO NOTHING").bind(user.id,payload,now).run();
       if(result.meta.changes!==1)throw new ApiError(409,"Another save arrived first. Reload before continuing.");
@@ -323,7 +329,7 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
     }
     return json({error:"This action was not found."},404);
   }catch(error){
-    if(error instanceof ApiError)return json({error:error.message},error.status);
+    if(error instanceof ApiError||error instanceof BillingError)return json({error:error.message},error.status);
     if(error instanceof z.ZodError)return json({error:"Check the form fields and try again."},400);
     console.error("MyIntel API request failed",error instanceof Error?error.name:"Unknown error");
     return json({error:"We could not save this right now. Your information is still in the form. Please try again."},503);

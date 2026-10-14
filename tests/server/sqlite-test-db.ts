@@ -34,6 +34,7 @@ export class SqliteStatement implements Statement {
 /** A synchronous node:sqlite database exposed through the Worker's D1-shaped interface. */
 export class SqliteTestDatabase implements Database {
   readonly sqlite = new DatabaseSync(":memory:");
+  private inTransaction = false;
 
   constructor(migrationPath = MYINTEL_MIGRATION) {
     this.sqlite.exec(
@@ -42,7 +43,9 @@ export class SqliteTestDatabase implements Database {
     this.sqlite.exec(readFileSync(new URL("../../drizzle/0002_stormy_carnage.sql",import.meta.url),"utf8"));
     this.sqlite.exec(readFileSync(new URL("../../drizzle/0003_nebulous_viper.sql",import.meta.url),"utf8"));
     this.sqlite.exec(readFileSync(new URL("../../drizzle/0006_known_argent.sql",import.meta.url),"utf8"));
+    this.sqlite.exec(readFileSync(new URL("../../drizzle/0007_payment_attempts.sql",import.meta.url),"utf8").replaceAll("--> statement-breakpoint", ""));
     this.sqlite.exec(readFileSync(new URL("../../drizzle/0007_plan_capture.sql",import.meta.url),"utf8"));
+    this.sqlite.exec(readFileSync(new URL("../../drizzle/0008_professional_billing.sql",import.meta.url),"utf8").replaceAll("--> statement-breakpoint", ""));
   }
 
   prepare(sql: string): Statement {
@@ -50,15 +53,26 @@ export class SqliteTestDatabase implements Database {
   }
 
   async batch(statements: Statement[]): Promise<{ meta: { changes: number } }[]> {
-    this.sqlite.exec("BEGIN");
-    try {
+    return this.writeTransaction(async () => {
       const results: { meta: { changes: number } }[] = [];
       for (const statement of statements) results.push(await statement.run());
-      this.sqlite.exec("COMMIT");
       return results;
+    });
+  }
+
+  async writeTransaction<T>(work: (db: Database) => Promise<T>): Promise<T> {
+    if (this.inTransaction) return work(this);
+    this.sqlite.exec("BEGIN IMMEDIATE");
+    this.inTransaction = true;
+    try {
+      const result = await work(this);
+      this.sqlite.exec("COMMIT");
+      return result;
     } catch (error) {
       this.sqlite.exec("ROLLBACK");
       throw error;
+    } finally {
+      this.inTransaction = false;
     }
   }
 

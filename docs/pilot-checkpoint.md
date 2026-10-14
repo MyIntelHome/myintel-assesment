@@ -59,3 +59,6 @@ Austin authorized work toward a small pilot and public launch to the existing Gi
 ## Continuation
 
 The September 12 bounded continuation is historical. No overnight automation is active. Continue from this checkpoint and actual repository state; do not claim quota monitoring or unlimited unattended work.
+## Professional billing implementation — October 7, 2026
+
+The [professional billing checkpoint](professional-billing-2026-10-07.md) records the approved one-demo allowance, prepaid assessment and monthly credit model, Stripe catalog, migration and rollback. All 384 local tests pass. This work is isolated on feature/professional-billing-2026-10-07; public billing and checkout remain disabled. Sandbox access, preview server credentials, signed webhook configuration and hosted fulfillment testing remain pending.

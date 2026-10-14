@@ -40,7 +40,13 @@ function metadata(result: ResultSet) { return { meta: { changes: result.rowsAffe
 
 /** D1-compatible API over libSQL; no local files are used by the hosted client. */
 export class LibsqlDatabase implements Database {
-  constructor(readonly client: Client) {}
+  constructor(readonly client: Pick<Client,'execute'|'batch'>) {}
+  async writeTransaction<T>(work:(db:Database)=>Promise<T>):Promise<T>{
+    const client=this.client as Client;
+    if(!client.transaction)throw new Error('Nested billing transaction is not supported');
+    const tx=await client.transaction('write');
+    try{const value=await work(new LibsqlDatabase(tx));await tx.commit();return value;}catch(error){await tx.rollback();throw error;}finally{tx.close();}
+  }
   prepare(sql: string): Statement { return new LibsqlStatement(this, sql); }
   async batch(statements: Statement[]): Promise<{ meta: { changes: number } }[]> {
     if (!statements.length) return [];

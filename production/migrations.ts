@@ -10,7 +10,10 @@ export const migrationFiles = [
   "0004_spicy_bloodstrike.sql",
   "0005_fair_proemial_gods.sql",
   "0006_known_argent.sql",
+  "0007_payment_attempts.sql",
   "0007_plan_capture.sql",
+  "0008_professional_billing.sql",
+  "0009_unified_preview_lineage.sql",
 ] as const;
 export interface Migration { name: string; sql: string }
 
@@ -31,18 +34,33 @@ export async function applyMigrations(client: Client, migrations: Migration[]): 
     }
     await tx.execute("CREATE TABLE IF NOT EXISTS myintel_migrations (name TEXT PRIMARY KEY, checksum TEXT NOT NULL, applied_at TEXT NOT NULL)");
     const previous = (await tx.execute("SELECT name, checksum FROM myintel_migrations ORDER BY name")).rows;
-    if (previous.length > migrations.length) throw new Error("Database contains unknown migrations");
-    for (let i = 0; i < previous.length; i++) {
-      const migration = migrations[i]!;
-      if (previous[i]!.name !== migration.name || previous[i]!.checksum !== checksum(migration.sql)) {
+    const byName = new Map(migrations.map(m => [m.name, m]));
+    for (const entry of previous) {
+      const migration = byName.get(String(entry.name));
+      if (!migration) throw new Error("Database contains unknown migrations");
+      if (entry.checksum !== checksum(migration.sql)) {
         throw new Error("Applied migration history differs from this release");
       }
     }
+    // Two releases independently extended the same seven base migrations.
+    // Accept only their exact historical prefixes or the unified prefix; never
+    // renumber, replace checksums, or infer missing historical base migrations.
+    const base = migrationFiles.slice(0, 7);
+    const lineages: readonly (readonly string[])[] = [
+      migrationFiles,
+      [...base, "0007_payment_attempts.sql"],
+      [...base, "0007_plan_capture.sql", "0008_professional_billing.sql"],
+    ];
+    const names = previous.map(entry => String(entry.name));
+    if (!lineages.some(lineage => names.length <= lineage.length && names.every((name, i) => name === lineage[i]))) {
+      throw new Error("Applied migration history differs from a recognized release prefix");
+    }
+    const appliedNames = new Set(names);
     const applied: string[] = [];
-    for (const migration of migrations.slice(previous.length)) {
+    for (const migration of migrations.filter(m => !appliedNames.has(m.name))) {
       // The checked-in migrations contain table/index DDL, without triggers or
       // semicolons inside string literals. Do not use this for arbitrary SQL dumps.
-      const statements = migration.sql.replaceAll("--> statement-breakpoint", "").split(";").map(s => s.trim()).filter(Boolean);
+      const statements = migration.sql.replaceAll("--> statement-breakpoint", "").replace(/^\s*--[^\r\n]*$/gm, "").split(";").map(s => s.trim()).filter(Boolean);
       for (const sql of statements) await tx.execute(sql);
       await tx.execute({ sql: "INSERT INTO myintel_migrations (name, checksum, applied_at) VALUES (?, ?, ?)", args: [migration.name, checksum(migration.sql), new Date().toISOString()] });
       applied.push(migration.name);
