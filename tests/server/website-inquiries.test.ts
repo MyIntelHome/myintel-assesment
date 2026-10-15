@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, it, expect, vi } from 'vitest';
 import { SqliteTestDatabase } from './sqlite-test-db';
-import { productionApi } from '../../production/app';
+import { productionApi, handleProductionRequest } from '../../production/app';
 import { handleApi, type Env } from '../../worker/api';
 import { deliverMail } from '../../worker/leads';
 import { websiteInquiryRoute, websitePreviewOrigins } from '../../worker/website-inquiries';
@@ -23,7 +23,7 @@ beforeEach(() => {
   env = { DB: db, APP_ORIGIN: 'https://homecheck.test', ASSETS: { fetch: async () => new Response() }, MYINTEL_ADMIN_EMAIL: 'staff@example.test', LEADS: { ...config } };
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({ id: 'test-provider-message' })));
 });
-afterEach(() => { db.close(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => { db.close(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 it.each(['contact', 'care_company'])('captures %s anonymously, queues only staff mail and returns no submitted data', async type => {
   const v = values(type), r = await call(v);
@@ -39,6 +39,15 @@ it.each(['contact', 'care_company'])('captures %s anonymously, queues only staff
   expect(sent.to).toEqual([config.staffEmail]);
   expect(sent.text).toContain(type === 'contact' ? 'Website contact' : 'Care company');
   expect(sent.text).toContain(v.message); expect(sent.text).toContain(`?view=operations&item=${v.idempotencyKey}`);
+});
+it('keeps preflight and unavailable responses readable without backend credentials',async()=>{
+ vi.stubEnv('VERCEL_ENV','preview');vi.stubEnv('MYINTEL_LEAD_PREVIEW','false');
+ const pre=request(undefined,'https://www.myintelhome.com','OPTIONS');pre.headers.set('access-control-request-method','POST');
+ expect((await handleProductionRequest(pre)).status).toBe(204);
+ for(const flag of ['false','true']){
+  vi.stubEnv('MYINTEL_LEAD_PREVIEW',flag);vi.stubEnv('MYINTEL_DATABASE_URL','');vi.stubEnv('MYINTEL_SUPABASE_URL','');
+  const r=await handleProductionRequest(request());expect(r.status).toBe(503);expect(await r.json()).toEqual({ok:false});expect(r.headers.get('access-control-allow-origin')).toBe('https://www.myintelhome.com');
+ }
 });
 it('keeps the production origin check for other routes and never resolves a public form identity', async () => {
   const identity = vi.fn(async () => null), route = productionApi(env, { identity, route: async () => new Response() });

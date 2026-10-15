@@ -49,7 +49,9 @@ Rate limiting allows ten POST attempts per IP per 15-minute window in the databa
 5. Retry each identical payload with its original UUID. Confirm exactly one lead, submission event and staff notification per type. Also verify denied origins and the disabled-capture phone fallback.
 6. Obtain Austin's approval before production migration/deployment and setting the website endpoint to `https://homecheck.myintelhome.com/api/website-inquiry`. This change adds no new production feature flag. Keep existing capture/delivery and payment/shop flags unchanged.
 
-Local verification: both production builds and type checks passed. The backend suite passed 374 tests, including 22 inquiry tests using a real SQLite database and a mocked email provider. Browser layout checks cover 1440, 1024, 768, 375 and 320px. Hosted records and real staff inbox delivery remain unverified until preview configuration is available.
+Local verification: both production builds and type checks passed. The backend suite passed 375 tests, including 23 inquiry tests using a real SQLite database and a mocked email provider. Browser layout checks cover 1440, 1024, 768, 375 and 320px. A local browser integration also submitted both forms through the actual intake handler, checked the two Operations records, and retried both original payloads. Exactly two staff notifications reached the fake provider, with no customer replies. Success-message focus passed. This is not proof of real inbox delivery.
+
+Both draft PRs have successful Vercel deployments. Website PR: https://github.com/MyIntelHome/MyIntel-Website/pull/3. HomeCheck PR: https://github.com/MyIntelHome/myintel-assesment/pull/8. Both preview URLs currently require Vercel sign-in. No preview credentials, migrations or environment variables were changed during this implementation, so hosted records and real staff inbox delivery remain unverified.
 
 ## Rollback
 
