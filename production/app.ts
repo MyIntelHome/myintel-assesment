@@ -4,10 +4,12 @@ import { supabaseAuth } from "./auth-provider";
 import { createProductionDatabase } from "./database";
 import { privatePhotos } from "./photos";
 import {leadSettings} from '../worker/leads';
+import {websiteInquiryRoute,websitePreviewOrigins} from '../worker/website-inquiries';
 
 export function productionApi(env: Env, auth: Pick<PublicAuth, "identity" | "route">) {
   return async (request: Request): Promise<Response> => {
     const url = new URL(request.url);
+    if(url.pathname==='/api/website-inquiry'&&url.origin===env.APP_ORIGIN&&env.LEADS)return websiteInquiryRoute(request,env.DB,env.LEADS);
     if (!env.APP_ORIGIN || url.origin !== env.APP_ORIGIN || (!["GET", "HEAD"].includes(request.method) && request.headers.get("origin") !== env.APP_ORIGIN)) {
       return Response.json({ error: "Open MyIntel on its configured address." }, { status: 403, headers: { "Cache-Control": "no-store" } });
     }
@@ -24,6 +26,10 @@ export function productionApi(env: Env, auth: Pick<PublicAuth, "identity" | "rou
 let cached: ReturnType<typeof productionApi> | undefined;
 export async function handleProductionRequest(request: Request): Promise<Response> {
   try {
+    if(new URL(request.url).pathname==='/api/website-inquiry'){
+      const settings={...leadSettings(process.env),websiteOrigins:websitePreviewOrigins(process.env.MYINTEL_WEBSITE_PREVIEW_ORIGINS)};
+      if(request.method==='OPTIONS'||!settings.enabled)return websiteInquiryRoute(request,undefined,settings);
+    }
     if(new URL(request.url).pathname==='/api/lead-config'&&request.method==='GET'){
       const settings=leadSettings(process.env);return Response.json({enabled:settings.enabled,deliveryEnabled:settings.deliveryEnabled&&!!settings.apiKey&&!!settings.sender&&(settings.allowedEmails===undefined||settings.allowedEmails.length>0),shopUrl:settings.shopUrl},{headers:{'Cache-Control':'no-store'}});
     }
@@ -34,10 +40,12 @@ export async function handleProductionRequest(request: Request): Promise<Respons
       if (parsed.protocol !== "https:" || parsed.origin !== url || parsed.username || parsed.password) throw new Error("Invalid account service URL");
       const db = createProductionDatabase({ url: required("MYINTEL_DATABASE_URL"), authToken: required("MYINTEL_DATABASE_AUTH_TOKEN") });
       const auth = new PublicAuth(db, supabaseAuth(url, required("MYINTEL_SUPABASE_PUBLISHABLE_KEY"), origin), origin, required("MYINTEL_SESSION_KEY"));
-      cached = productionApi({ DB: db, BUCKET: privatePhotos(url, required("MYINTEL_SUPABASE_SERVICE_KEY"), required("MYINTEL_PHOTO_BUCKET")), ASSETS: { fetch: async () => new Response(null, { status: 404 }) }, APP_ORIGIN: origin, MYINTEL_ADMIN_EMAIL: process.env.MYINTEL_ADMIN_EMAIL,LEADS:leadSettings(process.env) }, auth);
+      const leads={...leadSettings(process.env),websiteOrigins:websitePreviewOrigins(process.env.MYINTEL_WEBSITE_PREVIEW_ORIGINS),rateLimitSalt:required('MYINTEL_SESSION_KEY')};
+      cached = productionApi({ DB: db, BUCKET: privatePhotos(url, required("MYINTEL_SUPABASE_SERVICE_KEY"), required("MYINTEL_PHOTO_BUCKET")), ASSETS: { fetch: async () => new Response(null, { status: 404 }) }, APP_ORIGIN: origin, MYINTEL_ADMIN_EMAIL: process.env.MYINTEL_ADMIN_EMAIL,LEADS:leads }, auth);
     }
     return await cached(request);
   } catch {
+    if(new URL(request.url).pathname==='/api/website-inquiry')return websiteInquiryRoute(request,undefined,{...leadSettings(process.env),enabled:false,websiteOrigins:websitePreviewOrigins(process.env.MYINTEL_WEBSITE_PREVIEW_ORIGINS)});
     return Response.json({ error: "MyIntel account services are temporarily unavailable. Your device draft is still here." }, { status: 503, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
   }
 }

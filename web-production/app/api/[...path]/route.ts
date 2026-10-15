@@ -7,3 +7,4 @@ export const PUT = handleProductionRequest;
 export const PATCH = handleProductionRequest;
 export const DELETE = handleProductionRequest;
 export const HEAD = handleProductionRequest;
+export const OPTIONS = handleProductionRequest;

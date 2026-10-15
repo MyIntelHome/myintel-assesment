@@ -7,7 +7,7 @@ import {buildFamilyReport,reportToPlainText} from '../src/domain/family-report';
 import {homeSummaryText} from '../src/domain/home-report-summary';
 import {homeActionsText} from '../src/domain/home-actions';
 import {FUNNEL_EVENTS,TIMING_BUCKETS,validShopUrl} from '../src/domain/lead-config';
-export interface LeadSettings { enabled:boolean; deliveryEnabled:boolean; shopUrl?:string; staffEmail?:string; sender?:string; apiKey?:string; allowedEmails?:string[]; origin?:string }
+export interface LeadSettings { enabled:boolean; deliveryEnabled:boolean; shopUrl?:string; staffEmail?:string; sender?:string; apiKey?:string; allowedEmails?:string[]; origin?:string; websiteOrigins?:string[]; rateLimitSalt?:string }
 export const leadSettings=(env:Record<string,string|undefined>):LeadSettings=>{
  const production=env.VERCEL_ENV==='production';
  const enabled=production?env.MYINTEL_LEAD_CAPTURE==='true':env.VERCEL_ENV==='preview'&&env.MYINTEL_LEAD_PREVIEW==='true';
@@ -109,7 +109,7 @@ export async function leadRoute(request:Request,db:Database,user:AccountUser|nul
  if(path.startsWith('/api/admin/')&&!user.isAdmin)return reply({error:'MyIntel staff access required.'},403);
  if(path==='/api/admin/mail-retry'&&method==='POST'){
   const data=await input(request,300);if(data.error)return data.error;
-  const v=z.object({id:z.string().max(120).regex(/^staff-(plan|request):[\w-]+$/)}).strict().parse(data.value);
+  const v=z.object({id:z.string().max(120).regex(/^staff-(plan|request|website):[\w-]+$/)}).strict().parse(data.value);
   return reply({status:await deliverMail(db,settings,v.id)});
  }
  if(path==='/api/admin/plans'&&method==='GET')return reply({plans:(await db.prepare('SELECT id,name,email,postal_code,phone,contact_consent,share_consent,email_consent,created_at,coordinator_id,coordinator_name,closed_at,CASE WHEN share_consent=1 THEN snapshot ELSE NULL END AS snapshot FROM saved_plans ORDER BY closed_at IS NOT NULL,created_at ASC LIMIT 200').all()).results,mail:(await db.prepare('SELECT id,kind,status,created_at,accepted_at FROM lead_mail ORDER BY created_at DESC LIMIT 200').all()).results});
