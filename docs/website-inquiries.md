@@ -71,3 +71,19 @@ The corresponding older-branch values are write-only Vercel Secrets and cannot b
 ## Rollback
 
 Remove the website endpoint setting and redeploy to show the call fallback, or revert the website form commit. Revert the HomeCheck commit to remove the public endpoint and new Operations queue. Existing HomeCheck lead capture can continue with its original flags. Do not turn off existing production capture/delivery merely to roll back website forms. Keep the additive tables, migration journal and any captured inquiries for staff review. Do not drop or alter production tables. Clear only the new preview-origin allowlist when the preview is retired. Preserve an encrypted complete snapshot before any future data change.
+
+
+## October 16 hosted verification checkpoint
+
+This checkpoint supersedes the earlier missing-credentials status. Production is unchanged; keep both PRs draft and do not merge or launch.
+
+- Browser control was verified in a local Codex session before operating dashboards. All four missing values are saved as Vercel Secrets only for HomeCheck Preview / `feature/website-inquiries`. No secret values are recorded here.
+- The target is `myintel-payment-preview-0928`, never the production database. A database export passed SQLite integrity checks and all 11 existing migration checksums matched saved source, including the payment/billing lineage. Encrypted before/after copies were retained locally.
+- Applied only `0008_website_inquiries.sql` (SHA-256 `17d9a0c21f8fc4f28f1856bbada0380f833bf66ecbbc64b14c8e01770de4ed06`). Turso Studio does not retain an explicit transaction across statements, so the three tables and index were added separately and verified before recording the journal entry. All 11 previous entries are preserved; the journal now has 12. Existing unrelated table counts were unchanged.
+- HomeCheck deployment `dpl_3MnL6r1m8BCynDQiB34hcThvLSxx`, commit `bbb18f578644b615bfe82cc124abb410688d3f58`, reached READY with the new credentials. Capture and delivery report enabled; shop URL remains empty.
+- Through Austin-approved temporary Vercel preview access, one clearly synthetic contact and one synthetic care-company payload returned HTTP 200 / `{ok:true}`. Each original payload and UUID was then retried unchanged, also returning 200. Post-test database inspection found exactly one inquiry, one submitted audit event, and one accepted staff notification per type, with no customer auto-replies.
+- Actual Gmail INBOX receipt was verified at `austin@myintelhome.com`: one “MyIntel: Website contact” and one “MyIntel: Care company”, both at 2026-10-16 23:46:19 UTC (5:46:19 PM Denver). A later inbox search still found exactly those two test messages.
+- Authenticated exact-origin preflight returned 204; an unapproved origin returned application JSON 403. Credential-free preflight was redirected by Vercel authentication (302). The unmodified hosted website form therefore showed its call fallback and preserved the entered values. Temporary access cookies do not authenticate the form's `credentials:omit` cross-origin request. Never embed a protection token in NEXT_PUBLIC configuration, relax production protection, or claim a browser success from the authenticated API checks.
+- Remaining: successful protected browser-to-form submission using a supported origin-scoped test-authentication mechanism; desktop/375px hosted success verification; staff sign-in and visible confirmation of both Operations labels/fields/consent times. The first preview password sign-in returned a generic verification failure; Austin was asked to retry directly in the browser. Backend/API and inbox evidence do not prove the Operations UI or browser success.
+
+The release approval gate remains in place. Do not merge, migrate production, change the production endpoint, or launch until the remaining hosted browser/staff checks pass and Austin approves.
