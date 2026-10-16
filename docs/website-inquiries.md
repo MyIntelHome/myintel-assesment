@@ -51,7 +51,22 @@ Rate limiting allows ten POST attempts per IP per 15-minute window in the databa
 
 Local verification: both production builds and type checks passed. The backend suite passed 375 tests, including 23 inquiry tests using a real SQLite database and a mocked email provider. Browser layout checks cover 1440, 1024, 768, 375 and 320px. A local browser integration also submitted both forms through the actual intake handler, checked the two Operations records, and retried both original payloads. Exactly two staff notifications reached the fake provider, with no customer replies. Success-message focus passed. This is not proof of real inbox delivery.
 
-Both draft PRs have successful Vercel deployments. Website PR: https://github.com/MyIntelHome/MyIntel-Website/pull/3. HomeCheck PR: https://github.com/MyIntelHome/myintel-assesment/pull/8. Both preview URLs currently require Vercel sign-in. No preview credentials, migrations or environment variables were changed during this implementation, so hosted records and real staff inbox delivery remain unverified.
+Both draft PRs have successful Vercel deployments. Website PR: https://github.com/MyIntelHome/MyIntel-Website/pull/3. HomeCheck PR: https://github.com/MyIntelHome/myintel-assesment/pull/8. Both preview URLs require Vercel sign-in. Hosted records and real staff inbox delivery remain unverified.
+
+## October 15 preview configuration checkpoint
+
+Vercel access now works for both projects, including protected page reads. Preview redeployments reached READY: HomeCheck `dpl_EHnYK58y2R4AE844Cr9A2idCs3p4`, website `dpl_5BV8yuk2EnXxpuGfnz3LQdAPhVpT`. Their targets are preview, not production.
+
+On `feature/website-inquiries`, configured the exact APP_ORIGIN and website preview-origin allowlist, capture/email preview flags, Austin-only recipient allowlist, staff/admin address, verified sender, photo bucket and a new independent session secret. Reused only the existing public Supabase URL and publishable configuration. Production settings and other preview branches were not edited. The website's `feature/website-inquiry-forms` now has its public endpoint set to the HomeCheck branch preview.
+
+Four values remain missing from the new HomeCheck branch:
+
+- `MYINTEL_DATABASE_URL`, for the isolated test database only.
+- `MYINTEL_DATABASE_AUTH_TOKEN`, a currently valid token for that test database.
+- `MYINTEL_SUPABASE_SERVICE_KEY`, the approved server account/storage key.
+- `RESEND_API_KEY`, the approved sending key.
+
+The corresponding older-branch values are write-only Vercel Secrets and cannot be copied through the read API. Add these directly in Vercel, scoped to Preview and `feature/website-inquiries`, without pasting secrets into chat. The old test database token was documented as temporary; verify or renew it. Then redeploy, verify the isolated database journal, apply only pending migrations, and run the hosted test sequence above. No database migration or real staff email has run in this checkpoint. The protected lead-config check returned `enabled:true`, `deliveryEnabled:false`, and an empty shop URL, as expected with missing delivery credentials.
 
 ## Rollback
 
