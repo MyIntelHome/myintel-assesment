@@ -14,6 +14,7 @@ import {buildFamilyReport,reportToPlainText} from "../src/domain/family-report";
 import {familyTemplateFor,profileLines,activeHomeSpaces} from "../src/domain/home-profile";
 import {accountIdentity,anonymousIdentity,type IdentityResolver} from "./auth";
 import {leadRoute,deliverMail,mailStatement,staffMessage,countStatement,type LeadSettings} from './leads';
+import {websiteInquiryAdminRoute} from './website-inquiries';
 
 export interface Statement {bind(...values:unknown[]):Statement;first<T=Record<string,unknown>>():Promise<T|null>;all<T=Record<string,unknown>>():Promise<{results:T[]}>;run():Promise<{meta:{changes:number}}>}
 export interface Database {prepare(sql:string):Statement;batch(statements:Statement[]):Promise<{meta:{changes:number}}[]>}
@@ -64,6 +65,7 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
       if(!origin || (origin!==url.origin && origin!==env.APP_ORIGIN))return json({error:"This request must come from the MyIntel app."},403);
     }
     const user=accountIdentity(await resolveIdentity(request),env.MYINTEL_ADMIN_EMAIL);
+    if(env.LEADS?.enabled){const inquiry=await websiteInquiryAdminRoute(request,env.DB,user);if(inquiry)return inquiry;}
     if(env.LEADS){const lead=await leadRoute(request,env.DB,user,env.LEADS,env.APP_ORIGIN??url.origin);if(lead)return lead;}
     if(path==="/api/account" && method==="GET")return json({user,professionalAccess:user && env.DB?await env.DB.prepare("SELECT * FROM professional_access WHERE user_id=?").bind(user.id).first():null,paymentsEnabled:!!env.STRIPE_SECRET_KEY && !!env.STRIPE_WEBHOOK_SECRET});
     if(!user)return json({error:"Sign in to continue."},401);

@@ -3,7 +3,7 @@ import { createClient, type Client } from "@libsql/client";
 import { createHash } from "node:crypto";
 import { LibsqlDatabase, createProductionDatabase } from "../../production/database";
 import { applyMigrations, readMigrations } from "../../production/migrations";
-import { exportSnapshot, restoreSnapshot, createSnapshot,legacyApplicationTables,type Snapshot } from "../../production/snapshot";
+import { exportSnapshot, restoreSnapshot, createSnapshot,legacyApplicationTables,leadApplicationTables,type Snapshot } from "../../production/snapshot";
 import { handleApi, type Env } from "../../worker/api";
 
 let source: Client, target: Client, db: LibsqlDatabase;
@@ -14,8 +14,18 @@ beforeEach(async () => {
   db = new LibsqlDatabase(source);
 });
 afterEach(() => { source.close(); target.close(); });
+it('preserves old v3 backups and includes new inquiry records in complete backup and restore',async()=>{
+ const empty=await exportSnapshot(source);
+ const previous=createSnapshot(empty.tables.filter(t=>leadApplicationTables.includes(t.name)));
+ expect(previous.version).toBe(3);await restoreSnapshot(target,previous);
+ await source.execute("INSERT INTO website_inquiries(id,type,name,email,phone,relationship,postal_code,company_name,role,client_count,message,consent_at,payload_hash,created_at) VALUES ('test','contact','Synthetic','test@example.test','','myself','','','','','Test note','now','hash','now')");
+ const backup=await exportSnapshot(source);expect(backup.version).toBe(4);
+ expect((await restoreSnapshot(target,backup)).website_inquiries).toBe(1);
+ expect((await exportSnapshot(target)).tables).toEqual(backup.tables);
+ await expect(restoreSnapshot(target,previous)).rejects.toThrow('empty destination');
+});
 it('restores a previous v2 backup into an empty expanded database but never overwrites new lead records',async()=>{
- const full=await exportSnapshot(source);expect(full.version).toBe(3);expect(full.tables.map(t=>t.name)).toContain('saved_plans');
+ const full=await exportSnapshot(source);expect(full.version).toBe(4);expect(full.tables.map(t=>t.name)).toContain('saved_plans');
  const old=createSnapshot(full.tables.filter(t=>(legacyApplicationTables as readonly string[]).includes(t.name)));expect(old.version).toBe(2);await restoreSnapshot(target,old);
  await target.execute("INSERT INTO funnel_counts VALUES ('2026-10-06','check_started','',1)");await expect(restoreSnapshot(target,old)).rejects.toThrow('empty destination');
 });
