@@ -4,6 +4,7 @@ import "./workspace.css";
 import "@/components/FamilyFlow.css";
 import "./redesign.css";
 import "./professional-report.css";
+import "./organization.css";
 
 export const metadata: Metadata = {
   title: "MyIntel | Home Check",

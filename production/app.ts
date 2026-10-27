@@ -19,7 +19,7 @@ export function productionApi(env: Env, auth: Pick<PublicAuth, "identity" | "rou
     }
     if (url.pathname.startsWith("/api/stripe/") || url.pathname.endsWith("/checkout")) return Response.json({ error: "Payments are not enabled." }, { status: 503 });
     // Do not propagate payment credentials, Sites headers, or browser role flags.
-    return handleApi(request, { DB: env.DB, BUCKET: env.BUCKET, ASSETS: env.ASSETS, APP_ORIGIN: env.APP_ORIGIN, MYINTEL_ADMIN_EMAIL: env.MYINTEL_ADMIN_EMAIL,LEADS:env.LEADS }, request => auth.identity(request));
+    return handleApi(request, { DB: env.DB, BUCKET: env.BUCKET, ASSETS: env.ASSETS, APP_ORIGIN: env.APP_ORIGIN, MYINTEL_ADMIN_EMAIL: env.MYINTEL_ADMIN_EMAIL,LEADS:env.LEADS,ORGANIZATIONS:env.ORGANIZATIONS }, request => auth.identity(request));
   };
 }
 
@@ -41,7 +41,7 @@ export async function handleProductionRequest(request: Request): Promise<Respons
       const db = createProductionDatabase({ url: required("MYINTEL_DATABASE_URL"), authToken: required("MYINTEL_DATABASE_AUTH_TOKEN") });
       const auth = new PublicAuth(db, supabaseAuth(url, required("MYINTEL_SUPABASE_PUBLISHABLE_KEY"), origin), origin, required("MYINTEL_SESSION_KEY"));
       const leads={...leadSettings(process.env),websiteOrigins:websitePreviewOrigins(process.env.MYINTEL_WEBSITE_PREVIEW_ORIGINS),rateLimitSalt:required('MYINTEL_SESSION_KEY')};
-      cached = productionApi({ DB: db, BUCKET: privatePhotos(url, required("MYINTEL_SUPABASE_SERVICE_KEY"), required("MYINTEL_PHOTO_BUCKET")), ASSETS: { fetch: async () => new Response(null, { status: 404 }) }, APP_ORIGIN: origin, MYINTEL_ADMIN_EMAIL: process.env.MYINTEL_ADMIN_EMAIL,LEADS:leads }, auth);
+      cached = productionApi({ DB: db, BUCKET: privatePhotos(url, required("MYINTEL_SUPABASE_SERVICE_KEY"), required("MYINTEL_PHOTO_BUCKET")), ASSETS: { fetch: async () => new Response(null, { status: 404 }) }, APP_ORIGIN: origin, MYINTEL_ADMIN_EMAIL: process.env.MYINTEL_ADMIN_EMAIL,LEADS:leads,ORGANIZATIONS:process.env.MYINTEL_ORGANIZATIONS==='true' }, auth);
     }
     return await cached(request);
   } catch {

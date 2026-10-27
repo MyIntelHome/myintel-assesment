@@ -1,0 +1,71 @@
+.organization-dashboard { color: #18354a; max-width: 1260px; margin: 0 auto; }
+.organization-heading,.organization-section-heading,.organization-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 18px; margin-bottom: 24px; }
+.organization-heading h1 { margin-bottom: 8px; }
+.organization-heading p,.organization-section-heading p { color: #536778; }
+.organization-toolbar label { min-width: 240px; }
+.organization-dashboard label { display: grid; gap: 8px; font-weight: 650; }
+.organization-dashboard input:not([type=checkbox]),.organization-dashboard select { width: 100%; max-width: 100%; }
+.organization-dashboard .app-secondary,.organization-dashboard .app-primary { white-space: normal; }
+.organization-dashboard .account-card { margin: 24px 0; }
+.organization-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 16px; }
+.organization-form > h2,.organization-form > h3,.organization-form > p { flex-basis: 100%; margin-bottom: 0; }
+.organization-form label { flex: 1 1 240px; }
+.organization-hero { padding: 28px; background: #e8f3f0; border: 1px solid #cadfd8; border-radius: 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.organization-hero > div { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.organization-hero h2 { margin: 4px 0; overflow-wrap: anywhere; }
+.organization-hero p { margin: 3px 0; }
+.organization-emblem { display: grid; place-items: center; width: 58px; height: 58px; flex: 0 0 58px; background: #17695f; color: white; border-radius: 17px; font-weight: 800; font-size: 28px; }
+.organization-private-label { background: white; padding: 9px 14px; border: 1px solid #c8dcd5; border-radius: 24px; font-size: 12px; color: #375d55; }
+.organization-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; margin: 22px 0 32px; }
+.organization-metrics > section { display: flex; flex-direction: column; padding: 22px; background: white; border: 1px solid #dce6e7; border-radius: 16px; }
+.organization-metrics strong { font-size: 34px; line-height: 1.25; color: #17695f; margin-bottom: 8px; }
+.organization-metrics span { font-size: 13px; color: #536778; }
+.organization-metrics > .has-critical { border-color: #b9494d; background: #fff5f3; }
+.organization-metrics > .has-critical strong { color: #a82e39; }
+.organization-cases { margin: 32px 0; }
+.organization-section-heading h2 { margin: 0; }
+.organization-section-heading label { font-size: 13px; min-width: 220px; }
+.organization-case-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(270px,100%),1fr)); gap: 18px; }
+.organization-case { background: white; border: 1px solid #dce6e7; border-radius: 16px; padding: 22px; overflow-wrap: anywhere; }
+.organization-case.has-critical { border-top: 4px solid #b9494d; }
+.organization-case-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.organization-case h3 { margin: 0; font-size: 18px; font-family: var(--body); }
+.organization-badge { display: inline-block; background: #edf3f4; color: #425e6f; border-radius: 6px; padding: 4px 8px; font-size: 11px; line-height: 1.5; }
+.organization-case-score { display: flex; align-items: baseline; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+.organization-case-score strong { color: #925d19; font-size: 30px; }
+.organization-case-score span,.organization-assessor { color: #536778; font-size: 13px; }
+.organization-case p { font-size: 13px; }
+.organization-case small { display: block; color: #617685; line-height: 1.6; margin: 12px 0; }
+.organization-critical { color: #a82e39; font-weight: 750; }
+.organization-warning { color: #805415; font-weight: 650; }
+.organization-dashboard .organization-consent { display: flex; align-items: flex-start; gap: 12px; font-weight: 500; line-height: 1.7; margin: 18px 0; }
+.organization-consent input { width: 22px; height: 22px; flex: 0 0 22px; margin-top: 4px; }
+.organization-share-preview { border-top: 1px solid #dce6e7; margin-top: 22px; padding-top: 20px; }
+.organization-share-preview dl { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 15px; padding: 18px; background: #f2f7f7; border-radius: 12px; }
+.organization-share-preview dt { color: #536778; font-size: 12px; }
+.organization-share-preview dd { font-weight: 700; margin: 6px 0 0; }
+.organization-member { display: flex; align-items: center; gap: 14px; padding: 18px 0; border-top: 1px solid #e5ebec; flex-wrap: wrap; }
+.organization-member > div:not(.organization-confirm) { flex: 1; min-width: 180px; }
+.organization-member strong,.organization-member small { display: block; overflow-wrap: anywhere; }
+.organization-member small { color: #536778; margin: 5px 0; }
+.organization-avatar { width: 40px; height: 40px; display: grid; place-items: center; background: #e8f3f0; color: #17695f; border-radius: 50%; font-weight: 750; }
+.organization-confirm { flex: 1 1 100%; background: #fff7ee; border-radius: 12px; padding: 16px; }
+.organization-confirm button + button { margin-left: 10px; }
+.organization-invitation { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; padding: 18px 0; border-top: 1px solid #e5ebec; }
+.organization-invitation strong,.organization-invitation small { display: block; overflow-wrap: anywhere; }
+.organization-invitation small { color: #536778; margin-top: 6px; }
+.organization-invitation-link { padding: 18px; background: #f2f7f7; margin: 20px 0; border-radius: 12px; }
+.organization-invitation-link input { margin-bottom: 12px; }
+.organization-notice { background: #eaf4f1; color: #205d52; padding: 16px 20px; border-radius: 12px; }
+.organization-activity ol { list-style: none; margin: 0; padding: 0; }
+.organization-activity li { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; padding: 14px 0; border-top: 1px solid #e5ebec; }
+.organization-activity strong,.organization-activity span { display: block; }
+.organization-activity span,.organization-activity time { font-size: 13px; color: #536778; margin-top: 5px; }
+@media (max-width: 750px) {
+ .organization-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .organization-metrics > section { padding: 16px; }
+ .organization-share-preview dl { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .organization-hero { padding: 20px; }
+ .organization-activity li { flex-wrap: wrap; gap: 4px; }
+ .organization-dashboard .account-card { padding: 20px; }
+}

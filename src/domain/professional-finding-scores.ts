@@ -30,7 +30,7 @@ function result(counts: Counts) {
 export type FindingScore = ReturnType<typeof result>;
 
 /** Required and explicitly assessed optional items contribute; missing checks never count as passes. */
-export function professionalFindingScores(state: CaseState) {
+export function professionalFindingScores(state: Pick<CaseState, "spaces" | "responses">) {
   const overall = emptyCounts();
   const categories = new Map(ITEM_CATEGORIES.map(id => [id, emptyCounts()]));
   const present = new Set<ItemCategory>();

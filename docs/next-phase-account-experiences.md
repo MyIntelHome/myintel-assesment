@@ -1,5 +1,7 @@
 # Client and professional experiences
 
+October 27 update: [organization team management and separately shared summaries](organization-dashboard-2026-10-27.md) are now implemented for review, default off. Full shared clinical archives, supervisor review, assigned caseloads and organization billing remain outside this version. The descriptions below are historical; current public hosting uses verified Supabase sessions on Vercel, not Sites identity headers.
+
 The private review now has separate client and professional entry, navigation and dashboards. Clients see home checks and support; approved professionals see their own clinical case list, report workflow and practice/access page.
 
 Authentication still uses Sites ChatGPT identity. Selecting a professional URL grants no privileges; staff status does not grant clinical access. MyIntel operations reviews credential applications with applicant-visible notes and audited, revision-checked decisions. Revocation blocks subsequent clinical reads and writes. No real account is automatically approved.

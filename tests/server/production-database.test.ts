@@ -3,7 +3,7 @@ import { createClient, type Client } from "@libsql/client";
 import { createHash } from "node:crypto";
 import { LibsqlDatabase, createProductionDatabase } from "../../production/database";
 import { applyMigrations, readMigrations } from "../../production/migrations";
-import { exportSnapshot, restoreSnapshot, createSnapshot,legacyApplicationTables,leadApplicationTables,type Snapshot } from "../../production/snapshot";
+import { exportSnapshot, restoreSnapshot, createSnapshot,legacyApplicationTables,leadApplicationTables,websiteApplicationTables,type Snapshot } from "../../production/snapshot";
 import { handleApi, type Env } from "../../worker/api";
 
 let source: Client, target: Client, db: LibsqlDatabase;
@@ -19,17 +19,34 @@ it('preserves old v3 backups and includes new inquiry records in complete backup
  const previous=createSnapshot(empty.tables.filter(t=>leadApplicationTables.includes(t.name)));
  expect(previous.version).toBe(3);await restoreSnapshot(target,previous);
  await source.execute("INSERT INTO website_inquiries(id,type,name,email,phone,relationship,postal_code,company_name,role,client_count,message,consent_at,payload_hash,created_at) VALUES ('test','contact','Synthetic','test@example.test','','myself','','','','','Test note','now','hash','now')");
- const backup=await exportSnapshot(source);expect(backup.version).toBe(4);
+ const backup=await exportSnapshot(source);expect(backup.version).toBe(6);
  expect((await restoreSnapshot(target,backup)).website_inquiries).toBe(1);
  expect((await exportSnapshot(target)).tables).toEqual(backup.tables);
  await expect(restoreSnapshot(target,previous)).rejects.toThrow('empty destination');
 });
 it('restores a previous v2 backup into an empty expanded database but never overwrites new lead records',async()=>{
- const full=await exportSnapshot(source);expect(full.version).toBe(4);expect(full.tables.map(t=>t.name)).toContain('saved_plans');
+ const full=await exportSnapshot(source);expect(full.version).toBe(6);expect(full.tables.map(t=>t.name)).toContain('saved_plans');
  const old=createSnapshot(full.tables.filter(t=>(legacyApplicationTables as readonly string[]).includes(t.name)));expect(old.version).toBe(2);await restoreSnapshot(target,old);
  await target.execute("INSERT INTO funnel_counts VALUES ('2026-10-06','check_started','',1)");await expect(restoreSnapshot(target,old)).rejects.toThrow('empty destination');
 });
 
+it('restores an old v4 backup and protects a destination containing newer organization records',async()=>{
+ const backup=await exportSnapshot(source);
+ const old=createSnapshot(backup.tables.filter(t=>websiteApplicationTables.includes(t.name)));
+ expect(old.version).toBe(4);await restoreSnapshot(target,old);
+ await target.execute("INSERT INTO organizations VALUES ('org','Practice','owner',1,'nonce','now','now')");
+ await expect(restoreSnapshot(target,old)).rejects.toThrow('empty destination');
+});
+it('backs up and exactly restores organization membership, invitations, sharing consent and history',async()=>{
+ await source.execute("INSERT INTO organizations VALUES ('org','Practice','owner',3,'nonce','now','now')");
+ await source.execute("INSERT INTO organization_members VALUES ('org','owner','owner','active','Owner','owner@example.test','now',NULL)");
+ await source.execute("INSERT INTO organization_invitations VALUES ('invite','org','member@example.test','pending','future','owner','now',NULL)");
+ await source.execute("INSERT INTO organization_case_summaries VALUES ('summary','org','owner','case',1,'{}','v1','consent','shared',NULL)");
+ await source.execute("INSERT INTO organization_events VALUES ('event','org','owner','summary_shared','summary','now')");
+ const backup=await exportSnapshot(source);expect(backup.version).toBe(6);
+ expect((await restoreSnapshot(target,backup)).organization_case_summaries).toBe(1);
+ expect((await exportSnapshot(target)).tables).toEqual(backup.tables);
+});
 it("refuses missing credentials, local database fallbacks and disabled TLS in production", () => {
   for (const url of [undefined, ":memory:", "file:resident.db", "http://database.test", "libsql://database.test?tls=0", "libsql://user:password@database.test"]) {
     expect(() => createProductionDatabase({ url, authToken: "example-test-token" })).toThrow();
@@ -58,6 +75,26 @@ it("rolls back all statements when a batch fails", async () => {
     db.prepare("INSERT INTO no_such_table VALUES (?)").bind("invalid"),
   ])).rejects.toThrow();
   expect(await db.prepare("SELECT * FROM request_coordinators").all()).toEqual({ results: [] });
+});
+
+it("keeps organization membership and audit claims atomic on the production libSQL adapter",async()=>{
+ const env:Env={DB:db,APP_ORIGIN:'https://app.test',ORGANIZATIONS:true,ASSETS:{fetch:async()=>new Response('')}};
+ const request=async(path:string,user:string,data?:unknown)=>{
+  const r=await handleApi(new Request('https://app.test'+path,{method:data?'POST':'GET',headers:{origin:'https://app.test','content-type':'application/json'},body:data?JSON.stringify(data):undefined}),env,async()=>({id:user,name:user,email:`${user}@example.test`,emailVerified:true}));
+  return {status:r.status,data:await r.json()};
+ };
+ const id=crypto.randomUUID();
+ expect((await request('/api/organizations','owner',{id,name:'Synthetic practice'})).status).toBe(201);
+ const invitation=await request(`/api/organizations/${id}/invitations`,'owner',{revision:1,email:'member@example.test'});
+ expect(invitation.status).toBe(201);
+ expect((await request('/api/organizations/accept','outside',{invitationId:invitation.data.invitation.id})).status).toBe(404);
+ expect((await request('/api/organizations/accept','member',{invitationId:invitation.data.invitation.id})).status).toBe(200);
+ expect((await request(`/api/organizations/${id}/invitations`,'owner',{revision:1,email:'stale@example.test'})).status).toBe(409);
+ expect((await source.execute('SELECT COUNT(*) AS n FROM organization_events')).rows[0]!.n).toBe(3);
+ await source.execute("CREATE TRIGGER fail_member_removal BEFORE UPDATE ON organization_members BEGIN SELECT RAISE(ABORT,'synthetic failure'); END");
+ expect((await request(`/api/organizations/${id}/members/member/remove`,'owner',{revision:3})).status).toBe(503);
+ expect((await request(`/api/organizations/${id}`,'member')).data.organization.revision).toBe(3);
+ expect((await source.execute('SELECT COUNT(*) AS n FROM organization_events')).rows[0]!.n).toBe(3);
 });
 
 it("rejects mixed-database batches and invalid bound values", async () => {

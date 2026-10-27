@@ -15,10 +15,11 @@ import {familyTemplateFor,profileLines,activeHomeSpaces} from "../src/domain/hom
 import {accountIdentity,anonymousIdentity,type IdentityResolver} from "./auth";
 import {leadRoute,deliverMail,mailStatement,staffMessage,countStatement,type LeadSettings} from './leads';
 import {websiteInquiryAdminRoute} from './website-inquiries';
+import {organizationRoute} from './organizations';
 
 export interface Statement {bind(...values:unknown[]):Statement;first<T=Record<string,unknown>>():Promise<T|null>;all<T=Record<string,unknown>>():Promise<{results:T[]}>;run():Promise<{meta:{changes:number}}>}
 export interface Database {prepare(sql:string):Statement;batch(statements:Statement[]):Promise<{meta:{changes:number}}[]>}
-export interface Env {DB:Database;BUCKET?:PhotoBucket;ASSETS:{fetch(request:Request):Promise<Response>};MYINTEL_ADMIN_EMAIL?:string;APP_ORIGIN?:string;STRIPE_SECRET_KEY?:string;STRIPE_WEBHOOK_SECRET?:string;LEADS?:LeadSettings}
+export interface Env {DB:Database;BUCKET?:PhotoBucket;ASSETS:{fetch(request:Request):Promise<Response>};MYINTEL_ADMIN_EMAIL?:string;APP_ORIGIN?:string;STRIPE_SECRET_KEY?:string;STRIPE_WEBHOOK_SECRET?:string;LEADS?:LeadSettings;ORGANIZATIONS?:boolean}
 export function json(data:unknown,status=200){return Response.json(data,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}})}
 async function body(request:Request,max=16000){
   if(!request.headers.get("content-type")?.startsWith("application/json")) throw new ApiError(415,"Send JSON data.");
@@ -67,10 +68,12 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
     const user=accountIdentity(await resolveIdentity(request),env.MYINTEL_ADMIN_EMAIL);
     if(env.LEADS?.enabled){const inquiry=await websiteInquiryAdminRoute(request,env.DB,user);if(inquiry)return inquiry;}
     if(env.LEADS){const lead=await leadRoute(request,env.DB,user,env.LEADS,env.APP_ORIGIN??url.origin);if(lead)return lead;}
+    if(path==="/api/organization-config" && method==="GET")return json({enabled:env.ORGANIZATIONS===true});
     if(path==="/api/account" && method==="GET")return json({user,professionalAccess:user && env.DB?await env.DB.prepare("SELECT * FROM professional_access WHERE user_id=?").bind(user.id).first():null,paymentsEnabled:!!env.STRIPE_SECRET_KEY && !!env.STRIPE_WEBHOOK_SECRET});
     if(!user)return json({error:"Sign in to continue."},401);
     if(!env.DB)throw new ApiError(503,"Your account service is temporarily unavailable. Your draft is still here.");
     const db=env.DB;
+    const organization=await organizationRoute(request,db,user,env.ORGANIZATIONS===true);if(organization)return organization;
     if(path==="/api/professional-access" && method==="POST"){
       const v=z.object({name:z.string().trim().min(2).max(100),practice:z.string().trim().min(2).max(150),credential:z.string().trim().min(2).max(200),region:z.string().trim().min(2).max(100)}).strict().parse(await body(request));
       const result=await db.prepare("INSERT INTO professional_access (user_id,email,name,practice,credential,region,status,revision,review_note,updated_at) VALUES (?,?,?,?,?,?,'pending',1,'',?) ON CONFLICT(user_id) DO NOTHING").bind(user.id,user.email,v.name,v.practice,v.credential,v.region,new Date().toISOString()).run();

@@ -10,11 +10,12 @@ export const legacyApplicationTables = [
   "request_professional_grants", "service_requests",
 ] as const;
 export const leadApplicationTables=[...legacyApplicationTables,'saved_plans','saved_plan_events','lead_mail','funnel_counts'].sort();
-export const applicationTables=[...leadApplicationTables,'website_inquiries','website_inquiry_events','website_inquiry_limits'].sort();
-const inventoryForVersion=(version:number)=>version===2?legacyApplicationTables:version===3?leadApplicationTables:applicationTables;
+export const websiteApplicationTables=[...leadApplicationTables,'website_inquiries','website_inquiry_events','website_inquiry_limits'].sort();
+export const applicationTables=[...websiteApplicationTables,'organizations','organization_members','organization_invitations','organization_case_summaries','organization_events'].sort();
+const inventoryForVersion=(version:number)=>version===2?legacyApplicationTables:version===3?leadApplicationTables:version===4?websiteApplicationTables:applicationTables;
 
 const snapshotSchema = z.object({
-  version: z.union([z.literal(2),z.literal(3),z.literal(4)]), createdAt: z.string().datetime(),
+  version: z.union([z.literal(2),z.literal(3),z.literal(4),z.literal(6)]), createdAt: z.string().datetime(),
   tables: z.array(z.object({
     name: z.string(), columns: z.array(z.string()),
     rows: z.array(z.array(z.union([z.string(), z.number().finite(), z.null()]))),
@@ -30,10 +31,10 @@ function hash(value: Omit<Snapshot, "checksum">) {
 
 export function createSnapshot(tables: SnapshotTable[], createdAt = new Date().toISOString()): Snapshot {
   const inventory=tables.map(table=>table.name).join(',');
-  if (![applicationTables,leadApplicationTables,legacyApplicationTables].some(t=>inventory===t.join(','))) {
+  if (![applicationTables,websiteApplicationTables,leadApplicationTables,legacyApplicationTables].some(t=>inventory===t.join(','))) {
     throw new Error("Backup table inventory mismatch");
   }
-  const payload = { version: inventory===applicationTables.join(',')?4 as const:inventory===leadApplicationTables.join(',')?3 as const:2 as const, createdAt, tables };
+  const payload = { version: inventory===applicationTables.join(',')?6 as const:inventory===websiteApplicationTables.join(',')?4 as const:inventory===leadApplicationTables.join(',')?3 as const:2 as const, createdAt, tables };
   return snapshotSchema.parse({ ...payload, checksum: hash(payload) });
 }
 
@@ -73,6 +74,9 @@ export async function restoreSnapshot(client: Client, input: unknown): Promise<R
       if (table.rows.some(row => row.length !== columns.length)) throw new Error("Backup row shape mismatch");
     }
     const counts: Record<string, number> = {};
+    // Parent organizations can appear after child tables in the sorted backup.
+    // Check all foreign keys when the complete, atomic restore commits.
+    await tx.execute("PRAGMA defer_foreign_keys = ON");
     for (const table of payload.tables) {
       const sql = `INSERT INTO "${table.name}" (${table.columns.map(c => `"${c}"`).join(",")}) VALUES (${table.columns.map(() => "?").join(",")})`;
       for (const row of table.rows) await tx.execute({ sql, args: row });
