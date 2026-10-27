@@ -11,6 +11,12 @@ export function visitReview(state:CaseState,view:CaseView){
  const tasks:VisitTask[]=[];let observed=0,unable=0,na=0;
  if(state.visit?.contextReviewed!==visitContextSignature(state))tasks.push({id:"context",title:"Review context and visit scope",detail:"Confirm the layout, activity locations, reported information and any gaps. Record limitations; reported answers are not observations.",stage:"intake",inHome:true});
  if(!state.spaces.length)tasks.push({id:"spaces",title:"Establish the spaces in this visit",detail:"No rooms or routes have been recorded.",stage:"assess",inHome:true});
+ if(state.audience==='clinician'){
+  if(!state.documentation?.clientSummary?.trim())tasks.push({id:'notes:summary',title:'Review the client summary',detail:'Record the reason for the visit and separate reported information from observations. This reminder does not change checklist ratings.',stage:'intake',inHome:true});
+  if(!state.documentation?.goals?.trim())tasks.push({id:'notes:goals',title:'Confirm what matters to the client',detail:'Record agreed goals and participation priorities while the client is available.',stage:'intake',inHome:true});
+  if(!state.documentation?.followUpPlan?.trim())tasks.push({id:'notes:followup',title:'Record follow-up responsibilities',detail:'Who will review recommendations, when and how? Record if further follow-up is not indicated and why. This reminder does not book care.',stage:'intake',inHome:false});
+  for(const space of state.spaces)if(!state.documentation?.rooms?.[space.id]?.observation?.trim())tasks.push({id:`notes:room:${space.id}`,title:`Review area notes: ${space.label}`,detail:'Add relevant task performance and observations, or document the limits of the visit. Item findings remain separate.',stage:'assess',spaceId:space.id,inHome:true});
+ }
  for(const space of state.spaces)for(const item of templateFor(space.type).items){
   const r=state.responses[space.id]?.[item.code],status=r?.status??"unknown",id=`${space.id}::${item.code}`;
   if(item.required){if(["pass","concern","critical"].includes(status))observed++;if(status==="unable_to_assess")unable++;if(status==="not_applicable")na++;}

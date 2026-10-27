@@ -126,7 +126,7 @@ export async function handleApi(request:Request,env:Env,resolveIdentity:Identity
       if(scope==="clinician")for(const c of archive.cases){
         const known=new Set((previous.cases.find((p:{id:string})=>p.id===c.id)?.reportVersions??[]).map((v:{id:string})=>v.id));
         for(const version of c.reportVersions??[]){if(known.has(version.id))continue;
-          const candidate=({...c,...version.caseData} as unknown as CaseState);
+          const candidate=({...c,...version.caseData,documentation:version.caseData.documentation} as unknown as CaseState);
           if(!candidate.visit||candidate.visit.contextReviewed!==visitContextSignature(candidate))throw new ApiError(400,"Review the current context and visit scope before signing.");
           const readiness=reportReadiness(candidate,buildCaseView(candidate));
           if(!version.caseData.signoff.signedAt||!readiness.canSign)throw new ApiError(400,"This report cannot be signed yet. "+readiness.blockers.join(" "));

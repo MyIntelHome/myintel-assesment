@@ -14,6 +14,7 @@ import type { CaseApi } from "@/lib/case-store";
 import type { CaseView } from "@/lib/selectors";
 import { reportReadiness } from "@/domain/report-version";
 import {profileLines} from "@/domain/home-profile";
+import {ProfessionalReport} from './ProfessionalReport';
 
 const label = (v: string) => v.replace(/_/g, " ").replace(/^\w/, (m) => m.toUpperCase());
 
@@ -29,7 +30,7 @@ const money = (min: string, max: string, notEstimated: boolean) => {
 export function ReportStep({ api, view: currentView }: { api: CaseApi; view: CaseView }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const version = selectedId ? api.state.reportVersions.find(v=>v.id===selectedId) : api.state.signoff.signedAt ? api.state.reportVersions.at(-1) : undefined;
-  const state = version ? {...api.state,...version.caseData,homeProfile:version.caseData.homeProfile,visit:version.caseData.visit} : api.state;
+  const state = version ? {...api.state,...version.caseData,homeProfile:version.caseData.homeProfile,visit:version.caseData.visit,documentation:version.caseData.documentation} : api.state;
   const view = version?.view ?? currentView;
   const { signoff, intake } = state;
   const [clientName, setClientName] = useState("");
@@ -161,7 +162,7 @@ export function ReportStep({ api, view: currentView }: { api: CaseApi; view: Cas
       </div>
 
       {/* ── the document ─────────────────────────────────────── */}
-      <article className="report">
+      {(!version||version.reportLayoutVersion===2||version.reportLayoutVersion===3)?<ProfessionalReport state={state} view={view} clientName={clientName} version={version}/>:<article className="report">
         <header className="report-head">
           <p className="eyebrow">Home Safety Assessment</p>
           <h2>{clientName.trim() || "—"}</h2>
@@ -304,7 +305,7 @@ export function ReportStep({ api, view: currentView }: { api: CaseApi; view: Cas
             <p className="unsigned">DRAFT — not signed. Not valid for clinical use.</p>
           )}
         </footer>
-      </article>
+      </article>}
     </>
   );
 }
