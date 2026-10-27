@@ -1,5 +1,7 @@
 # Pilot readiness checkpoint
 
+October 27 OT workflow and report work is isolated for review: [client-first report checkpoint](ot-workflow-report-2026-10-27.md). It adds client/area notes and descriptive dashboard percentages, preserves existing signed reports, and records the AMPS integration boundary. This change is not a production release. For current live lead delivery, see [October 12 enablement](lead-production-enablement-2026-10-12.md); older status statements below are historical.
+
 New lead-capture work is isolated and not publicly released: [October 6 lead preview checkpoint](lead-capture-preview-2026-10-06.md). Public summary email delivery remains disabled pending review.
 
 Current dynamic-flow implementation and compatibility notes: [October 6 checkpoint](dynamic-assessment-checkpoint-2026-10-06.md). Older deployment statements below are historical; verify the public release against its GitHub/Vercel commit.

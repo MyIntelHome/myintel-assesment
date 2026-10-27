@@ -12,6 +12,7 @@ import {
   type HousingType,
 } from "@/domain/case";
 import type { CaseApi } from "@/lib/case-store";
+import {ProfessionalNotes} from './ProfessionalNotes';
 
 export function IntakeStep({ api }: { api: CaseApi }) {
   const { intake } = api.state;
@@ -113,6 +114,7 @@ export function IntakeStep({ api }: { api: CaseApi }) {
         </div>
       </section>
 
+      <ProfessionalNotes api={api}/>
       <section className="panel">
         <h2>Clinical concerns</h2>
         <p className="hint">Select any that apply. These appear in the report.</p>

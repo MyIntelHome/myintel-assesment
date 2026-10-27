@@ -4,9 +4,10 @@ import type { CaseView } from "@/lib/selectors";
 import { templateFor } from "@/seed/templates";
 import {visitReview,visitContextSignature} from "./visit-review";
 
-type ReportCase = Pick<CaseState, "reference" | "intake" | "spaces" | "responses" | "findings" | "plan" | "signoff" | "homeProfile" | "visit">;
+type ReportCase = Pick<CaseState, "reference" | "intake" | "spaces" | "responses" | "findings" | "plan" | "signoff" | "homeProfile" | "visit" | "documentation">;
 
 export interface ReportVersion {
+  reportLayoutVersion?:2;
   id: string;
   revision: number;
   supersedesId: string | null;
@@ -32,6 +33,10 @@ export function reportReadiness(state: CaseState, view: CaseView) {
     unexplainedExclusions: [...view.limitations, ...view.notApplicable].filter(l => !l.reason || l.reason === "No reason recorded").length,
   });
   const blockers=[...base.blockers];
+  for(const test of state.documentation?.tests??[]){
+   if(!test.name.trim()||!test.result.trim()||!test.interpretation.trim())blockers.push('Complete the name, result and interpretation of each performed assessment, or remove its draft entry.');
+   if(test.linkedFindings?.some(key=>!view.findings.some(f=>f.key===key)))blockers.push('Review external assessment links to findings that changed or were removed.');
+  }
   if(state.visit){
    if(state.visit.contextReviewed!==visitContextSignature(state))blockers.push("Review the current context and visit scope before signing.");
    if(visitReview(state,view).unhandled.length)blockers.push("Every reported clinical finding needs a linked action or documented professional disposition.");
@@ -43,12 +48,12 @@ export function reportReadiness(state: CaseState, view: CaseView) {
 export function createReportVersion(state: CaseState, view: CaseView, signedAt: string, id: string): ReportVersion {
   if (!reportReadiness(state, view).canSign) throw new Error("Resolve report blockers before finalising.");
   const versions = state.reportVersions ?? [];
-  const {reference,intake,spaces,responses,findings,plan,signoff,homeProfile,visit} = state;
+  const {reference,intake,spaces,responses,findings,plan,signoff,homeProfile,visit,documentation} = state;
   return JSON.parse(JSON.stringify({
-    id, revision: versions.length + 1, supersedesId: versions.at(-1)?.id ?? null,
+    id, reportLayoutVersion:2, revision: versions.length + 1, supersedesId: versions.at(-1)?.id ?? null,
     attestationVersion: ATTESTATION_VERSION,
     attestationText: ATTESTATION_TEXT,
     templateVersions: Object.fromEntries(spaces.map(s=>[s.type, templateFor(s.type).version])),
-    caseData: {reference,intake,spaces,responses,findings,plan,signoff:{...signoff,signedAt},homeProfile,visit}, view,
+    caseData: {reference,intake,spaces,responses,findings,plan,signoff:{...signoff,signedAt},homeProfile,visit,documentation}, view,
   })) as ReportVersion;
 }

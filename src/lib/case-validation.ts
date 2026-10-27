@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {profileSchema} from "@/domain/home-profile";
+import {professionalDocumentationSchema} from '@/domain/professional-documentation';
 import { ASSESSMENT_STATUSES } from "@/domain/status";
 import { FAMILY_ANSWERS } from "@/domain/family";
 import { SPACE_TYPES, ASSESSMENT_MODES, SEVERITIES, LIKELIHOODS, CONSEQUENCES,
@@ -22,6 +23,7 @@ const plan = z.object({id:text,title:text,rationale:text,category:z.enum(RECOMME
   responsibleParty:z.enum(["",...RESPONSIBLE_PARTIES]),status:z.enum(RECOMMENDATION_STATUSES),
   targetDate:text,followUpDate:text,linkedFindings:z.array(text)});
 const clinical = z.object({reference:text,intake,spaces:z.array(space),
+  documentation:professionalDocumentationSchema.optional(),
   homeProfile:profileSchema.optional(),visit:z.object({activeSpaceId:text.optional(),focusCode:text.optional(),contextReviewed:text.max(200000).optional(),deferred:z.array(text.max(200)).max(300)}).optional(),
   responses:z.record(text,z.record(text,z.object({status:z.enum(ASSESSMENT_STATUSES),reason:text.optional()}))),
   findings:z.record(text,detail),plan:z.array(plan),signoff});
@@ -34,6 +36,7 @@ const view = z.object({perSpace:z.array(z.object({space,completeness})),complete
   findings:z.array(z.object({key:text,space,code:text,prompt:text,hint:text,status:z.enum(["concern","critical"]),detail})),
   limitations:z.array(limitation),notApplicable:z.array(limitation)});
 const version = z.object({id:text,revision:z.number().int().positive(),supersedesId:text.nullable(),
+  reportLayoutVersion:z.literal(2).optional(),
   attestationVersion:text,attestationText:text,templateVersions:z.record(text,z.number()),caseData:clinical,view});
 
 /** Validate before any saved data reaches renderers. Preserve the original archive on failure. */

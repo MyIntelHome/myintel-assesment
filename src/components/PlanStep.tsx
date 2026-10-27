@@ -11,6 +11,7 @@ import {
 import { RECOMMENDATION_LIBRARY } from "@/seed/recommendations";
 import type { CaseApi } from "@/lib/case-store";
 import type { CaseView } from "@/lib/selectors";
+import {MYINTEL_SERVICE_SCOPE} from '@/domain/myintel-service-scope';
 
 const label = (v: string) => v.replace(/_/g, " ").replace(/^\w/, (m) => m.toUpperCase());
 
@@ -40,6 +41,7 @@ export function PlanStep({ api, view }: { api: CaseApi; view: CaseView }) {
           {pickerOpen ? "Close suggestions" : `Suggestions (${suggestions.length})`}
         </button>
       </div>
+      {api.state.mode==='myintel'&&<details className="panel"><summary>MyIntel service pathways</summary><p>MyIntel directly offers: {MYINTEL_SERVICE_SCOPE.direct.join(', ')}.</p><p>Referral or coordination: {MYINTEL_SERVICE_SCOPE.referral.join(', ')}.</p><p>Scope, suitability, price and provider availability must be confirmed separately. Selecting a recommendation does not order a service.</p></details>}
 
       {pickerOpen && (
         <div className="panel">
