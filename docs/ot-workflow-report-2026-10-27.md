@@ -28,13 +28,15 @@ The owner confirmed October 27:
 
 ## Percentage definitions
 
-Dashboard figures describe the recorded visit, not a validated safety score or probability of falling.
+October 27 owner feedback: percentages should describe the findings in each category, not assessment completion. Current unsigned reports and new version-3 signed reports use the following findings scores. Dashboard figures describe the recorded visit, not a validated safety score or probability of falling.
 
-- Observation coverage = required checks marked pass, concern or critical / required checks excluding explicit N/A. Unknown and unable-to-assess remain in the denominator. If the denominator is zero, show “Not established.”
-- Checklist decisions = all non-unknown required checks / all required checks. An unable-to-assess or N/A decision is not an examined observation.
-- Concern share = required concern/critical checks / examined required checks. No examined checks means “Not established.”
-- Status distribution counts required checks only. Recorded findings and action coverage also include optional findings; labels explicitly distinguish these scopes.
-- Room coverage uses the same denominator rules. A high coverage percentage does not establish safety. External test results are never blended into these percentages.
+- Concern score = checks marked concern or critical / checks marked pass, concern or critical, rounded to a whole percentage. Higher means more concerns recorded. For example, 2 of 8 assessed checks is 25%. A nonzero proportion that rounds to zero is labeled “<1%.” No examined checks means “Not assessed,” never a zero score.
+- Assessed optional checks contribute along with required checks. N/A, unable and unanswered checks do not dilute the score. Required unanswered checks, all explicit unable decisions and N/A decisions are shown separately as counts.
+- The same formula applies independently to the whole recorded visit, each stable room ID, and each existing template category: access, lighting, surfaces, support, transfers, hazards, emergency and reach. Categories can have different denominators; their scores are not averaged to calculate the overall score.
+- Missing required observations or unable-to-assess items make the relevant score provisional. Critical findings get a separate highlighted count and card border regardless of the overall percentage. No score establishes safety, and no clinical threshold/weight or validated risk band has been invented.
+- Client summary and actions still precede the category/room detail. External test results retain their own units and are never blended into these percentages.
+
+Historical version-2 signed reports retain their previous coverage/decisions dashboard and required-item denominators. The coverage helper remains for that renderer only; it is not the new findings score. Version-1 reports without a layout marker retain their historical renderer as well.
 
 ## Storage, access and report history
 
@@ -42,13 +44,15 @@ Dashboard figures describe the recorded visit, not a validated safety score or p
 
 Professional notes are classified as clinical content even if a payload claims it is a family record. The server still requires current professional approval and owner-scoped archive access. Staff operations and family sharing do not gain access to these notes. Existing consent and notification payloads are unchanged.
 
-New signed reports freeze documentation and carry `reportLayoutVersion: 2`. Existing signed reports without this marker keep the historical renderer. Selecting an old version never falls back to current notes. Server checks continue to reject changed signed snapshots. Corrections require an amendment.
+New signed reports freeze documentation and carry `reportLayoutVersion: 3`. Existing version-2 signed reports keep their original coverage dashboard, and reports without a marker keep the historical renderer. Selecting an old version never falls back to current notes. Server checks continue to reject changed signed snapshots. Corrections require an amendment. Future scoring or category changes must preserve the version-3 calculation/meaning for already signed reports.
 
 Rollback: revert this code change without changing the database. The prior version cannot display new notes, so preserve the original archive payloads and do not allow older clients to rewrite newer records without evaluating loss of additive fields. Never bulk-delete documentation or report history as a rollback step.
 
 ## AMPS boundary and next decision
 
 Implemented: a generic external-assessment record with instrument/version, performed date, original result/units, clinician interpretation, conditions/limitations and links to home findings. Incomplete entries or stale finding links block signing until completed, removed or reviewed. This connects clinical reasoning and actions without inventing a combined score.
+
+OT entry path: Context, then “Assessments performed by the professional,” then “Add AMPS results.” The shortcut prefills the instrument name only. The OT supplies an actual authorized result and interpretation and can link relevant home findings. It does not supply proprietary tasks, item definitions, norms or scores. A suitably trained/authorized OT may conduct AMPS during the same home visit using its authorized method and scoring system; this is different from administering/scoring it inside HomeCheck. Publisher permission for an embedded workflow remains unconfirmed.
 
 Not implemented: AMPS tasks/items, administration prompts, scoring, norms, copied reports, automatic imports, API integration or claims that HomeCheck is AMPS-authorized. No test was performed or interpreted by the app.
 
@@ -73,7 +77,7 @@ Could you clarify what written permission or licensing is required to (1) store 
 ## Verification and review
 
 - TypeScript check passed.
-- 45 test files, 385 tests passed. Added coverage for note persistence, room rename/removal, original units, percentage denominators, empty/excluded scope, omission reminders, clinical access enforcement, signed note immutability, legacy layout preservation and stale/incomplete result entries.
+- Initial notes/report batch: 45 test files, 385 tests passed. The findings-score follow-up adds category/room denominator, optional critical-item, incomplete/empty scope, rounding and version-2 history tests. Final follow-up totals are recorded with its commit checkpoint.
 - Local browser: edited client notes, area observations, reported perspective, follow-up and external-result links; reloaded and verified those edits in the generated report. This was a fictional local adapter, not an authenticated production E2E test.
 - A fictional client demo is available separately from this repository's tracked files. It contains no real patient data or asserted clinical signature.
 - Production Next.js build and static/Sites compatibility build passed. The production build required normal Windows filesystem access to create Next.js dependency junctions; no application-code workaround was needed.

@@ -10,6 +10,8 @@ import {
   prioritisePlan,
 } from "@/domain/case";
 import { profileLines } from "@/domain/home-profile";
+import { FindingsDashboard, FindingScoreCard, FindingCategoryScores } from "./FindingsDashboard";
+import { professionalFindingScores } from "@/domain/professional-finding-scores";
 
 const words = (v: string) =>
   v.replace(/_/g, " ").replace(/^\w/, (s) => s.toUpperCase());
@@ -57,7 +59,8 @@ export function ProfessionalReport({
   const m = professionalReportMetrics(state, view),
     doc = state.documentation ?? {},
     plan = prioritisePlan(state.plan),
-    signed = !!state.signoff.signedAt;
+    signed = !!state.signoff.signedAt,
+    originalDashboard = version?.reportLayoutVersion === 2;
   const segments = [
     ["No concern recorded", m.noConcern, "clear"],
     ["Concern", m.concern, "concern"],
@@ -108,7 +111,7 @@ export function ProfessionalReport({
           {state.signoff.organisation ? ` · ${state.signoff.organisation}` : ""}
         </p>
       </header>
-      <section className="pr-dashboard" aria-label="Assessment dashboard">
+      {originalDashboard ? <section className="pr-dashboard" aria-label="Assessment dashboard">
         <div className="pr-metrics">
           <div>
             <span>Observation coverage</span>
@@ -190,7 +193,7 @@ export function ProfessionalReport({
           items; unable-to-assess and unanswered checks stay in its denominator.
           No recorded concerns does not establish safety.
         </p>
-      </section>
+      </section> : <FindingsDashboard state={state} />}
       <section className="pr-section">
         <h3>About the client and this visit</h3>
         {!doc.clientSummary?.trim() && (
@@ -284,15 +287,16 @@ export function ProfessionalReport({
         </ol>
         <Narrative title="Follow-up and review plan" text={doc.followUpPlan} />
       </section>
+      {!originalDashboard && <FindingCategoryScores state={state} />}
       <section className="pr-section">
         <h3>Area overview</h3>
-        <p>
+        {originalDashboard ? <p>
           Coverage reflects required observations. Findings can also include
           optional checks. Room notes and the client’s perspective do not
           automatically change ratings.
-        </p>
+        </p> : <p>Each area has a concern score based on its assessed checks. Higher means more concerns recorded. Notes and reported perspectives do not automatically change ratings.</p>}
         <div className="pr-room-grid">
-          {m.rooms.map((r) => (
+          {originalDashboard ? m.rooms.map((r) => (
             <div className="pr-room-overview" key={r.space.id}>
               <div className="pr-room-title">
                 <RoomIcon />
@@ -320,7 +324,7 @@ export function ProfessionalReport({
                 N/A
               </p>
             </div>
-          ))}
+          )) : professionalFindingScores(state).rooms.map(score => <FindingScoreCard key={score.space.id} title={score.space.label} score={score} />)}
         </div>
       </section>
       <section className="pr-section">

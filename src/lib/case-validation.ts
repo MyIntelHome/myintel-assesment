@@ -36,7 +36,7 @@ const view = z.object({perSpace:z.array(z.object({space,completeness})),complete
   findings:z.array(z.object({key:text,space,code:text,prompt:text,hint:text,status:z.enum(["concern","critical"]),detail})),
   limitations:z.array(limitation),notApplicable:z.array(limitation)});
 const version = z.object({id:text,revision:z.number().int().positive(),supersedesId:text.nullable(),
-  reportLayoutVersion:z.literal(2).optional(),
+  reportLayoutVersion:z.union([z.literal(2),z.literal(3)]).optional(),
   attestationVersion:text,attestationText:text,templateVersions:z.record(text,z.number()),caseData:clinical,view});
 
 /** Validate before any saved data reaches renderers. Preserve the original archive on failure. */

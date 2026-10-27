@@ -7,7 +7,7 @@ import {visitReview,visitContextSignature} from "./visit-review";
 type ReportCase = Pick<CaseState, "reference" | "intake" | "spaces" | "responses" | "findings" | "plan" | "signoff" | "homeProfile" | "visit" | "documentation">;
 
 export interface ReportVersion {
-  reportLayoutVersion?:2;
+  reportLayoutVersion?:2|3;
   id: string;
   revision: number;
   supersedesId: string | null;
@@ -50,7 +50,7 @@ export function createReportVersion(state: CaseState, view: CaseView, signedAt: 
   const versions = state.reportVersions ?? [];
   const {reference,intake,spaces,responses,findings,plan,signoff,homeProfile,visit,documentation} = state;
   return JSON.parse(JSON.stringify({
-    id, reportLayoutVersion:2, revision: versions.length + 1, supersedesId: versions.at(-1)?.id ?? null,
+    id, reportLayoutVersion:3, revision: versions.length + 1, supersedesId: versions.at(-1)?.id ?? null,
     attestationVersion: ATTESTATION_VERSION,
     attestationText: ATTESTATION_TEXT,
     templateVersions: Object.fromEntries(spaces.map(s=>[s.type, templateFor(s.type).version])),

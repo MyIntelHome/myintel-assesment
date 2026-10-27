@@ -101,7 +101,7 @@ describe("professional reporting and documentation", () => {
     );
     state.documentation.clientSummary = "Later summary";
     state.documentation.rooms!.door!.observation = "Later room";
-    expect(version.reportLayoutVersion).toBe(2);
+    expect(version.reportLayoutVersion).toBe(3);
     const signed = normalise({
       ...state,
       signoff: version.caseData.signoff,
@@ -123,7 +123,8 @@ describe("professional reporting and documentation", () => {
     expect(html).not.toContain("Later room");
     expect(html).toContain("1.2 original units");
     expect(html).toContain("Signed by");
-    expect(html).toContain("Observation coverage");
+    expect(html).toContain("Overall concern score");
+    expect(html).not.toContain("Observation coverage");
   });
   it("renders legacy signed reports with their original layout and does not inherit later notes", () => {
     const state = fixture(),
@@ -147,6 +148,15 @@ describe("professional reporting and documentation", () => {
     expect(html).not.toContain("Later private narrative");
     expect(html).not.toContain("Assessment dashboard");
     expect(html).toContain("Home Safety Assessment");
+  });
+  it('keeps the original coverage dashboard in a version 2 signed report',()=>{
+    const state=fixture();
+    const version=createReportVersion(state,buildCaseView(state),'2026-10-27T15:00:00Z','v2');
+    version.reportLayoutVersion=2;state.reportVersions=[version];state.signoff=version.caseData.signoff;
+    const loaded=normalise(state);
+    const html=renderToStaticMarkup(createElement(ReportStep,{api:{state:loaded,saveState:'saved'} as CaseApi,view:buildCaseView(loaded)}));
+    expect(html).toContain('Observation coverage');
+    expect(html).not.toContain('Overall concern score');
   });
   it("classifies professional notes as clinical even if an archive is mislabeled", () => {
     expect(

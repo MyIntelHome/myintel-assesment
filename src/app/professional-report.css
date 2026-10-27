@@ -180,6 +180,18 @@
   color: #526574;
   margin: 18px 0 0 !important;
 }
+.pr-findings-dashboard .pr-metrics > div:first-child strong { color: #925d19; }
+.pr-metrics > .pr-critical-metric { background: #fff3f2; border-color: #b9494d; }
+.pr-metrics > .pr-critical-metric strong { color: #a82e39; }
+.professional-report-v2 .pr-concern-progress span { background: #b37425; }
+.pr-finding-score .pr-room-percent { color: #925d19; }
+.pr-finding-score.has-critical { border: 2px solid #b9494d; }
+.pr-score-flags { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 10px; font-size: 12px; }
+.pr-critical-flag { color: #9e2531; background: #fff0ee; border: 1px solid #d28b90; border-radius: 6px; padding: 4px 8px; }
+.pr-incomplete-flag { color: #805415; font-weight: 700; }
+.pr-score-status { color: #425e6f; }
+.pr-scope-note { border-top: 1px solid #dce6e7; margin-top: 18px; padding-top: 14px; font-size: 13px; }
+.pr-scope-note p { margin: 5px 0 !important; }
 .professional-report-v2 .pr-section {
   padding: 26px 36px;
   margin: 0 !important;

@@ -162,7 +162,7 @@ export function ReportStep({ api, view: currentView }: { api: CaseApi; view: Cas
       </div>
 
       {/* ── the document ─────────────────────────────────────── */}
-      {(!version||version.reportLayoutVersion===2)?<ProfessionalReport state={state} view={view} clientName={clientName} version={version}/>:<article className="report">
+      {(!version||version.reportLayoutVersion===2||version.reportLayoutVersion===3)?<ProfessionalReport state={state} view={view} clientName={clientName} version={version}/>:<article className="report">
         <header className="report-head">
           <p className="eyebrow">Home Safety Assessment</p>
           <h2>{clientName.trim() || "—"}</h2>

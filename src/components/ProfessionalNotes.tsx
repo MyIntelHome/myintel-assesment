@@ -52,6 +52,9 @@ export function ProfessionalNotes({ api }: { api: CaseApi }) {
     api.patchDocumentation({
       tests: tests.map((t) => (t.id === id ? { ...t, ...patch } : t)),
     });
+  const addTest = (name = "") => api.patchDocumentation({
+    tests: [...tests, { id: createUuid(), name, date: "", result: "", interpretation: "", limitations: "", linkedFindings: [] }],
+  });
   const textField = ([key, label, hint]: (typeof fields)[number]) => (
     <label className="stack" key={key}>
       <span>{label}</span>
@@ -101,6 +104,7 @@ export function ProfessionalNotes({ api }: { api: CaseApi }) {
           method. These are clinician-entered results. HomeCheck does not
           administer, score, validate or convert proprietary tests such as AMPS.
         </p>
+        <p className="hint">For AMPS, an appropriately trained and authorized OT uses the publisher’s administration method and scoring system. Enter only results and interpretations you are permitted to include here, then link them to the relevant home findings.</p>
         {tests.map((test, index) => (
           <fieldset className="panel" key={test.id}>
             <legend>Assessment result {index + 1}</legend>
@@ -213,25 +217,11 @@ export function ProfessionalNotes({ api }: { api: CaseApi }) {
           className="btn-sm"
           type="button"
           disabled={tests.length >= 20}
-          onClick={() =>
-            api.patchDocumentation({
-              tests: [
-                ...tests,
-                {
-                  id: createUuid(),
-                  name: "",
-                  date: "",
-                  result: "",
-                  interpretation: "",
-                  limitations: "",
-                  linkedFindings: [],
-                },
-              ],
-            })
-          }
+          onClick={() => addTest()}
         >
           Add performed assessment result
         </button>
+        {" "}<button className="btn-sm" type="button" disabled={tests.length >= 20} onClick={()=>addTest("Assessment of Motor and Process Skills (AMPS)")}>Add AMPS results</button>
       </details>
     </section>
   );
