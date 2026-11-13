@@ -37,7 +37,7 @@ export function contextPrompts(p:HomeProfile):ContextPrompt[]{
   out.push(prompt(`task:${task}`,`How is ${TASK_LABELS[task].toLowerCase()} managed?`,place?`We connect this to ${place.label}. This is reported experience, not a professional rating.`:"This helps distinguish equipment, assistance and an activity being avoided.",difficulty));
   if(value&&!['unsure','prefer_not'].includes(String(value))){
    out.push(prompt(`part:${task}`,`Which part of ${TASK_LABELS[task].toLowerCase()} is most difficult?`,"The specific difficulty helps avoid generic recommendations.",{...PARTS[task],other:"Another part",unsure:"Not sure"}));
-   if(!place&&["bathing","toileting","transfers","cooking","laundry"].includes(task))out.push(prompt(`location:${task}`,"Where does this activity happen?","We reuse this place for related questions.",places()));
+   if((!place||a[`location:${task}`]===place.id)&&["bathing","toileting","transfers","cooking","laundry"].includes(task))out.push(prompt(`location:${task}`,`Where does ${TASK_LABELS[task].toLowerCase()} usually happen?`,"We reuse this place for related questions.",places()));
    if(["help","avoided"].includes(String(value)))out.push(prompt(`support:${task}`,"Does the available help meet the person's needs?","Occupancy does not automatically mean help is available.",{met:"Yes, the arrangement works",gap:"No, more or different help is needed",unsure:"Not sure",prefer_not:"Prefer not to answer"}));
   }
  }
