@@ -23,14 +23,15 @@ import { SPACE_TYPE_META, type ItemCategory, type SpaceType } from "@/domain/typ
 import type { CaseApi, Space } from "@/lib/case-store";
 import {familyTemplateFor,profileLines,homeQuestionText,activeHomeSpaces} from "@/domain/home-profile";
 import {HomeSetup} from "./HomeSetup";
-import {HomeInsights} from "./HomeInsights";
+import {HomeInsights,HomeContextDetails} from "./HomeInsights";
 import {HomeSectionPause} from "./HomeSectionPause";
 import {homeActionsText} from "@/domain/home-actions";
 import {funnelOnce} from "@/lib/funnel";
 import {PlanCapture} from "./PlanCapture";
 import type {AccountUser} from "@/domain/services";
-import {HomeActionPlan} from "./HomeActionPlan";
-import {RoomArt} from "./RoomArt";
+import {HomeActionPlan,ReportPriorities} from "./HomeActionPlan";
+import {RoomArt,QUESTION_VISUALS} from "./RoomArt";
+import {FlowStages,HomePrint,Glyph} from "./Brand";
 import {RoomJourney} from "./RoomJourney";
 
 const ROOM_CHOICES: SpaceType[] = [
@@ -121,6 +122,8 @@ export function FamilyFlow({
     [state.spaces, state.familyAnswers,state.homeProfile],
   );
 
+  const roomsDone = state.spaces.filter((space) => roomProgress(space.id, familyTemplateFor(space,state.homeProfile,state.familyAnswers), state.familyAnswers).complete).length;
+
   const report = useMemo(
     () => buildFamilyReport(
       state.spaces.map((space) => ({ id: space.id, label: space.level ? `${space.label} · Level ${space.level}` : space.label, template: familyTemplateFor(space,state.homeProfile,state.familyAnswers) })),
@@ -154,33 +157,18 @@ export function FamilyFlow({
 
   if(phase==="home")return <HomeSetup api={api} step="home"/>;
   if(phase==="routine")return <HomeSetup api={api} step="routine"/>;
-  if(phase==="welcome")return <HomeSectionPause title="Let’s start with everyday life." detail="A few optional questions will help this check fit the person. We’ll take them one at a time." button="Begin"><HomeSetup api={api} step="routine"/></HomeSectionPause>;
+  if(phase==="welcome")return <HomeSectionPause stage={0} eyebrow="A guided home check" art={<HomePrint done={0} total={5} size={150}/>} title="Let’s walk through the home together." detail="First a few optional questions about everyday life, then one room at a time. There are no wrong answers, and you can pause whenever you like." button="Begin"><HomeSetup api={api} step="routine"/></HomeSectionPause>;
 
   if (phase === "rooms") {
     return (
       <main className="family-v2 family-v2--spaces">
-        <FlowHeader percent={overall.percent} label={`${overall.answered} of ${overall.total} answered`} />
-        <section className="family-v2__card">
-          <p className="family-v2__eyebrow">Set up your check</p>
-          <h1 ref={headingRef} tabIndex={-1}>Your spaces to check</h1>
-          <p className="family-v2__lead">Choose a space to begin. We’ll take it one question at a time.</p><button className="family-v2__back" onClick={()=>setPhase("home")}>Change selected spaces</button>
+        <FlowStages current={3}/>
+        <section className="family-v2__card hub-card">
+          <div className="hub-hero"><HomePrint done={roomsDone} total={state.spaces.length} size={128}/><div><p className="family-v2__eyebrow">Room check</p>
+          <h1 ref={headingRef} tabIndex={-1}>Your rooms</h1>
+          <p className="family-v2__lead">{roomsDone} of {state.spaces.length} rooms checked · {overall.answered} of {overall.total} questions answered. Start with any room. We’ll take it one question at a time.</p></div></div>
 
-          <details className="family-v2__hint space-extra"><summary>Add another space (optional)</summary><div className="family-v2__room-picker">
-            {ROOM_CHOICES.map((type) => (
-              <button
-                className="family-v2__add-room"
-                key={type}
-                type="button"
-                onClick={() => {
-                  const count = state.spaces.filter((space) => space.type === type).length;
-                  const base = FRIENDLY[type] ?? SPACE_TYPE_META[type].label;
-                  api.addSpace(type, count ? `${base} ${count + 1}` : base);
-                }}
-              >
-                <span aria-hidden="true">+</span> {FRIENDLY[type] ?? SPACE_TYPE_META[type].label}
-              </button>
-            ))}
-          </div></details>
+          
 
           {state.spaces.length > 0 ? (
             <section className="family-v2__room-section" aria-labelledby="your-rooms-heading">
@@ -205,6 +193,7 @@ export function FamilyFlow({
                         <span>
                           <strong>{space.label}</strong>
                           <small>{stateLabel}</small>
+                          <span className="room-mini-progress" aria-hidden="true"><i style={{ width: `${progress.percent}%` }} /></span>
                         </span>
                         <Icon name="arrow-right" />
                       </button>
@@ -236,6 +225,22 @@ export function FamilyFlow({
           ) : (
             <p className="family-v2__empty">Add at least one room to begin.</p>
           )}
+          <div className="hub-manage"><details className="family-v2__hint space-extra"><summary>Add another space (optional)</summary><div className="family-v2__room-picker">
+            {ROOM_CHOICES.map((type) => (
+              <button
+                className="family-v2__add-room"
+                key={type}
+                type="button"
+                onClick={() => {
+                  const count = state.spaces.filter((space) => space.type === type).length;
+                  const base = FRIENDLY[type] ?? SPACE_TYPE_META[type].label;
+                  api.addSpace(type, count ? `${base} ${count + 1}` : base);
+                }}
+              >
+                <span aria-hidden="true">+</span> {FRIENDLY[type] ?? SPACE_TYPE_META[type].label}
+              </button>
+            ))}
+          </div></details><button className="family-v2__back" onClick={()=>setPhase("home")}>Change selected spaces</button></div>
           {api.state.spaces.some(s=>s.excludedFromHome) && <details className="family-v2__hint"><summary>Spaces set aside ({api.state.spaces.filter(s=>s.excludedFromHome).length})</summary><p>These spaces are not included in your results. Their saved answers are kept in case you bring them back.</p>{api.state.spaces.filter(s=>s.excludedFromHome).map(s=><button type="button" className="family-v2__back" key={s.id} onClick={()=>api.setHomeRoomIncluded(s.id,true)}>Include {s.label}</button>)}</details>}
         </section>
       </main>
@@ -255,7 +260,7 @@ export function FamilyFlow({
       );
     }
     return (
-      <HomeSectionPause key={space.id} title={`Let’s look at ${space.label.toLowerCase()}.`} detail="Think about how this space is used on an ordinary day. You can answer from experience, choose ‘not sure’, or pause whenever you need." button="Start this space"><QuestionScreen
+      <HomeSectionPause key={space.id} stage={3} eyebrow={`Room ${roomIndex + 1} of ${state.spaces.length}`} art={<RoomArt type={space.type}/>} title={`Let’s look at ${space.label.toLowerCase()}.`} detail="Think about how this space is used on an ordinary day. You can answer from experience, choose ‘not sure’, or pause whenever you need." button="Start this space"><QuestionScreen
         api={api}
         space={space}
         roomIndex={roomIndex}
@@ -276,8 +281,8 @@ export function FamilyFlow({
     return (
       <main className="family-v2 family-v2--centered">
         <FlowHeader percent={overall.percent} label={`${overall.answered} of ${overall.total} answered`} onBack={() => setPhase("rooms")} />
-        <section className="family-v2__card family-v2__milestone"><RoomJourney spaces={state.spaces} answers={state.familyAnswers} profile={state.homeProfile}/>
-          <div className="family-v2__success" aria-hidden="true"><Icon name="check" /></div>
+        <section className="family-v2__card family-v2__milestone">
+          <div className="milestone-print"><HomePrint done={roomsDone} total={state.spaces.length} size={156}/></div>
           <p className="family-v2__eyebrow">Room saved</p>
           <h1 ref={headingRef} tabIndex={-1}>A useful step forward.</h1>
           <p className="family-v2__lead">
@@ -286,7 +291,8 @@ export function FamilyFlow({
               : "No concerns were reported in the answers you gave. This does not confirm the room is safe."}
           </p>
           {unanswered > 0 && <p className="family-v2__notice">{unanswered} question{unanswered === 1 ? " is" : "s are"} unanswered. Your results will show this.</p>}
-          <p>You can move on, take a break, or see what your answers suggest so far.</p><button type="button" className="family-v2__back" onClick={()=>setPhase("report")}>See my next steps now</button>
+          <RoomJourney spaces={state.spaces} answers={state.familyAnswers} profile={state.homeProfile}/>
+          <p>You can move on, take a break, or see what your answers suggest so far.</p>{!isLast && <button type="button" className="family-v2__back" onClick={()=>setPhase("report")}>See my next steps now</button>}
           <div className="family-v2__actions">
             {isLast ? (
               <button className="family-v2__button family-v2__button--primary" type="button" onClick={() => setPhase("report")}>See my results <Icon name="arrow-right" /></button>
@@ -301,7 +307,7 @@ export function FamilyFlow({
   }
 
   return (
-    <HomeSectionPause key="report" title="Ready to look at the next steps?" detail="We’ll show what your answers suggest and what still needs a closer look. You can choose one manageable step to start with." button="See my next steps"><ReportScreen
+    <HomeSectionPause key="report" stage={4} eyebrow="Your plan" art={<HomePrint done={Math.max(roomsDone,1)} total={Math.max(state.spaces.length,1)} size={150}/>} title="Ready to look at the next steps?" detail="We’ll show what your answers suggest and what still needs a closer look. You can choose one manageable step to start with." button="See my next steps"><ReportScreen
       report={report}
       user={user}
       api={api}
@@ -389,11 +395,11 @@ function QuestionScreen({
         onBack={moveBack}
       />
       <section className="family-v2__card family-v2__question-card home-question-enter" key={question.code}>
+        <figure className="question-scene"><RoomArt type={space.type} focus={question.code}/>{QUESTION_VISUALS[question.code] && <figcaption><span className="question-scene__pin" aria-hidden="true"/>Look at: {QUESTION_VISUALS[question.code]!.look}</figcaption>}</figure>
         <div className="family-v2__question-meta">
-          <span>Room {roomIndex + 1} of {totalRooms}</span>
-          <span>Question {questionIndex + 1} of {questions.length}</span>
+          <span>Room {roomIndex + 1} of {totalRooms} · Question {questionIndex + 1} of {questions.length}</span>
+          <span className="family-v2__topic">{groups.find((group) => group.category === question.category)?.label}</span>
         </div>
-        <div className="room-question-art"><RoomArt type={space.type}/></div><p className="family-v2__topic">{groups.find((group) => group.category === question.category)?.label}</p>
         <h1 ref={headingRef} tabIndex={-1}>{homeQuestionText(question.promptPlain,api.state.homeProfile?.forWhom)}</h1>
 
         <details className="home-guide"><summary>Help me answer this</summary><p>{LOOK_HINT[question.category]}</p><small>Answer from everyday experience. You do not need to demonstrate anything.</small></details>
@@ -407,7 +413,7 @@ function QuestionScreen({
               className={`family-v2__answer${option === "unsure" ? " is-unsure" : ""}${answer === option ? " is-selected" : ""}`}
               onClick={() => {api.setFamilyPosition({phase:"room",roomIndex,questionIndex,questionCode:question.code});api.setFamilyAnswer(familyKey(space.id, question.code), option as FamilyAnswer)}}
             >
-              <span className="family-v2__radio" aria-hidden="true">{answer === option && <Icon name="check" />}</span>
+              <span className={`family-v2__radio family-v2__radio--${option}`} aria-hidden="true"><Glyph name={option === "yes" ? "check" : option === "no" ? "x" : "question"} /></span>
               {FAMILY_ANSWER_LABEL[option]}
             </button>
           ))}
@@ -454,6 +460,7 @@ function ReportScreen({
   useEffect(()=>{funnelOnce(api.state.id,"results_viewed")},[api.state.id]);
   const fullText=[...profileLines(api.state.homeProfile),"",homeSummaryText(report,api.state.homeProfile),reportToPlainText(report),homeActionsText(report,api.state.homeProfile)].join("\n");
   const [copyError, setCopyError] = useState(false);
+  const spaceTypes = useMemo(() => Object.fromEntries(api.state.spaces.map((space) => [space.id, space.type])), [api.state.spaces]);
 
   const copyReport = async () => {
     try {
@@ -478,27 +485,29 @@ function ReportScreen({
 
   return (
     <main className="family-v2 family-v2--report">
+      <FlowStages current={4}/>
       <section className="family-v2__card family-v2__report-card">
-        <p className="family-v2__eyebrow">Your results</p>
-        <h1 ref={headingRef} tabIndex={-1}>Your home check</h1>
-        <p className="family-v2__report-headline">{report.headline}</p>
+        <header className="report-hero">
+          <div><p className="family-v2__eyebrow">Your results</p>
+          <h1 ref={headingRef} tabIndex={-1}>Your home check</h1>
+          <p className="family-v2__report-headline">{report.headline}</p></div>
+          <HomePrint tone="dark" done={report.rooms.filter(r=>!r.unansweredCount).length} total={Math.max(report.rooms.length,1)} size={124}/>
+        </header>
         <p className="family-v2__notice">This home check is not a professional assessment and cannot confirm that a home is safe.</p>
 
-
-
-        <PlanCapture state={api.state} user={user}/>
-        <HomeInsights api={api} report={report} onRooms={onRooms}/>
-        <HomeActionPlan profile={api.state.homeProfile} report={report} onRequestHelp={onRequestHelp}/>
-
+        <HomeInsights profile={api.state.homeProfile} report={report} onRooms={onRooms}/>
+        <ReportPriorities report={report} spaceTypes={spaceTypes}/>
 
         {report.rooms.length > 0 && (
           <section className="family-v2__report-section" aria-labelledby="room-detail-heading">
-            <h2 id="room-detail-heading">Room details</h2>
+            <h2 id="room-detail-heading">Room by room</h2>
+            <p>Open a room to see what was noted and what may help.</p>
             <div className="family-v2__report-rooms">
-              {report.rooms.map((room) => (
+              {report.rooms.map((room) => { const concerns = room.entries.filter((entry) => !entry.uncertain).length, unsure = room.entries.length - concerns; return (
                 <details key={room.spaceId}>
                   <summary>
-                    <span><strong>{room.spaceLabel}</strong><small>{room.entries.length} noted · {room.unansweredCount} unanswered</small></span>
+                    <span className="report-room-art"><RoomArt type={spaceTypes[room.spaceId]} /></span>
+                    <span className="report-room-title"><strong>{room.spaceLabel}</strong><span className="report-room-chips">{concerns > 0 && <em className="concern">{concerns} to look at</em>}{unsure > 0 && <em className="unsure">{unsure} not sure</em>}{room.unansweredCount > 0 && <em className="unanswered">{room.unansweredCount} unanswered</em>}{room.clearCount > 0 && <em className="clear">{room.clearCount} no concern</em>}</span></span>
                     <span className="family-v2__disclosure" aria-hidden="true">⌄</span>
                   </summary>
                   <div className="family-v2__room-detail">
@@ -517,16 +526,19 @@ function ReportScreen({
                     )}
                   </div>
                 </details>
-              ))}
+              ); })}
             </div>
           </section>
         )}
 
-
+        <HomeActionPlan profile={api.state.homeProfile} report={report} onRequestHelp={onRequestHelp}/>
+        <PlanCapture state={api.state} user={user}/>
+        <HomeContextDetails api={api}/>
 
         <AssessmentSources compact/>
         <section className="family-v2__report-section family-v2__share" aria-labelledby="share-heading">
           <h2 id="share-heading">Keep or share the full findings</h2>
+          <p>Take the full written findings with you, or send them to someone who helps.</p>
           <div className="family-v2__share-controls">
             <label>
               <span>Email address</span>
