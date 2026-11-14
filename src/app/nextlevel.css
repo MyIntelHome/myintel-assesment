@@ -432,3 +432,58 @@ button[aria-pressed="true"] .option-mark::after { content: ""; position: absolut
 .family-v2 .home-answer-key li { justify-content: flex-start; text-align: left; }
 .family-v2 .home-answer-key li span { flex: 1; }
 @media (min-width: 960px) { .question-scene figcaption { margin-top: auto; } .family-v2 .family-v2__question-card > .question-scene { justify-content: flex-start; } .question-scene .room-art { margin-block: auto; } }
+
+/* ── professional workspace: clean, clinical, quick to scan ── */
+.professional-shell { --pro-canvas: #f3f5f8; --pro-line: #dde3ea; background: var(--pro-canvas); min-height: 100vh; }
+.professional-shell .app-header { position: sticky; top: 0; z-index: 30; padding: 10px 24px; background: var(--nl-navy-900); background-image: var(--nl-ridges); border: 0; color: #fff; backdrop-filter: none; }
+.professional-shell .app-brand { color: #fff; font-size: 1.15rem !important; } .professional-shell .app-brand small { color: var(--nl-gold); }
+.professional-shell .professional-identity { color: rgba(255,255,255,.75); font-weight: 600; }
+.professional-shell .app-header .app-secondary { min-height: 40px; padding: 6px 16px; border-radius: 10px; background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.25); color: #fff; font-size: .92rem; }
+.professional-shell .app-header .app-secondary:hover { background: rgba(255,255,255,.2); border-color: #fff; }
+.professional-shell .professional-layout { grid-template-columns: 232px minmax(0,1fr); max-width: none; min-height: calc(100vh - 62px); }
+.professional-shell .professional-sidebar { position: sticky; top: 62px; align-self: start; height: calc(100vh - 62px); padding: 22px 14px; background: #fff; border-right: 1px solid var(--pro-line); }
+.professional-shell .professional-sidebar .eyebrow { padding: 0 10px; color: var(--nl-muted); font-size: .7rem; }
+.professional-shell .professional-sidebar nav { gap: 4px; margin: 12px 0 24px; }
+.professional-shell .professional-sidebar nav button { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 8px 12px; border-radius: 10px; font-family: var(--display); font-size: .95rem; font-weight: 600; color: var(--nl-muted); transition: background .15s, color .15s; }
+.professional-shell .professional-sidebar nav button:hover { background: var(--pro-canvas); color: var(--nl-navy); }
+.professional-shell .professional-sidebar nav button.active { background: var(--nl-navy); color: #fff; font-weight: 700; }
+.professional-shell .professional-sidebar .account-note { padding: 12px; border-radius: 10px; background: var(--pro-canvas); font-size: .78rem; line-height: 1.5; color: var(--nl-muted); }
+.professional-shell .professional-main { max-width: 1280px; width: 100%; margin: 0 auto; padding: 20px clamp(16px,3vw,40px) 64px; }
+.professional-shell .professional-save { min-height: 24px; margin-bottom: 8px; font-size: .78rem; }
+.professional-shell h1 { font-size: clamp(1.6rem,2.6vw,2.1rem); letter-spacing: -.025em; margin: .2rem 0 .5rem; }
+.professional-shell h2 { font-size: 1.15rem; }
+.professional-shell .page-heading { align-items: center; margin-bottom: 8px; } .professional-shell .page-heading p { color: var(--nl-muted); margin: 0; }
+.professional-shell .app-primary { min-height: 46px; padding: 10px 20px; border-radius: 10px; font-size: .98rem; box-shadow: none; white-space: nowrap; }
+.professional-shell .app-secondary { min-height: 42px; border-radius: 10px; }
+.professional-shell .professional-metrics { gap: 14px; margin: 22px 0 32px; }
+.professional-shell .professional-metrics section { position: relative; padding: 18px 20px; border: 1px solid var(--pro-line); border-radius: 14px; box-shadow: 0 1px 2px rgba(20,36,60,.04); }
+.professional-shell .professional-metrics i { position: absolute; top: 16px; right: 16px; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--nl-sky); color: var(--nl-navy); font-style: normal; }
+.professional-shell .professional-metrics strong { font-family: var(--display); font-size: 2.1rem; line-height: 1.1; }
+.professional-shell .professional-metrics span { font-size: .9rem; }
+.professional-shell .professional-case { padding: 16px 20px; border: 1px solid var(--pro-line); border-radius: 14px; transition: border-color .15s, box-shadow .15s; }
+.professional-shell .professional-case:hover { border-color: var(--nl-navy); box-shadow: var(--nl-shadow); }
+.professional-shell .professional-case strong { font-family: var(--display); }
+.professional-shell .empty-work { border-radius: 14px; background: #fff; }
+.professional-shell .account-card { border-radius: 14px; border-color: var(--pro-line); box-shadow: 0 1px 2px rgba(20,36,60,.04); }
+.professional-shell .workspace-breadcrumb { margin: 0 0 12px; padding: 0; max-width: none; font-size: .88rem; } .professional-shell .workspace-breadcrumb button { color: var(--nl-blue); font-weight: 700; }
+.professional-shell .clinical-workspace .topbar { max-width: none; margin: 0; padding: 10px 16px; border-color: var(--pro-line); border-radius: 12px; }
+.professional-shell .clinical-workspace .mode-pill { background: var(--nl-sky); color: var(--nl-navy); }
+.professional-shell .clinical-workspace .steps { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 0; max-width: none; margin: 12px 0 0; padding: 4px; overflow: visible; counter-reset: prostep; background: #fff; border: 1px solid var(--pro-line); border-radius: 12px; }
+.professional-shell .clinical-workspace .stepbtn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 6px 8px; border: 0; border-radius: 9px; background: transparent; font-family: var(--display); font-size: .88rem; font-weight: 700; color: var(--nl-muted); white-space: nowrap; }
+.professional-shell .clinical-workspace .stepbtn::before { counter-increment: prostep; content: counter(prostep); display: grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 50%; background: var(--pro-canvas); color: var(--nl-muted); font-size: .75rem; }
+.professional-shell .clinical-workspace .stepbtn:hover { background: var(--pro-canvas); color: var(--nl-navy); }
+.professional-shell .clinical-workspace .stepbtn.active { background: var(--nl-navy); color: #fff; } .professional-shell .clinical-workspace .stepbtn.active::before { background: var(--nl-gold); color: var(--nl-navy-900); }
+.professional-shell .clinical-workspace .page { max-width: none; padding: 20px 0; }
+.professional-shell .clinical-workspace .panel, .professional-shell .clinical-workspace .item { border-color: var(--pro-line); border-radius: 12px; }
+.professional-shell .clinical-workspace .footbar { max-width: none; margin: 0; border-color: var(--pro-line); }
+.professional-shell .clinical-workspace .assess { grid-template-columns: 240px minmax(0,1fr); }
+.professional-entry h1 { font-size: clamp(2.2rem,5vw,3.2rem) !important; }
+@media (max-width: 860px) {
+  .professional-shell .professional-layout { grid-template-columns: 1fr; }
+  .professional-shell .professional-sidebar { position: static; height: auto; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--pro-line); }
+  .professional-shell .professional-sidebar nav { display: flex; flex-wrap: nowrap; overflow-x: auto; margin: 0; } .professional-shell .professional-sidebar nav button { flex: none; }
+  .professional-shell .clinical-workspace .steps { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .professional-shell .clinical-workspace .assess { grid-template-columns: 1fr; }
+}
+.app-shell .app-footer { max-width: none; width: 100%; margin-inline: 0; border-radius: 0; }
+.professional-shell .clinical-workspace .stepbtn { font-size: .82rem; gap: 6px; }
