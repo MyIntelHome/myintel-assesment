@@ -9,6 +9,7 @@
  */
 
 import {isClinicalRecord} from "@/domain/access";
+import type {ProfessionalDocumentation,RoomDocumentation} from '@/domain/professional-documentation';
 import { useCallback, useEffect, useRef, useState } from "react";
 import {EMPTY_PROFILE,mergeSuggestedRooms,selectUsedRooms,selectContextRooms,suggestedRooms,type HomeProfile} from "@/domain/home-profile";
 import { createReportVersion, type ReportVersion } from "@/domain/report-version";
@@ -54,6 +55,7 @@ export interface Response {
 }
 
 export interface CaseState {
+  documentation?:ProfessionalDocumentation;
   id: string;
   deletedAt?: string | null;
   reportVersions: ReportVersion[];
@@ -348,7 +350,9 @@ export function useCase(options?: {userId:string;audience?:"family"|"clinician"}
       const findings = Object.fromEntries(
         Object.entries(s.findings).filter(([k]) => !k.startsWith(`${id}::`)),
       );
-      return { ...s, spaces: s.spaces.filter((sp) => sp.id !== id), responses, findings };
+      const rooms={...s.documentation?.rooms};delete rooms[id];
+      return { ...s, spaces: s.spaces.filter((sp) => sp.id !== id), responses, findings,
+        ...(s.documentation?{documentation:{...s.documentation,rooms}}:{}) };
     });
   }, [updateDraft]);
 
@@ -437,6 +441,8 @@ export function useCase(options?: {userId:string;audience?:"family"|"clinician"}
   }, []);
 
   return {
+    patchDocumentation:(patch:Partial<ProfessionalDocumentation>)=>updateDraft(s=>s.audience!=='clinician'?s:({...s,documentation:{...s.documentation,...patch}})),
+    patchRoomDocumentation:(id:string,patch:Partial<RoomDocumentation>)=>updateDraft(s=>s.audience!=='clinician'||!s.spaces.some(room=>room.id===id)?s:({...s,documentation:{...s.documentation,rooms:{...s.documentation?.rooms,[id]:{...s.documentation?.rooms?.[id],...patch}}}})),
     patchHomeProfile:(patch:Partial<HomeProfile>)=>updateDraft(s=>({...s,homeProfile:{...EMPTY_PROFILE,...s.homeProfile,...patch}})),
     prepareHomeRooms:()=>updateDraft(s=>({...s,homeProfile:{...EMPTY_PROFILE,...s.homeProfile,confirmed:true},spaces:(s.homeProfile?.dynamic?selectContextRooms:s.homeProfile?.usedAreas!==undefined?selectUsedRooms:mergeSuggestedRooms)(s.spaces,suggestedRooms(s.homeProfile??EMPTY_PROFILE)),familyPosition:{phase:"rooms",roomIndex:0,questionIndex:0}})),
     patchVisit:(patch:Partial<NonNullable<CaseState["visit"]>>)=>updateDraft(s=>({...s,visit:{deferred:[],...s.visit,...patch}})),

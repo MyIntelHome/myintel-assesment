@@ -20,6 +20,24 @@ beforeEach(() => {
 afterEach(() => { act(() => root.unmount()); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("local persistence lifecycle", () => {
+  it('saves and reopens client and room notes and clears draft notes when a room is removed',()=>{
+    mount();saved();act(()=>api.setAudience('clinician'));saved();
+    let room='';act(()=>{room=api.addSpace('entry','First entrance')});saved();
+    act(()=>{api.patchDocumentation({clientSummary:'Original summary',goals:'Use the entrance'});api.patchRoomDocumentation(room,{observation:'Initial room note',residentPerspective:'Reported difficulty'})});saved();
+    const caseId=api.state.id;
+    expect(archive().cases[0]?.documentation?.rooms?.[room]?.observation).toBe('Initial room note');
+    act(()=>api.renameSpace(room,'Renamed entrance'));saved();
+    expect(api.state.documentation?.rooms?.[room]?.observation).toBe('Initial room note');
+    act(()=>api.reset('clinician'));saved();act(()=>api.openCase(caseId));saved();
+    expect(api.state.documentation?.clientSummary).toBe('Original summary');
+    act(()=>api.removeSpace(room));saved();
+    expect(api.state.documentation?.rooms?.[room]).toBeUndefined();
+  });
+  it('does not accept professional narrative edits in a family case',()=>{
+    mount();saved();act(()=>api.setAudience('family'));saved();
+    act(()=>api.patchDocumentation({clientSummary:'Should not persist'}));saved();
+    expect(api.state.documentation).toBeUndefined();
+  });
   it("preserves and reopens an earlier case with its answers and resume position", () => {
     mount(); saved();
     const first = api.state.id;

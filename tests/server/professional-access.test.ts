@@ -66,4 +66,15 @@ it("rejects clinical content disguised as a family record",async()=>{
  const home=record("home");
  expect((await call("/api/cases","client","PUT",{ownerId:"client",revision:0,archive:{activeId:"home",cases:[{...home,responses:{room:{item:{status:"concern"}}}}]}})).status).toBe(403);
  expect((await call("/api/cases?audience=invalid")).status).toBe(400);
+ expect((await call('/api/cases','client','PUT',{ownerId:'client',revision:0,archive:{activeId:'home',cases:[{...home,documentation:{clientSummary:'Professional narrative'}}]}})).status).toBe(403);
+});
+
+it('round trips professional notes and prevents tampering with an earlier signed narrative',async()=>{
+ await approve();const record=signedCase();record.documentation={clientSummary:'Client narrative',rooms:{bed:{observation:'Observed bed transfer',residentPerspective:'Reports fatigue'}}};
+ const version=createReportVersion({...record,reportVersions:[]},buildCaseView(record),'2026-10-27T12:00:00Z','notes-report');record.reportVersions=[version];record.signoff=version.caseData.signoff;
+ const payload=(r:typeof record,revision:number)=>({ownerId:'client',revision,archive:{activeId:r.id,cases:[r]}});
+ const saved=await call('/api/cases?audience=clinician','client','PUT',payload(record,0));expect(saved.status,saved.data.error).toBe(200);
+ const loaded=await call('/api/cases?audience=clinician');expect(loaded.data.archive.cases[0].documentation.rooms.bed.observation).toBe('Observed bed transfer');
+ const tampered=structuredClone(record);tampered.reportVersions[0]!.caseData.documentation!.clientSummary='Overwritten';
+ expect((await call('/api/cases?audience=clinician','client','PUT',payload(tampered,1))).status).toBe(409);
 });
