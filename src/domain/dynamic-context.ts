@@ -81,7 +81,7 @@ export function activeContextAnswers(p:HomeProfile):Record<string,string|string[
 }
 export function dynamicContextLines(p:HomeProfile):string[]{
  const d=p.dynamic;if(!d)return [];const l=d.layout,show=(n:number|null)=>n===null?"not provided":String(n);
- const lines=[`Home inventory (reported${l.confirmed?", summary confirmed":"; not confirmed"}): ${show(l.bedrooms)} bedrooms, ${show(l.fullBaths)} full baths, ${show(l.halfBaths)} half baths, ${show(l.levels)} levels.`,`Occupants: ${show(l.occupants)}. Support availability is assessed separately.`,`Check scope: ${d.places.length?d.places.map(s=>`${s.label}${s.level?` (level ${s.level})`:" (level not provided)"}`).join(", "):"places not selected"}. Other areas are not checked.`];
+ const lines=[`Home inventory (reported${l.confirmed?", summary confirmed":"; not confirmed"}): bedrooms ${show(l.bedrooms)}, full baths ${show(l.fullBaths)}, half baths ${show(l.halfBaths)}, levels ${show(l.levels)}.`,`Occupants: ${show(l.occupants)}. Support availability is assessed separately.`,`Check scope: ${d.places.length?d.places.map(s=>`${s.label}${s.level?` (level ${s.level})`:" (level not provided)"}`).join(", "):"places not selected"}. Other areas are not checked.`];
  for(const [key,label] of [["sleepId","Sleeping place"],["toiletId","Usual toilet"],["nightToiletId","Nighttime toilet"],["bathingId","Bathing place"]] as const)lines.push(`${label}: ${d.places.find(s=>s.id===l[key])?.label??"not established"}.`);
  const active=activeContextAnswers(p);
  for(const q of contextPrompts(p)){if(q.id in active){const v=active[q.id];lines.push(`${q.title} ${(Array.isArray(v)?v:[v]).map(x=>q.options[x!]??"not established").join(", ")} (reported)`);}}

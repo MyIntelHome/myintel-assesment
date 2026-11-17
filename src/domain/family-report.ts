@@ -155,7 +155,7 @@ export function topPriorities(
  */
 function headlineFor(flagged: number, unsure: number, answered: number, total: number): string {
   if (answered === 0) return "Nothing answered yet.";
-  const coverage = answered < total ? ` ${total - answered} questions remain unanswered. These results cover only your answers so far.` : "";
+  const coverage = answered < total ? ` ${total - answered} ${total - answered === 1 ? "question remains" : "questions remain"} unanswered. These results cover only your answers so far.` : "";
   if (flagged === 0 && unsure === 0) {
     return answered < total
       ? `No concerns reported in the questions answered.${coverage}`
