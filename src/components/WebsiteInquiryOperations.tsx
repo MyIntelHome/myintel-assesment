@@ -24,14 +24,14 @@ export function WebsiteInquiryOperations({ onChanged }: { onChanged: () => Promi
   return <section aria-labelledby="website-inquiries-title">
     <div className="section-heading"><h2 id="website-inquiries-title">Website inquiries</h2><button className="app-secondary" onClick={load}>Refresh website inquiries</button></div>
     {error && <p role="alert">{error}</p>}
-    {items.length ? items.map(p => <article className="account-card" id={`inquiry-${p.id}`} key={p.id}>
-      <p>{p.type === 'care_company' ? 'Care company' : 'Website contact'}, {new Date(p.created_at).toLocaleDateString()}{p.closed_at ? ', closed' : ''}</p>
+    {items.length ? items.map(p => <article className="account-card lead-card" id={`inquiry-${p.id}`} key={p.id}>
+      <p className="lead-card__meta"><span className="lead-chip">{p.type === 'care_company' ? 'Care company' : 'Website contact'}</span>{new Date(p.created_at).toLocaleDateString()}{p.closed_at ? ', closed' : ''}</p>
       <h3>{p.name}{p.company_name ? `, ${p.company_name}` : ''}</h3>
       <p>{p.email || 'No email'}{p.phone ? `, ${p.phone}` : ''}</p>
       {p.type === 'care_company' ? <p>Role: {p.role}. Approximate clients: {p.client_count || 'Not provided'}.</p> : <p>Help is for: {{ myself: 'Myself', parent_or_relative: 'A parent or relative', someone_else: 'Someone else' }[p.relationship] || p.relationship}. ZIP: {p.postal_code || 'Not provided'}.</p>}
-      <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{p.message}</p>
+      <p className="lead-card__message" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{p.message}</p>
       <p>Permission for MyIntel to contact this person: yes. Recorded {new Date(p.consent_at).toLocaleString()}.</p>
-      {!p.closed_at && <><p>{p.coordinator_name ? `Coordinator: ${p.coordinator_name}` : 'Needs an owner'}</p><div className="inline-actions"><button className="app-secondary" disabled={busy} onClick={() => update(p.id, 'claim')}>Take responsibility</button><button className="app-secondary" disabled={busy} onClick={() => update(p.id, 'release')}>Return to queue</button><button className="app-secondary" disabled={busy} onClick={() => update(p.id, 'close')}>Close follow-up</button></div></>}
+      {!p.closed_at && <><p className={p.coordinator_name ? "lead-card__owner" : "lead-card__owner is-open"}>{p.coordinator_name ? `Coordinator: ${p.coordinator_name}` : 'Needs an owner'}</p><div className="inline-actions"><button className="app-secondary" disabled={busy} onClick={() => update(p.id, 'claim')}>Take responsibility</button><button className="app-secondary" disabled={busy} onClick={() => update(p.id, 'release')}>Return to queue</button><button className="app-secondary" disabled={busy} onClick={() => update(p.id, 'close')}>Close follow-up</button></div></>}
     </article>) : !error && <p>No website inquiries yet.</p>}
   </section>;
 }
